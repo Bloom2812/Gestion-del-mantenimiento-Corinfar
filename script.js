@@ -8259,9 +8259,24 @@ async function showWorkOrderModal(identifier = null, type = 'Preventivo', source
         document.getElementById('wo-status').value = 'Pendiente';
 
         if (sourceSolicitud) {
-            document.getElementById('source-solicitud-id-hidden').value = sourceSolicitud.fb_id;
-            document.getElementById('wo-machine').value = sourceSolicitud.machineId;
-            document.getElementById('wo-description').value = sourceSolicitud.description;
+            const isFromMonitoring = typeof sourceSolicitud === 'string';
+
+            if (isFromMonitoring) {
+                document.getElementById('wo-machine').value = sourceSolicitud;
+                const machine = state.machines.find(m => m.id === sourceSolicitud);
+                if (machine) {
+                    document.getElementById('wo-machine-search').value = machine.name;
+                }
+            } else {
+                document.getElementById('source-solicitud-id-hidden').value = sourceSolicitud.fb_id;
+                document.getElementById('wo-machine').value = sourceSolicitud.machineId;
+                document.getElementById('wo-description').value = sourceSolicitud.description;
+
+                const machine = state.machines.find(m => m.id === sourceSolicitud.machineId);
+                if (machine) {
+                    document.getElementById('wo-machine-search').value = machine.name;
+                }
+            }
 
             if (state.currentUser?.role === 'Técnico') {
                 leadTechSelect.value = state.currentUser.username;
@@ -11456,12 +11471,15 @@ function renderSmartMonitoring() {
                         return false;
                     };
 
-                    if (isInRange(t.critical)) {
-                        currentStatus = 'Fallo';
+                    if (isInRange(t.normal)) {
+                        currentStatus = 'Aprobó';
                     } else if (isInRange(t.warning)) {
                         currentStatus = 'Alerta';
-                    } else if (isInRange(t.normal)) {
-                        currentStatus = 'Aprobó';
+                    } else if (isInRange(t.critical)) {
+                        currentStatus = 'Fallo';
+                    } else {
+                        // Si está fuera de todos los rangos definidos, considerarlo fallo
+                        currentStatus = 'Fallo';
                     }
                 }
 
@@ -11534,7 +11552,7 @@ function renderSmartMonitoring() {
                     <div class="footer-status-text status-text-${overallStatus}">
                         ${statusLabel}
                     </div>
-                    ${overallStatus === 'fallo' ?
+                    ${(overallStatus === 'fallo' || overallStatus === 'alerta') ?
                         `<button class="btn-wo-monitoring" onclick="createWorkOrderFromMonitoring('${machine.id}')">Orden de Trabajo</button>` :
                         `<a href="#" class="footer-action-link" onclick="showMachineDetail('${machine.fb_id}')">Ver detalle <i class="fas fa-arrow-right ms-1"></i></a>`
                     }
@@ -11898,8 +11916,86 @@ async function showMeasurementHistory(machineId, measurementKey) {
     }, 300);
 }
 
-function createWorkOrderFromMonitoring(machineId) {
-    showWorkOrderModal(null, 'Correctivo', machineId);
+function getMonitoringFailureDescription(machineId) {
+    const machine = state.machines.find(m => m.id === machineId);
+    if (!machine) return "";
+
+    const machinePlans = state.workPlans.filter(p => p.machineId === machine.id);
+    const planIds = new Set(machinePlans.map(p => p.fb_id));
+    const executions = state.workPlanExecutions
+        .filter(e => planIds.has(e.planId) && (e.status === 'Completado' || e.status === 'Pendiente de Evaluación'))
+        .sort((a, b) => new Date(b.executedAt) - new Date(a.executedAt));
+
+    const historyMap = {};
+    [...executions].reverse().forEach(ex => {
+        (ex.taskGroups || []).forEach(group => {
+            group.tasks.forEach(task => {
+                if (task.type === 'numeric') {
+                    const key = task.description;
+                    if (!historyMap[key]) historyMap[key] = [];
+                    historyMap[key].push({ value: parseFloat(task.value), unit: task.unit });
+                } else if (task.type === 'multi_numeric') {
+                    (task.fields || []).forEach((field, fIdx) => {
+                        const key = `${task.description} - ${field}`;
+                        if (!historyMap[key]) historyMap[key] = [];
+                        const val = task.multiValues ? parseFloat(task.multiValues[fIdx]) : NaN;
+                        historyMap[key].push({ value: val, unit: task.unit });
+                    });
+                }
+            });
+        });
+    });
+
+    const config = state.monitoringConfigs.find(c => c.machineId === machine.id);
+    const failures = [];
+
+    Object.keys(historyMap).forEach(key => {
+        const history = historyMap[key].filter(h => !isNaN(h.value));
+        if (history.length === 0) return;
+        const latest = history[history.length - 1];
+        const val = latest.value;
+
+        const varConfig = config?.variables?.find(v => v.name === key);
+        if (varConfig && varConfig.enabled !== false && varConfig.thresholds) {
+            const t = varConfig.thresholds;
+            const normal = t.normal;
+
+            const min = normal.min !== "" ? parseFloat(normal.min) : null;
+            const max = normal.max !== "" ? parseFloat(normal.max) : null;
+
+            let isOk = true;
+            if (min !== null && max !== null) isOk = val >= min && val <= max;
+            else if (min !== null) isOk = val >= min;
+            else if (max !== null) isOk = val <= max;
+
+            if (!isOk) {
+                let label = key;
+                let suffix = "fuera de parámetro";
+
+                const lowerKey = key.toLowerCase();
+                if (lowerKey.includes("voltaje")) label = "Voltaje";
+                else if (lowerKey.includes("amperaje") || lowerKey.includes("amperio")) label = "Amperios";
+
+                if (min !== null && val < min) {
+                    suffix = "bajo";
+                } else if (max !== null && val > max) {
+                    suffix = "alto";
+                }
+
+                failures.push(`${label} ${suffix} (${val}${latest.unit || ''})`);
+            }
+        }
+    });
+
+    return failures.length > 0 ? failures.join(", ") : "Parámetros fuera de rango detectados en monitoreo.";
+}
+
+async function createWorkOrderFromMonitoring(machineId) {
+    const failureDesc = getMonitoringFailureDescription(machineId);
+    await showWorkOrderModal(null, 'Correctivo', machineId);
+    if (failureDesc) {
+        document.getElementById('wo-description').value = failureDesc;
+    }
 }
 
 function executeWorkPlanForMachine(machineId) {
