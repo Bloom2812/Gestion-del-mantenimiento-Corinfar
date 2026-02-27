@@ -1001,6 +1001,28 @@
 </div>
 </main>
 </div>
+<!-- Modal para Nombre de Variable -->
+<div class="modal fade" id="variable-name-modal" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0" style="border-radius: 15px;">
+            <div class="modal-header bg-primary text-white border-bottom-0" style="border-radius: 15px 15px 0 0; padding: 1rem 1.5rem;">
+                <h5 class="modal-title fw-bold" style="font-size: 1.1rem;">Nueva Variable</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-0">
+                    <label for="new-variable-name" class="form-label small fw-bold text-muted text-uppercase mb-1">Nombre de la variable</label>
+                    <input type="text" class="form-control border-0 bg-light" id="new-variable-name" placeholder="Ej: Presión de Aceite">
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 p-4 pt-0 gap-2">
+                <button type="button" class="btn btn-light flex-grow-1 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary flex-grow-1 fw-bold" id="save-variable-name-btn">Aceptar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Password Confirmation Modal (21 CFR Part 11) -->
 <div class="modal fade" id="passwordConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-sm modal-dialog-centered">
@@ -1101,13 +1123,21 @@
                                     <input class="form-control" id="machine-location" required="" type="text"/>
                                 </div>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label" for="machine-criticidad">Clasificación de Criticidad</label>
-                                <select class="form-select" id="machine-criticidad" required="">
-                                    <option value="Baja" selected>Baja</option>
-                                    <option value="Media">Media</option>
-                                    <option value="Alta">Alta</option>
-                                </select>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-criticidad">Clasificación de Criticidad</label>
+                                    <select class="form-select" id="machine-criticidad" required="">
+                                        <option value="Baja" selected>Baja</option>
+                                        <option value="Media">Media</option>
+                                        <option value="Alta">Alta</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3 d-flex align-items-end">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="machine-monitoring-enabled" checked>
+                                        <label class="form-check-label fw-bold" for="machine-monitoring-enabled">Activar Monitoreo Inteligente</label>
+                                    </div>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
