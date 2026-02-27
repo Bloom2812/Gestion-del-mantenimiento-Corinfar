@@ -11464,8 +11464,8 @@ function renderSmartMonitoring() {
                         ${statusLabel}
                     </div>
                     ${overallStatus === 'fallo' ?
-                        '<button class="btn-wo-monitoring" onclick="createWorkOrderFromMonitoring(\\''+machine.id+'\\')">Orden de Trabajo</button>' :
-                        '<a href="#" class="footer-action-link" onclick="showMachineDetail(\\''+machine.fb_id+'\\')">Ver detalle <i class="fas fa-arrow-right ms-1"></i></a>'
+                        `<button class="btn-wo-monitoring" onclick="createWorkOrderFromMonitoring('${machine.id}')">Orden de Trabajo</button>` :
+                        `<a href="#" class="footer-action-link" onclick="showMachineDetail('${machine.fb_id}')">Ver detalle <i class="fas fa-arrow-right ms-1"></i></a>`
                     }
                 </div>
             </div>
@@ -11636,3 +11636,4 @@ window.renderSmartMonitoring = renderSmartMonitoring;
 window.showMeasurementHistory = showMeasurementHistory;
 window.createWorkOrderFromMonitoring = createWorkOrderFromMonitoring;
 window.executeWorkPlanForMachine = executeWorkPlanForMachine;
+window.switchTab = switchTab;
