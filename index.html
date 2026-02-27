@@ -68,6 +68,7 @@
 </div>
 <nav class="sidebar-nav">
 <a class="nav-tab active" data-tab="dashboard" href="#"><i class="fas fa-chart-pie"></i> Dashboard</a>
+<a class="nav-tab" data-tab="monitoreo-inteligente" href="#"><i class="fas fa-microchip"></i> Monitoreo Inteligente</a>
 <a class="nav-tab" data-tab="maquinaria" href="#"><i class="fas fa-cogs"></i> Maquinaria</a>
 <a class="nav-tab" data-tab="repuestos" href="#"><i class="fas fa-box-open"></i> Repuestos</a>
 <a class="nav-tab" data-tab="proveedores" href="#"><i class="fas fa-truck"></i> Proveedores</a>
@@ -136,6 +137,23 @@
 </button>
 </div>
 </header>
+<div class="tab-content d-none" id="monitoreo-inteligente">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div class="d-flex gap-2" id="monitoring-filters">
+            <button class="btn btn-primary filter-btn active" data-location="all">Todos</button>
+            <!-- Dinámicamente poblado con ubicaciones -->
+        </div>
+        <div class="text-muted small">
+            <span id="last-update-text">Actualizado hace un momento</span>
+            <button class="btn btn-sm btn-outline-secondary ms-2" id="refresh-monitoring-btn">
+                <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+        </div>
+    </div>
+    <div class="row g-4" id="smart-monitoring-container">
+        <!-- Tarjetas de equipos generadas por JS -->
+    </div>
+</div>
 <div class="tab-content" id="dashboard">
 <div class="row">
 <div class="col-xl-4 col-md-6 mb-4">
@@ -1989,6 +2007,41 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="submit" class="btn btn-primary" form="criteria-form">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Measurement History Modal -->
+<div class="modal fade" id="measurement-history-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header border-bottom px-4 py-3">
+                <h5 class="modal-title fw-bold" id="history-modal-title">Historial de Medición</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-4" style="height: 300px;">
+                    <canvas id="measurementHistoryChart"></canvas>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha/Hora</th>
+                                <th>Valor</th>
+                                <th>Técnico</th>
+                                <th>Referencia (OT)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="measurement-history-table-body">
+                            <!-- Datos generados por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

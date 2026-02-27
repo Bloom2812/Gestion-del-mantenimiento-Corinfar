@@ -58,6 +58,7 @@ const state = {
     calendarDate: new Date(),
     machineMaintFilter: null,
     partStockFilter: null,
+    monitoringLocationFilter: 'all',
     activeTimers: {},
     collections: {
         parts: collection(db, `/artifacts/${appId}/public/data/parts`),
@@ -491,6 +492,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.modals.auditDetail = new bootstrap.Modal(document.getElementById('auditDetailModal'));
     state.modals.passwordConfirm = new bootstrap.Modal(document.getElementById('passwordConfirmModal'));
     state.modals.partDetail = new bootstrap.Modal(document.getElementById('part-detail-modal'));
+    state.modals.measurementHistory = new bootstrap.Modal(document.getElementById('measurement-history-modal'));
     
     setupEventListeners();
     updateCurrentDate();
@@ -676,6 +678,7 @@ function setupRealtimeListeners() {
         populateWorkOrderSelectors();
         renderCalendar();
         if (state.currentTab === 'maquinaria') renderMachines();
+        if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
         if (state.currentTab === 'trabajo-activo') renderActiveWorkView();
         if (state.currentTab === 'ordenes-asignadas') renderAssignedOrders();
         if (state.currentTab === 'solicitudes') renderSolicitudes(); // Re-render solicitudes as WO status affects them
@@ -694,6 +697,7 @@ function setupRealtimeListeners() {
 
     onSnapshot(query(state.collections.workPlanExecutions), snapshot => {
         state.workPlanExecutions = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+        if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
         updateDashboardData();
         populateExecutionReportSelector();
     });
@@ -982,6 +986,10 @@ function setupEventListeners() {
     document.getElementById('generate-execution-report-btn').addEventListener('click', generateExecutionReportPDF);
     document.getElementById('generate-technician-performance-report-btn').addEventListener('click', generateTechnicianPerformanceReport);
     document.getElementById('backup-db-btn').addEventListener('click', downloadBackup);
+    document.getElementById('refresh-monitoring-btn').addEventListener('click', () => {
+        renderSmartMonitoring();
+        document.getElementById('last-update-text').textContent = 'Actualizado hace un momento';
+    });
 
     document.getElementById('technician-list').addEventListener('click', (e) => {
         const viewButton = e.target.closest('.view-profile-btn');
@@ -1284,21 +1292,21 @@ function applyUserPermissions() {
 
     switch (role) {
         case 'Admin':
-            visibleTabs = ['maquinaria', 'repuestos', 'proveedores', 'tecnicos', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'auditoria', 'solicitudes', 'evaluation-criteria', 'solicitudes-repuestos', 'configuracion'];
+            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'repuestos', 'proveedores', 'tecnicos', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'auditoria', 'solicitudes', 'evaluation-criteria', 'solicitudes-repuestos', 'configuracion'];
             break;
         case 'Planificador':
-            visibleTabs = ['maquinaria', 'repuestos', 'proveedores', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'solicitudes', 'ordenes-asignadas', 'solicitudes-repuestos'];
+            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'repuestos', 'proveedores', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'solicitudes', 'ordenes-asignadas', 'solicitudes-repuestos'];
             break;
         case 'Jefe de Area':
-            visibleTabs = permissions || [];
+            visibleTabs = ['monitoreo-inteligente', ...(permissions || [])];
             break;
         case 'Invitado':
-            visibleTabs = ['maquinaria', 'repuestos', 'proveedores', 'tecnicos', 'trabajo-activo', 'planificador', 'reportes'];
+            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'repuestos', 'proveedores', 'tecnicos', 'trabajo-activo', 'planificador', 'reportes'];
             break;
         case 'Técnico':
             visibleTabs = permissions.includes('all')
-                ? ['maquinaria', 'repuestos', 'proveedores', 'planificador', 'ordenes-asignadas', 'reportes']
-                : permissions;
+                ? ['monitoreo-inteligente', 'maquinaria', 'repuestos', 'proveedores', 'planificador', 'ordenes-asignadas', 'reportes']
+                : ['monitoreo-inteligente', ...permissions];
             if(permissions.includes('ordenes-asignadas')) {
                  visibleTabs.push('trabajo-activo');
             }
@@ -1367,6 +1375,7 @@ async function switchTab(tabName) {
 
 
     if (tabName === 'maquinaria') renderMachines();
+    if (tabName === 'monitoreo-inteligente') renderSmartMonitoring();
     if (tabName === 'solicitudes-repuestos') renderPartRequests();
     if (tabName === 'trabajo-activo') {
         const monthFilter = document.getElementById('kanban-month-filter');
@@ -11297,3 +11306,333 @@ window.renderWorkPlans = renderWorkPlans;
 window.showWorkPlanModal = showWorkPlanModal;
 window.renderWorkPlanExecution = renderWorkPlanExecution;
 window.updatePlanNotifications = updatePlanNotifications;
+
+// --- Smart Monitoring Functions ---
+function renderSmartMonitoring() {
+    const container = document.getElementById('smart-monitoring-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const locations = new Set();
+    state.machines.forEach(m => { if (m.location) locations.add(m.location); });
+    renderSmartMonitoringFilters(Array.from(locations));
+
+    let machinesToRender = state.machines;
+    if (state.currentUser?.role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
+        const managedIds = new Set(state.currentUser.managedMachineIds);
+        machinesToRender = state.machines.filter(m => managedIds.has(m.id));
+    } else if (state.currentUser?.role === 'Técnico' && Array.isArray(state.currentUser.equipoAsignado)) {
+        const assignedIds = new Set(state.currentUser.equipoAsignado);
+        machinesToRender = state.machines.filter(m => assignedIds.has(m.id));
+    }
+
+    if (state.monitoringLocationFilter !== 'all') {
+        machinesToRender = machinesToRender.filter(m => m.location === state.monitoringLocationFilter);
+    }
+
+    if (machinesToRender.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center py-5 text-muted">No se encontraron equipos para monitorear.</div>';
+        return;
+    }
+
+    machinesToRender.forEach(machine => {
+        const cardCol = document.createElement('div');
+        cardCol.className = 'col-12 col-md-6 col-xl-4';
+
+        const machinePlans = state.workPlans.filter(p => p.machineId === machine.id);
+        const planIds = new Set(machinePlans.map(p => p.fb_id));
+        const executions = state.workPlanExecutions
+            .filter(e => planIds.has(e.planId) && (e.status === 'Completado' || e.status === 'Pendiente de Evaluación'))
+            .sort((a, b) => new Date(b.executedAt) - new Date(a.executedAt));
+
+        // Get latest measurements
+        const measurements = {}; // key: task description, value: { value, unit, status, date, trend, history: [] }
+
+        // Collect history first to determine trend
+        const historyMap = {};
+
+        [...executions].reverse().forEach(ex => {
+            (ex.taskGroups || []).forEach(group => {
+                group.tasks.forEach(task => {
+                    if (task.type === 'numeric') {
+                        const key = task.description;
+                        if (!historyMap[key]) historyMap[key] = [];
+                        historyMap[key].push({
+                            value: parseFloat(task.value),
+                            unit: task.unit,
+                            status: task.status,
+                            date: ex.executedAt,
+                            executedBy: ex.executedBy,
+                            workOrderId: ex.workOrderId || 'N/A'
+                        });
+                    } else if (task.type === 'multi_numeric') {
+                        (task.fields || []).forEach((field, fIdx) => {
+                            const key = `${task.description} - ${field}`;
+                            if (!historyMap[key]) historyMap[key] = [];
+                            const val = task.multiValues ? parseFloat(task.multiValues[fIdx]) : NaN;
+                            historyMap[key].push({
+                                value: val,
+                                unit: task.unit,
+                                status: task.status,
+                                date: ex.executedAt,
+                                executedBy: ex.executedBy,
+                                workOrderId: ex.workOrderId || 'N/A'
+                            });
+                        });
+                    }
+                });
+            });
+        });
+
+        const latestMeasurements = [];
+        Object.keys(historyMap).forEach(key => {
+            const history = historyMap[key].filter(h => !isNaN(h.value));
+            if (history.length > 0) {
+                const latest = history[history.length - 1];
+                let trend = 'stable';
+                if (history.length > 1) {
+                    const prev = history[history.length - 2];
+                    if (latest.value > prev.value) trend = 'up';
+                    else if (latest.value < prev.value) trend = 'down';
+                }
+                if (latest.status === 'Alerta' || latest.status === 'Fallo') trend = 'alert';
+
+                latestMeasurements.push({
+                    key: key,
+                    ...latest,
+                    trend: trend,
+                    history: history
+                });
+            }
+        });
+
+        // Machine Status logic
+        let overallStatus = 'operativo';
+        if (latestMeasurements.some(m => m.status === 'Fallo')) overallStatus = 'fallo';
+        else if (latestMeasurements.some(m => m.status === 'Alerta')) overallStatus = 'alerta';
+
+        const statusLabel = overallStatus.toUpperCase();
+
+        let measurementsHTML = '';
+        latestMeasurements.forEach((m, idx) => {
+            const trendIcon = {
+                'up': '<i class="fas fa-long-arrow-alt-up trend-up"></i>',
+                'down': '<i class="fas fa-long-arrow-alt-down trend-down"></i>',
+                'stable': '<i class="fas fa-check trend-stable"></i>',
+                'alert': '<i class="fas fa-exclamation-triangle trend-alert"></i>'
+            }[m.trend];
+
+            measurementsHTML += `
+                <div class="measurement-item" onclick="showMeasurementHistory('${machine.id}', '${m.key.replace(/'/g, "\\'")}')">
+                    <div class="measurement-label">${m.key}</div>
+                    <div class="measurement-value">${m.value}${m.unit ? ' ' + m.unit : ''}</div>
+                    <div class="measurement-trend">${trendIcon}</div>
+                </div>
+            `;
+        });
+
+        if (latestMeasurements.length === 0) {
+            measurementsHTML = '<div class="col-12 text-center py-4 text-muted small fst-italic">Sin mediciones registradas</div>';
+        }
+
+        cardCol.innerHTML = `
+            <div class="monitoring-card">
+                <div class="monitoring-card-header">
+                    <div class="machine-icon-wrapper">
+                        <i class="fas fa-microchip"></i>
+                        <div class="status-indicator-top ${overallStatus}"></div>
+                    </div>
+                    <div class="machine-info-main">
+                        <h5>${machine.name}</h5>
+                        <div class="sn-text">SN: ${machine.serial || machine.id}</div>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-link text-muted p-0" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v"></i></button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="showMachineDetail('${machine.fb_id}')">Ver Detalle</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="executeWorkPlanForMachine('${machine.id}')">Nuevo Plan</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="measurements-grid">
+                    ${measurementsHTML}
+                </div>
+
+                <div class="monitoring-card-footer">
+                    <div class="footer-status-text status-text-${overallStatus}">
+                        ${statusLabel}
+                    </div>
+                    ${overallStatus === 'fallo' ?
+                        '<button class="btn-wo-monitoring" onclick="createWorkOrderFromMonitoring(\\''+machine.id+'\\')">Orden de Trabajo</button>' :
+                        '<a href="#" class="footer-action-link" onclick="showMachineDetail(\\''+machine.fb_id+'\\')">Ver detalle <i class="fas fa-arrow-right ms-1"></i></a>'
+                    }
+                </div>
+            </div>
+        `;
+        container.appendChild(cardCol);
+    });
+}
+
+function renderSmartMonitoringFilters(locations) {
+    const container = document.getElementById('monitoring-filters');
+    if (!container) return;
+
+    const currentFilter = state.monitoringLocationFilter;
+    container.innerHTML = `<button class="btn filter-btn ${currentFilter === 'all' ? 'active' : ''}" data-location="all">Todos</button>`;
+
+    locations.sort().forEach(loc => {
+        const btn = document.createElement('button');
+        btn.className = `btn filter-btn ${currentFilter === loc ? 'active' : ''}`;
+        btn.dataset.location = loc;
+        btn.textContent = loc;
+        container.appendChild(btn);
+    });
+
+    container.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.monitoringLocationFilter = btn.dataset.location;
+            renderSmartMonitoring();
+        });
+    });
+}
+
+async function showMeasurementHistory(machineId, measurementKey) {
+    const machine = state.machines.find(m => m.id === machineId);
+    if (!machine) return;
+
+    const machinePlans = state.workPlans.filter(p => p.machineId === machine.id);
+    const planIds = new Set(machinePlans.map(p => p.fb_id));
+    const executions = state.workPlanExecutions
+        .filter(e => planIds.has(e.planId) && (e.status === 'Completado' || e.status === 'Pendiente de Evaluación'))
+        .sort((a, b) => new Date(a.executedAt) - new Date(b.executedAt));
+
+    const history = [];
+    executions.forEach(ex => {
+        (ex.taskGroups || []).forEach(group => {
+            group.tasks.forEach(task => {
+                if (task.type === 'numeric' && task.description === measurementKey) {
+                    history.push({
+                        value: parseFloat(task.value),
+                        date: ex.executedAt,
+                        executedBy: ex.executedBy,
+                        workOrderId: ex.workOrderId || 'N/A'
+                    });
+                } else if (task.type === 'multi_numeric') {
+                    (task.fields || []).forEach((field, fIdx) => {
+                        const key = `${task.description} - ${field}`;
+                        if (key === measurementKey) {
+                            const val = task.multiValues ? parseFloat(task.multiValues[fIdx]) : NaN;
+                            if (!isNaN(val)) {
+                                history.push({
+                                    value: val,
+                                    date: ex.executedAt,
+                                    executedBy: ex.executedBy,
+                                    workOrderId: ex.workOrderId || 'N/A'
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    });
+
+    if (history.length === 0) return;
+
+    const data = history.map(h => h.value);
+    const minVal = Math.min(...data);
+    const maxVal = Math.max(...data);
+
+    document.getElementById('history-modal-title').innerHTML = `
+        Historial: ${measurementKey} (${machine.name})
+        <span class="ms-3 badge bg-info x-small">Mín: ${minVal}</span>
+        <span class="badge bg-warning text-dark x-small">Máx: ${maxVal}</span>
+    `;
+
+    const tableBody = document.getElementById('measurement-history-table-body');
+    tableBody.innerHTML = history.slice().reverse().map(h => `
+        <tr>
+            <td>${new Date(h.date).toLocaleString()}</td>
+            <td class="fw-bold">${h.value}</td>
+            <td>${h.executedBy}</td>
+            <td>${h.workOrderId}</td>
+        </tr>
+    `).join('');
+
+    state.modals.measurementHistory.show();
+
+    // Render Chart
+    setTimeout(() => {
+        const ctx = document.getElementById('measurementHistoryChart').getContext('2d');
+        if (state.charts.measurementHistory) {
+            state.charts.measurementHistory.destroy();
+        }
+
+        const labels = history.map(h => new Date(h.date).toLocaleDateString());
+        const padding = (maxVal - minVal) * 0.2 || 1;
+
+        state.charts.measurementHistory = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: measurementKey,
+                    data: data,
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        suggestedMin: minVal - padding,
+                        suggestedMax: maxVal + padding,
+                        grid: { color: state.currentTheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `Valor: ${context.parsed.y}`
+                        }
+                    }
+                }
+            }
+        });
+    }, 300);
+}
+
+function createWorkOrderFromMonitoring(machineId) {
+    showWorkOrderModal(null, 'Correctivo', machineId);
+}
+
+function executeWorkPlanForMachine(machineId) {
+    const plans = state.workPlans.filter(p => p.machineId === machineId && p.isActive);
+    if (plans.length === 0) {
+        showToast('No hay planes activos para este equipo.', 'warning');
+        return;
+    }
+    // Si hay más de uno, ir a la pestaña de planes. Si hay uno, ejecutarlo.
+    if (plans.length === 1) {
+        executeWorkPlan(plans[0].fb_id);
+    } else {
+        switchTab('planes-trabajo');
+    }
+}
+
+window.renderSmartMonitoring = renderSmartMonitoring;
+window.showMeasurementHistory = showMeasurementHistory;
+window.createWorkOrderFromMonitoring = createWorkOrderFromMonitoring;
+window.executeWorkPlanForMachine = executeWorkPlanForMachine;

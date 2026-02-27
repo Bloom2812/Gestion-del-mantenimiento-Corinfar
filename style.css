@@ -2192,3 +2192,201 @@ body.dark-mode .tech-doc-item:hover {
 body.dark-mode .notification-item:hover {
     filter: brightness(1.2);
 }
+
+/* --- Smart Monitoring Styles --- */
+.monitoring-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 25px var(--shadow-color);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.monitoring-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.12);
+}
+
+.monitoring-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.machine-icon-wrapper {
+    width: 50px;
+    height: 50px;
+    background-color: #f8fafc;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #64748b;
+    position: relative;
+}
+
+body.dark-mode .machine-icon-wrapper {
+    background-color: rgba(255,255,255,0.05);
+}
+
+.status-indicator-top {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--card-bg);
+}
+
+.status-indicator-top.operativo { background-color: #2ecc71; box-shadow: 0 0 8px rgba(46, 204, 113, 0.5); }
+.status-indicator-top.alerta { background-color: #f39c12; box-shadow: 0 0 8px rgba(243, 156, 18, 0.5); }
+.status-indicator-top.fallo { background-color: #e74c3c; box-shadow: 0 0 8px rgba(231, 76, 60, 0.5); }
+
+.machine-info-main {
+    flex: 1;
+}
+
+.machine-info-main h5 {
+    margin: 0;
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: -0.5px;
+}
+
+.machine-info-main .sn-text {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+}
+
+.measurements-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.measurement-item {
+    background-color: #f8fafc;
+    border-radius: 12px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 80px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+body.dark-mode .measurement-item {
+    background-color: rgba(255,255,255,0.03);
+}
+
+.measurement-item:hover {
+    background-color: #f1f5f9;
+}
+
+body.dark-mode .measurement-item:hover {
+    background-color: rgba(255,255,255,0.08);
+}
+
+.measurement-label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #94a3b8;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+}
+
+.measurement-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-color);
+}
+
+.measurement-trend {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.trend-up { color: #f39c12; }
+.trend-down { color: #3498db; }
+.trend-stable { color: #2ecc71; }
+.trend-alert { color: #e74c3c; }
+
+.monitoring-card-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.footer-status-text {
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-text-operativo { color: #2ecc71; }
+.status-text-alerta { color: #f39c12; }
+.status-text-fallo { color: #e74c3c; }
+
+.footer-action-link {
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-decoration: none;
+    color: #f39c12;
+    text-transform: uppercase;
+    transition: opacity 0.2s;
+}
+
+.footer-action-link:hover {
+    opacity: 0.8;
+}
+
+.btn-wo-monitoring {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.btn-wo-monitoring:hover {
+    background-color: #c0392b;
+    color: white;
+}
+
+#monitoring-filters .filter-btn {
+    border-radius: 12px;
+    padding: 0.5rem 1.25rem;
+    font-weight: 600;
+    border: none;
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    box-shadow: 0 2px 5px var(--shadow-color);
+}
+
+#monitoring-filters .filter-btn.active {
+    background-color: #f15a24 !important; /* Color naranja de la imagen */
+    color: white;
+}
