@@ -1,0 +1,2232 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CORINFAR - Sistema de Mantenimiento</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+<!-- Inlined style.css -->
+
+<link href="style.css" rel="stylesheet"/></head>
+<body>
+<div id="login-overlay">
+<div class="login-container" id="login-container">
+<div class="login-header">
+<h2><i class="fas fa-tools me-2"></i>CORINFAR</h2>
+<p>Sistema de Gestión de Mantenimiento</p>
+</div>
+<div class="login-body">
+<form id="login-form">
+<div class="form-floating mb-3 position-relative">
+<input class="form-control" disabled="" id="username" placeholder="Usuario" required="" type="text"/>
+<label for="username"><i class="fas fa-user me-2"></i>Usuario</label>
+</div>
+<div class="form-floating mb-4 position-relative">
+<input class="form-control" disabled="" id="password" placeholder="Contraseña" required="" type="password"/>
+<label for="password"><i class="fas fa-lock me-2"></i>Contraseña</label>
+<button class="password-toggle" id="password-toggle" type="button">
+<i class="fas fa-eye"></i>
+</button>
+</div>
+<button class="btn btn-login w-100 py-2" disabled="" type="submit">
+<span id="login-text">Ingresar</span>
+<div class="spinner-border spinner-border-sm d-none" id="login-spinner" role="status">
+<span class="visually-hidden">Cargando...</span>
+</div>
+</button>
+<div class="alert alert-danger mt-3 d-none" id="login-error">
+<i class="fas fa-exclamation-circle me-2"></i>Usuario o contraseña incorrectos.
+                    </div>
+</form>
+</div>
+<div class="login-footer">
+<small class="text-muted" id="login-status-text">Conectando al servidor...</small>
+</div>
+</div>
+</div>
+<div class="toast-container"></div>
+<div class="loading-overlay d-none" id="global-loading">
+<div class="spinner-border" role="status">
+<span class="visually-hidden">Cargando...</span>
+</div>
+<p class="loading-text">Procesando, por favor espere...</p>
+</div>
+<div class="d-none" id="app-wrapper">
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+<aside class="sidebar">
+<div class="sidebar-header">
+<span class="logo"><i class="fas fa-tools me-2"></i> CORINFAR</span>
+<div class="connection-status" id="connection-status-indicator" title="Conectado"></div>
+<div class="version-tag" style="font-size: 0.6rem; opacity: 0.5; position: absolute; bottom: -5px; right: 10px;">v2.0-Odoo</div>
+</div>
+<nav class="sidebar-nav">
+<a class="nav-tab active" data-tab="dashboard" href="#"><i class="fas fa-chart-pie"></i> Dashboard</a>
+<a class="nav-tab" data-tab="maquinaria" href="#"><i class="fas fa-cogs"></i> Maquinaria</a>
+<a class="nav-tab" data-tab="repuestos" href="#"><i class="fas fa-box-open"></i> Repuestos</a>
+<a class="nav-tab" data-tab="proveedores" href="#"><i class="fas fa-truck"></i> Proveedores</a>
+<a class="nav-tab" data-tab="tecnicos" href="#"><i class="fas fa-users-cog"></i> Usuarios</a>
+<a class="nav-tab" data-tab="solicitudes" href="#"><i class="fas fa-bullhorn"></i> Solicitudes</a>
+<a class="nav-tab" data-tab="solicitudes-repuestos" href="#"><i class="fas fa-shopping-cart"></i> Solicitudes de Repuestos</a>
+<a class="nav-tab" data-tab="trabajo-activo" href="#"><i class="fas fa-tasks"></i> Trabajo Activo</a>
+<a class="nav-tab" data-tab="ordenes-asignadas" href="#"><i class="fas fa-user-clock"></i> Órdenes Asignadas</a>
+<a class="nav-tab" data-tab="planificador" href="#"><i class="fas fa-calendar-alt"></i> Planificador</a>
+<a class="nav-tab" data-tab="planes-trabajo" href="#"><i class="fas fa-clipboard-list"></i> Planes de Mantenimiento</a>
+<a class="nav-tab" data-tab="reportes" href="#"><i class="fas fa-file-pdf"></i> Reportes</a>
+<a class="nav-tab" data-tab="auditoria" href="#"><i class="fas fa-history"></i> Auditoría</a>
+<a class="nav-tab" data-tab="evaluation-criteria" href="#"><i class="fas fa-star-half-alt"></i> Criterios de Evaluación</a>
+<a class="nav-tab" data-tab="configuracion" href="#"><i class="fas fa-cog"></i> Configuración</a>
+</nav>
+<div class="user-profile">
+<img alt="User Avatar" id="user-avatar" src="https://ui-avatars.com/api/?name=User&amp;background=random"/>
+<div class="user-info">
+<strong id="user-display">Usuario</strong><br/>
+<small id="user-role">Rol</small>
+</div>
+<button class="btn btn-sm btn-outline-light btn-action" id="logout-btn" title="Cerrar sesión">
+<i class="fas fa-sign-out-alt"></i>
+</button>
+</div>
+</aside>
+<main class="main-content">
+<header class="header">
+<div>
+<button class="btn btn-secondary me-2" id="sidebar-toggle"><i class="fas fa-bars"></i></button>
+<h1 class="d-inline-block align-middle h3 mb-0" id="page-title">Dashboard</h1>
+</div>
+<div class="header-right">
+<div class="d-flex d-none align-items-center" id="dashboard-date-filter">
+<select class="form-select form-select-sm me-2" id="dashboard-period-select" style="width: auto;">
+<option value="day">Día</option>
+<option value="week">Semana</option>
+<option selected="" value="month">Mes</option>
+<option value="year">Año</option>
+</select>
+<input class="form-select form-select-sm me-2" id="dashboardDate" type="date"/>
+<select class="form-select form-select-sm me-2" id="dashboardWeek"></select>
+<select class="form-select form-select-sm me-2" id="dashboardMonth"></select>
+<select class="form-select form-select-sm" id="dashboardYear"></select>
+</div>
+<div class="current-date-badge">
+<i class="fas fa-calendar-day me-2"></i>
+<span id="current-date"></span>
+</div>
+<!-- Notificaciones de Planes -->
+<div class="dropdown ms-2" id="notifications-wrapper">
+    <button class="btn btn-outline-secondary position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="notifications-btn">
+        <i class="fas fa-bell"></i>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="notifications-count">
+            0
+        </span>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end p-0 shadow" style="width: 320px; max-height: 400px; overflow-y: auto;" id="notifications-list">
+        <li class="p-3 text-center text-muted">No hay notificaciones</li>
+    </ul>
+</div>
+<button id="theme-toggle-btn" class="ms-2" title="Cambiar Tema">
+<i class="fas fa-moon"></i>
+<i class="fas fa-sun"></i>
+<span class="d-none d-md-inline">Tema</span>
+</button>
+</div>
+</header>
+<div class="tab-content" id="dashboard">
+<div class="row">
+<div class="col-xl-4 col-md-6 mb-4">
+<div class="card stat-card">
+<div class="d-flex align-items-center w-100">
+<div style="width: 110px; height: 110px; position: relative; flex-shrink: 0;">
+<canvas id="machineCriticidadChart"></canvas>
+<div id="stat-maquinas" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; font-size: 1.2rem;">0</div>
+</div>
+<div class="ms-3 flex-grow-1">
+<div class="text-muted small mb-1">Máquinas por Criticidad</div>
+<div id="machine-criticidad-legend" class="small"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="col-xl-4 col-md-6 mb-4">
+<div class="card stat-card-centered">
+<div class="stat-icon-background stat-icon-preventivos-bg">
+<i class="fas fa-calendar-check"></i>
+</div>
+<div class="stat-card-content">
+<div class="text-muted">Preventivos <span class="period-label">(Mes)</span></div>
+<div class="h4 font-weight-bold" id="stat-preventivos">0</div>
+</div>
+</div>
+</div>
+<div class="col-xl-4 col-md-6 mb-4">
+<div class="card stat-card-centered">
+<div class="stat-icon-background stat-icon-correctivos-bg">
+<i class="fas fa-exclamation-triangle"></i>
+</div>
+<div class="stat-card-content">
+<div class="text-muted">Correctivos <span class="period-label">(Mes)</span></div>
+<div class="h4 font-weight-bold" id="stat-correctivos">0</div>
+</div>
+</div>
+</div>
+<div class="col-xl-4 col-md-6 mb-4">
+<div class="card stat-card-centered">
+<div class="stat-icon-background stat-icon-solicitudes-bg">
+<i class="fas fa-bullhorn"></i>
+</div>
+<div class="stat-card-content">
+<div class="text-muted">Solicitudes Pendientes</div>
+<div class="h4 font-weight-bold" id="stat-solicitudes">0</div>
+</div>
+</div>
+</div>
+<div class="col-xl-4 col-md-6 mb-4">
+<div class="card stat-card-centered">
+<div class="stat-icon-background stat-icon-planificado">
+<i class="fas fa-dollar-sign"></i>
+</div>
+<div class="stat-card-content">
+<div class="text-muted" id="gasto-planificado-label">Gasto Planificado (Mes)</div>
+<div class="h4 font-weight-bold" id="stat-gasto-planificado">L 0.00</div>
+</div>
+</div>
+</div>
+<div class="col-xl-4 col-md-6 mb-4">
+<div class="card stat-card-centered">
+<div class="stat-icon-background stat-icon-ejecutado">
+<i class="fas fa-dollar-sign"></i>
+</div>
+<div class="stat-card-content">
+<div class="text-muted" id="gasto-ejecutado-label">Gasto Ejecutado (Mes)</div>
+<div class="h4 font-weight-bold" id="stat-gasto-ejecutado">L 0.00</div>
+</div>
+</div>
+</div>
+</div>
+<div class="row">
+<div class="col-12">
+<div class="card">
+<div class="card-header d-flex justify-content-between align-items-center">
+<h6 class="mb-0">Efectividad del Mantenimiento (KPIs)</h6>
+<div class="w-50" style="max-width: 300px;">
+<select class="form-select form-select-sm" id="kpi-machine-select">
+<option value="all">Todas las Máquinas</option>
+</select>
+</div>
+</div>
+<div class="card-body">
+<div class="row text-center">
+<div class="col-lg col-md-4 col-6 mb-3 mb-lg-0">
+<h4 class="mb-1" id="kpi-mtbf">--</h4>
+<small class="text-muted" title="Tiempo Medio Entre Fallos">MTBF (días)</small>
+<div class="kpi-comparison" id="kpi-mtbf-comparison"></div>
+</div>
+<div class="col-lg col-md-4 col-6 mb-3 mb-lg-0">
+<h4 class="mb-1" id="kpi-mttr">--</h4>
+<small class="text-muted" title="Tiempo Medio de Reparación">MTTR (horas)</small>
+<div class="kpi-comparison" id="kpi-mttr-comparison"></div>
+</div>
+<div class="col-lg col-md-4 col-6 mb-3 mb-lg-0">
+<h4 class="mb-1" id="kpi-availability">--</h4>
+<small class="text-muted" title="Disponibilidad del equipo para el período seleccionado">
+                                            Disponibilidad
+                                        </small>
+<div class="kpi-comparison" id="kpi-availability-comparison"></div>
+</div>
+<div class="col-lg col-md-6 col-6">
+<h4 class="mb-1" id="kpi-pmp">--</h4>
+<small class="text-muted" title="Porcentaje de Mantenimiento Preventivo (Período Sel.)">PMP (%)</small>
+<div class="kpi-comparison" id="kpi-pmp-comparison"></div>
+</div>
+<div class="col-lg col-md-6 col-12">
+<h4 class="mb-1" id="kpi-cost">--</h4>
+<small class="text-muted" title="Coste Promedio por Orden de Trabajo Completada (Período Sel.)">Costo Prom./OT</small>
+<div class="kpi-comparison" id="kpi-cost-comparison"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="row">
+<div class="col-12">
+<div class="card">
+<div class="card-header">
+<h6 class="mb-0">Análisis de Mantenimiento <span class="period-label">(Mes)</span></h6>
+</div>
+<div class="card-body">
+<div class="row">
+<div class="col-lg-6 mb-4" style="height: 300px;">
+<canvas id="maintenanceChart"></canvas>
+</div>
+<div class="col-lg-6 mb-4" style="height: 300px;">
+<canvas id="failureTypeChart"></canvas>
+</div>
+<div class="col-lg-6" style="height: 300px;">
+<canvas id="taskStatusChart"></canvas>
+</div>
+<div class="col-lg-6" style="height: 300px;">
+<canvas id="correctiveTrendsChart"></canvas>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="tab-content d-none" id="maquinaria">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="fas fa-cogs me-2"></i>Distribución de Maquinaria</h2>
+        <div class="machine-summary-header d-flex gap-2 align-items-center">
+            <div class="input-group input-group-sm me-2" style="max-width: 200px;">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input class="form-control" id="search-machine-input" placeholder="Buscar..." type="text"/>
+            </div>
+            <div class="summary-pill maint-alta" title="Máquinas de Criticidad Alta en Mantenimiento">
+                <span class="label">Alta</span>
+                <span class="count" id="count-maint-alta">0</span>
+            </div>
+            <div class="summary-pill maint-media" title="Máquinas de Criticidad Media en Mantenimiento">
+                <span class="label">Media</span>
+                <span class="count" id="count-maint-media">0</span>
+            </div>
+            <div class="summary-pill maint-baja" title="Máquinas de Criticidad Baja en Mantenimiento">
+                <span class="label">Baja</span>
+                <span class="count" id="count-maint-baja">0</span>
+            </div>
+            <button class="btn btn-outline-info ms-2" id="sync-all-machines-odoo-btn" title="Sincronizar todas las máquinas con Odoo">
+                <i class="fas fa-sync me-2"></i>Sincronizar todo con Odoo
+            </button>
+            <button class="btn btn-primary ms-2" id="add-machine-btn">
+                <i class="fas fa-plus me-2"></i>Añadir Máquina
+            </button>
+        </div>
+    </div>
+
+    <div id="machine-distribution-container" class="machine-distribution-list">
+        <!-- Contenido generado por JS -->
+    </div>
+</div>
+<div class="tab-content d-none inventory-zone" id="repuestos">
+    <div class="inventory-header-container mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <h2 class="mb-0"><i class="fas fa-tools me-2"></i>Gestión de Repuestos</h2>
+
+            <div class="inventory-actions-compact d-flex gap-2 align-items-center">
+                <div class="input-group input-group-sm flex-grow-1" style="max-width: 300px;">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input class="form-control" id="search-part-input" placeholder="Buscar..." type="text"/>
+                </div>
+
+                <!-- Dropdown for mobile actions -->
+                <div class="dropdown d-lg-none">
+                    <button class="btn btn-sm btn-outline-primary dropdown-toggle no-caret" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item" id="btn-part-history-mobile"><i class="fas fa-list-ul me-2"></i>Historial General</button></li>
+                        <li><button class="dropdown-item" id="btn-part-sync-mobile"><i class="fas fa-sync me-2"></i>Sincronizar todo</button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item" id="btn-add-part-mobile"><i class="fas fa-plus me-2"></i>Añadir Repuesto</button></li>
+                    </ul>
+                </div>
+
+                <!-- Regular buttons for desktop -->
+                <div class="d-none d-lg-flex gap-2">
+                    <button class="btn btn-sm btn-outline-info" id="view-all-part-history-btn">
+                        <i class="fas fa-list-ul me-2"></i>Historial
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" id="sync-all-parts-odoo-btn" title="Sincronizar todos los repuestos con Odoo">
+                        <i class="fas fa-sync me-2"></i>Sincronizar
+                    </button>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#part-modal" id="add-part-btn">
+                        <i class="fas fa-plus me-2"></i>Añadir
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="inventory-summary d-flex gap-2 align-items-center mt-3 flex-wrap">
+            <div class="summary-pill critical" title="Sin Existencia">
+                <span class="label d-none d-sm-inline">Crítico</span>
+                <span class="count" id="count-critical">0</span>
+            </div>
+            <div class="summary-pill attention" title="Mínimo">
+                <span class="label d-none d-sm-inline">Atención</span>
+                <span class="count" id="count-attention">0</span>
+            </div>
+            <div class="summary-pill operative" title="Stock Máximo">
+                <span class="label d-none d-sm-inline">Operativo</span>
+                <span class="count" id="count-operative">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zona Crítica: Sin Existencia -->
+    <div id="zone-critical" class="inventory-zone mb-5">
+        <div class="zone-header critical collapsed" data-bs-toggle="collapse" data-bs-target="#collapse-critical" aria-expanded="false" role="button">
+            <span><i class="fas fa-exclamation-triangle me-2"></i>SIN EXISTENCIA (STOCK 0)</span>
+            <i class="fas fa-chevron-down transition-icon ms-auto"></i>
+        </div>
+        <div id="collapse-critical" class="collapse">
+            <div class="table-responsive rounded shadow-sm">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 80px;">Estado</th>
+                            <th>Código</th>
+                            <th>Nombre / Descripción</th>
+                            <th>Proveedor</th>
+                            <th>Máquina(s)</th>
+                            <th>Ubicación</th>
+                            <th>Stock Actual</th>
+                            <th>Stock Mín.</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="parts-list-critical">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zona de Atención: Stock Mínimo -->
+    <div id="zone-attention" class="inventory-zone mb-5">
+        <div class="zone-header attention collapsed" data-bs-toggle="collapse" data-bs-target="#collapse-attention" aria-expanded="false" role="button">
+            <span><i class="fas fa-exclamation-circle me-2"></i>ZONA DE ATENCIÓN (STOCK ≤ MÍNIMO)</span>
+            <i class="fas fa-chevron-down transition-icon ms-auto"></i>
+        </div>
+        <div id="collapse-attention" class="collapse">
+            <div class="table-responsive rounded shadow-sm">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 80px;">Estado</th>
+                            <th>Código</th>
+                            <th>Nombre / Descripción</th>
+                            <th>Proveedor</th>
+                            <th>Máquina(s)</th>
+                            <th>Ubicación</th>
+                            <th>Stock Actual</th>
+                            <th>Stock Mín.</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="parts-list-attention">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zona Operativa: Stock Máximo -->
+    <div id="zone-operative" class="inventory-zone">
+        <div class="zone-header operative collapsed" data-bs-toggle="collapse" data-bs-target="#collapse-operative" aria-expanded="false" role="button">
+            <span><i class="fas fa-check-circle me-2"></i>ZONA OPERATIVA (STOCK > MÍNIMO)</span>
+            <i class="fas fa-chevron-down transition-icon ms-auto"></i>
+        </div>
+        <div id="collapse-operative" class="collapse">
+            <div class="table-responsive rounded shadow-sm">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 80px;">Estado</th>
+                            <th>Código</th>
+                            <th>Nombre / Descripción</th>
+                            <th>Proveedor</th>
+                            <th>Máquina(s)</th>
+                            <th>Ubicación</th>
+                            <th>Stock Actual</th>
+                            <th>Stock Mín.</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="parts-list-operative">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="tab-content d-none" id="proveedores">
+<div class="card">
+<div class="card-body">
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h5 class="card-title mb-0">Listado de Proveedores</h5>
+<div class="d-flex">
+<div class="input-group me-2" style="max-width: 300px;">
+<span class="input-group-text"><i class="fas fa-search"></i></span>
+<input class="form-control" id="search-proveedor-input" placeholder="Buscar proveedor..." type="text"/>
+</div>
+<button class="btn btn-primary" id="add-proveedor-btn"><i class="fas fa-plus me-2"></i>Añadir</button>
+</div>
+</div>
+<div class="table-responsive">
+<table class="table table-hover">
+<thead class="table-light">
+<tr>
+<th>Código</th>
+<th>Nombre</th>
+<th>RTN</th>
+<th>Teléfono</th>
+<th>Dirección</th>
+<th>Correo</th>
+<th class="text-center">Acciones</th>
+</tr>
+</thead>
+<tbody id="proveedor-list"></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="tab-content d-none" id="tecnicos">
+<div class="card">
+<div class="card-body">
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h5 class="card-title mb-0">Gestión de Usuarios</h5>
+<button class="btn btn-primary" id="add-technician-btn"><i class="fas fa-plus me-2"></i>Añadir Usuario</button>
+</div>
+<div class="table-responsive">
+<table class="table table-hover">
+<thead class="table-light">
+<tr>
+<th>Usuario</th>
+<th>Rol</th>
+<th>Salario</th>
+<th class="text-center">Acciones</th>
+</tr>
+</thead>
+<tbody id="technician-list"></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="tab-content d-none" id="solicitudes-repuestos">
+    <div class="card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="card-title mb-0">Seguimiento de Solicitudes de Repuestos e Insumos</h5>
+                <div class="d-flex gap-2">
+                    <select class="form-select form-select-sm" id="part-request-status-filter" style="width: auto;">
+                        <option value="all">Todos los estados</option>
+                        <option value="Pendiente">Solicitado</option>
+                        <option value="Pedido">Aprobado</option>
+                        <option value="Recibido">Entregado</option>
+                        <option value="Rechazado">Rechazado</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>OT</th>
+                            <th>Descripción</th>
+                            <th>Cant.</th>
+                            <th>Urgencia</th>
+                            <th>Solicitante</th>
+                            <th>Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="part-request-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="tab-content d-none" id="solicitudes">
+<div class="card">
+<div class="card-body">
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h5 class="card-title mb-0">Mis Solicitudes de Mantenimiento</h5>
+<div class="d-flex align-items-center">
+    <label for="solicitudes-month-filter" class="form-label me-2 mb-0">Filtrar por Mes:</label>
+    <input type="month" id="solicitudes-month-filter" class="form-control form-control-sm me-3" style="width: auto;">
+    <button class="btn btn-primary" id="add-solicitud-btn"><i class="fas fa-plus me-2"></i>Nueva Solicitud</button>
+</div>
+</div>
+<div class="table-responsive">
+                            <table class="table table-hover solicitudes-table">
+<thead class="table-light">
+<tr>
+                                        <th class="col-id">ID</th>
+<th>Máquina</th>
+                                        <th class="col-desc">Descripción</th>
+<th>Fecha</th>
+<th>Estado</th>
+<th>OT Vinculada</th>
+</tr>
+</thead>
+<tbody id="solicitud-list"></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="tab-content d-none" id="trabajo-activo">
+<div class="d-flex justify-content-end align-items-center mb-3">
+<label for="kanban-month-filter" class="form-label me-2 mb-0">Filtrar por Mes:</label>
+<input type="month" id="kanban-month-filter" class="form-control" style="width: auto;">
+</div>
+<div class="kanban-board">
+<div class="col">
+<div class="card h-100">
+<div class="card-header bg-purple text-white" style="background-color: #8e44ad;">
+<h5 class="mb-0"><i class="fas fa-bullhorn me-2"></i>Solicitudes Pendientes</h5>
+</div>
+<div class="card-body kanban-column" id="pending-requests">
+</div>
+</div>
+</div>
+<div class="col">
+<div class="card h-100">
+<div class="card-header bg-warning">
+<h5 class="mb-0"><i class="fas fa-clock me-2"></i>Planificadas</h5>
+</div>
+<div class="card-body kanban-column" id="planned-tasks">
+</div>
+</div>
+</div>
+<div class="col">
+<div class="card h-100">
+<div class="card-header bg-info">
+<h5 class="mb-0"><i class="fas fa-spinner fa-spin me-2"></i>En Ejecución</h5>
+</div>
+<div class="card-body kanban-column" id="in-progress-tasks">
+</div>
+</div>
+</div>
+<div class="col">
+<div class="card h-100">
+<div class="card-header bg-secondary text-white">
+<h5 class="mb-0"><i class="fas fa-pause-circle me-2"></i>Pausadas</h5>
+</div>
+<div class="card-body kanban-column" id="paused-tasks">
+</div>
+</div>
+</div>
+<div class="col">
+<div class="card h-100">
+<div class="card-header bg-success text-white">
+<h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Pendiente de Evaluación</h5>
+</div>
+<div class="card-body kanban-column" id="evaluation-tasks">
+</div>
+</div>
+</div>
+<div class="col">
+<div class="card h-100">
+<div class="card-header bg-primary text-white">
+<h5 class="mb-0"><i class="fas fa-check-double me-2"></i>Evaluadas</h5>
+</div>
+<div class="card-body kanban-column" id="completed-tasks">
+</div>
+</div>
+</div>
+<div class="col">
+<div class="card h-100">
+<div class="card-header bg-dark text-white">
+<h5 class="mb-0"><i class="fas fa-times-circle me-2"></i>Canceladas / No Ejecutadas</h5>
+</div>
+<div class="card-body kanban-column" id="cancelled-tasks">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="tab-content d-none" id="ordenes-asignadas">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0" id="assigned-orders-title">Mis Órdenes de Trabajo Activas</h5>
+        <div class="d-flex align-items-center">
+            <label for="assigned-month-filter" class="form-label me-2 mb-0">Filtrar por Mes:</label>
+            <input type="month" id="assigned-month-filter" class="form-control" style="width: auto;">
+        </div>
+    </div>
+    <div id="assigned-orders-container">
+    </div>
+</div>
+<div class="tab-content d-none" id="planificador">
+<div class="card">
+<div class="card-header d-flex justify-content-between align-items-center">
+<div class="d-flex align-items-center">
+<button class="btn btn-outline-primary" id="prev-month-btn"><i class="fas fa-chevron-left"></i></button>
+<h5 class="mb-0 mx-3" id="calendar-month-year"></h5>
+<button class="btn btn-outline-primary" id="next-month-btn"><i class="fas fa-chevron-right"></i></button>
+</div>
+<div class="d-flex align-items-center">
+<div class="input-group me-2" style="max-width: 300px;">
+<span class="input-group-text"><i class="fas fa-search"></i></span>
+<input class="form-control" id="planner-search-input" placeholder="Buscar por máquina o técnico..." type="text"/>
+</div>
+<button class="btn btn-primary" id="add-preventive-task-btn"><i class="fas fa-plus me-2"></i>Nueva Tarea Preventiva</button>
+<button class="btn btn-danger ms-2" id="add-corrective-task-btn-planner"><i class="fas fa-plus me-2"></i>Nueva Tarea Correctiva</button>
+</div>
+</div>
+<div class="card-body">
+<div class="d-grid" id="calendar-header-grid" style="grid-template-columns: repeat(7, 1fr);">
+<div class="text-center fw-bold p-2">Dom</div>
+<div class="text-center fw-bold p-2">Lun</div>
+<div class="text-center fw-bold p-2">Mar</div>
+<div class="text-center fw-bold p-2">Mié</div>
+<div class="text-center fw-bold p-2">Jue</div>
+<div class="text-center fw-bold p-2">Vie</div>
+<div class="text-center fw-bold p-2">Sáb</div>
+</div>
+<div id="calendar-grid"></div>
+</div>
+</div>
+</div>
+<div class="tab-content d-none" id="auditoria">
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <h5 class="card-title"><i class="fas fa-history me-2"></i> Registro de Auditoría y Versiones</h5>
+            <p class="text-muted">Historial completo de cambios en el sistema (21 CFR Part 11). Solo accesible para Administradores.</p>
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <label class="form-label">Colección</label>
+                    <select id="audit-filter-collection" class="form-select">
+                        <option value="all">Todas</option>
+                        <option value="workOrders">Órdenes de Trabajo</option>
+                        <option value="machines">Máquinas</option>
+                        <option value="parts">Repuestos</option>
+                        <option value="technicians">Usuarios</option>
+                        <option value="proveedores">Proveedores</option>
+                        <option value="workPlans">Planes</option>
+                        <option value="solicitudes">Solicitudes</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Usuario</label>
+                    <input type="text" id="audit-filter-user" class="form-control" placeholder="Nombre de usuario...">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Fecha</label>
+                    <div class="input-group">
+                        <input type="date" id="audit-filter-start" class="form-control">
+                        <span class="input-group-text">a</span>
+                        <input type="date" id="audit-filter-end" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" id="btn-filter-audit"><i class="fas fa-search me-1"></i> Filtrar</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Usuario</th>
+                            <th>Acción</th>
+                            <th>Colección</th>
+                            <th>Documento</th>
+                            <th>Detalles</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-log-list">
+                        <!-- Audit logs will be rendered here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="tab-content d-none" id="reportes">
+<div class="card">
+<div class="card-header">
+<h5 class="card-title mb-0">Generación de Reportes en PDF</h5>
+</div>
+<div class="card-body">
+<div class="list-group">
+<div class="list-group-item d-flex justify-content-between align-items-center">
+<div>
+<h6 class="mb-1">Reporte General de Inventario</h6>
+<p class="mb-1 text-muted small">Genera un listado completo de todas las máquinas y repuestos en el sistema.</p>
+</div>
+<button class="btn btn-outline-primary" id="generate-general-report-btn"><i class="fas fa-download me-2"></i>Generar</button>
+</div>
+<div class="list-group-item d-flex justify-content-between align-items-center">
+<div>
+<h6 class="mb-1">Historial de Órdenes de Trabajo</h6>
+<p class="mb-1 text-muted small">Crea un informe con todas las órdenes de trabajo registradas, ideal para auditorías.</p>
+</div>
+<button class="btn btn-outline-primary" id="generate-wo-report-btn"><i class="fas fa-download me-2"></i>Generar</button>
+</div>
+<div class="list-group-item d-flex justify-content-between align-items-center admin-only">
+<div>
+<h6 class="mb-1">Reporte de Trazabilidad y Auditoría (21 CFR Part 11)</h6>
+<p class="mb-1 text-muted small">Genera el log de auditoría completo con sellos de tiempo y usuarios registrados.</p>
+</div>
+<button class="btn btn-outline-dark" id="generate-audit-report-btn"><i class="fas fa-file-contract me-2"></i>Generar</button>
+</div>
+<div class="list-group-item d-flex justify-content-between align-items-center">
+<div>
+<h6 class="mb-1">Respaldar Base de Datos (JSON)</h6>
+<p class="mb-1 text-muted small">Descarga una copia completa de todos los datos del sistema (máquinas, repuestos, órdenes, etc.) para respaldo manual.</p>
+</div>
+<button class="btn btn-success" id="backup-db-btn"><i class="fas fa-database me-2"></i>Descargar Respaldo</button>
+</div>
+<div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-1">Reporte Específico por Máquina</h6>
+                                            <input class="form-control form-control-sm" id="report-machine-search" placeholder="Filtrar..." style="max-width: 150px;" type="text"/>
+                                        </div>
+<p class="mb-1 text-muted small">Obtén un historial detallado de mantenimientos para una máquina específica.</p>
+<div class="input-group mt-2">
+<select class="form-select" id="report-machine-select"></select>
+<button class="btn btn-primary" id="generate-machine-report-btn"><i class="fas fa-download me-2"></i>Generar</button>
+</div>
+</div>
+<div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-1">Disponibilidad de Repuestos por Máquina</h6>
+                                            <input class="form-control form-control-sm" id="report-machine-parts-search" placeholder="Filtrar..." style="max-width: 150px;" type="text"/>
+                                        </div>
+<p class="mb-1 text-muted small">Verifica el stock de los repuestos vinculados a una máquina específica.</p>
+<div class="input-group mt-2">
+<select class="form-select" id="report-machine-parts-select"></select>
+<button class="btn btn-primary" id="generate-machine-parts-report-btn"><i class="fas fa-download me-2"></i>Generar</button>
+</div>
+</div>
+<div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-1">Imprimir Orden de Trabajo Específica</h6>
+                                            <input class="form-control form-control-sm" id="report-wo-search" placeholder="Filtrar..." style="max-width: 150px;" type="text"/>
+                                        </div>
+<p class="mb-1 text-muted small">Genera un PDF con el formato oficial para una orden de trabajo seleccionada.</p>
+<div class="input-group mt-2">
+<select class="form-select" id="report-wo-select"></select>
+<button class="btn btn-primary" id="generate-single-wo-report-btn"><i class="fas fa-print me-2"></i>Imprimir</button>
+</div>
+</div>
+<div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-1">Reporte de Ejecución de Plan de Mantenimiento</h6>
+                                            <input class="form-control form-control-sm" id="report-execution-search" placeholder="Filtrar..." style="max-width: 150px;" type="text"/>
+                                        </div>
+<p class="mb-1 text-muted small">Genera un PDF con el resultado de la ejecución de un plan de mantenimiento preventivo.</p>
+<div class="input-group mt-2">
+<select class="form-select" id="report-execution-select"></select>
+<button class="btn btn-primary" id="generate-execution-report-btn"><i class="fas fa-download me-2"></i>Generar</button>
+</div>
+</div>
+<div class="list-group-item">
+<h6 class="mb-1">Informe de Indicadores Globales</h6>
+<p class="mb-1 text-muted small">Genera un informe con los KPIs globales de mantenimiento para un período específico.</p>
+<div class="input-group mt-2">
+<select class="form-select" id="report-global-month"></select>
+<select class="form-select" id="report-global-year"></select>
+<button class="btn btn-primary" id="generate-global-report-btn"><i class="fas fa-download me-2"></i>Generar</button>
+</div>
+</div>
+<div class="list-group-item">
+    <h6 class="mb-1">Informe de Desempeño de Técnicos</h6>
+    <p class="mb-1 text-muted small">Genera un informe detallado sobre el desempeño de los técnicos basado en evaluaciones y métricas de trabajo.</p>
+    <div class="input-group mt-2">
+        <select class="form-select" id="report-technician-select" style="max-width: 250px;"></select>
+        <span class="input-group-text">Desde</span>
+        <input type="date" class="form-control" id="report-technician-start-date">
+        <span class="input-group-text">Hasta</span>
+        <input type="date" class="form-control" id="report-technician-end-date">
+        <button class="btn btn-primary" id="generate-technician-performance-report-btn"><i class="fas fa-chart-bar me-2"></i>Generar</button>
+    </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="tab-content d-none" id="evaluation-criteria">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Criterios de Evaluación</h5>
+            <button class="btn btn-primary" id="add-criteria-btn"><i class="fas fa-plus me-2"></i>Añadir Criterio</button>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 border-end">
+                    <h6 class="text-primary"><i class="fas fa-user-cog me-2"></i>Operario / Admin (50%)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th>Vinculado a</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="criteria-list-operario"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-info"><i class="fas fa-user-tie me-2"></i>Jefe de Área (50%)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th>Vinculado a</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="criteria-list-jefe"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="tab-content d-none" id="planes-trabajo">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Planes de Mantenimiento</h5>
+            <button class="btn btn-primary" id="add-work-plan-btn"><i class="fas fa-plus me-2"></i>Nuevo Plan de Trabajo</button>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <ul class="nav nav-pills nav-fill mb-3" id="work-plan-group-tabs">
+                        <li class="nav-item">
+                            <button class="nav-link active py-1 small" data-group="machine">Por Máquina</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link py-1 small" data-group="frequency">Por Frecuencia</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link py-1 small" data-group="all">Todos</button>
+                        </li>
+                    </ul>
+                    <div class="input-group mb-3">
+                         <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="work-plan-search-input" placeholder="Buscar plan...">
+                    </div>
+                    <div id="work-plans-list-container">
+                        </div>
+                </div>
+                <div class="col-md-8">
+                    <div id="work-plan-details-container" class="d-none">
+                        </div>
+                    <div id="work-plan-placeholder" class="text-center text-muted mt-5">
+                        <i class="fas fa-clipboard-list fa-3x mb-3"></i>
+                        <p>Seleccione un plan para ver sus detalles o cree uno nuevo.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="tab-content d-none" id="configuracion">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-link me-2"></i>Integración con Odoo Online</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">Configure aquí las credenciales para sincronizar su inventario y órdenes de trabajo con Odoo.</p>
+                    <form id="odoo-config-form">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold" for="odoo-url">URL de la Instancia</label>
+                            <input type="url" class="form-control" id="odoo-url" placeholder="https://tu-empresa.odoo.com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold" for="odoo-db">Nombre de la Base de Datos</label>
+                            <input type="text" class="form-control" id="odoo-db" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold" for="odoo-username">Usuario (Email)</label>
+                            <input type="email" class="form-control" id="odoo-username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold" for="odoo-apikey">API Key</label>
+                            <input type="password" class="form-control" id="odoo-apikey" placeholder="Tu API Key generada en Odoo" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold" for="odoo-proxy">URL del Proxy (Firebase Cloud Function)</label>
+                            <input type="url" class="form-control" id="odoo-proxy" placeholder="https://region-proyecto.cloudfunctions.net/odooProxy">
+                            <div class="form-text">Opcional pero recomendado para evitar errores de CORS y proteger credenciales.</div>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div id="odoo-status-indicator" class="text-muted small">
+                                <i class="fas fa-circle me-1"></i> No configurado
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-outline-info me-2" id="test-odoo-btn">Probar Conexión</button>
+                                <button type="submit" class="btn btn-primary">Guardar Configuración</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</main>
+</div>
+<!-- Password Confirmation Modal (21 CFR Part 11) -->
+<div class="modal fade" id="passwordConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content shadow-lg border-primary">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Firma Electrónica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Para cumplir con 21 CFR Part 11, re-ingrese su contraseña para vincular su firma a este registro.</p>
+                <div class="mb-3">
+                    <label class="form-label small">Usuario: <strong id="confirm-password-username"></strong></label>
+                    <input type="password" id="confirm-password-input" class="form-control" placeholder="Ingrese su contraseña">
+                </div>
+                <div id="confirm-password-error" class="text-danger small d-none">Contraseña incorrecta.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-confirm-password-submit">Confirmar y Firmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Audit Detail Modal -->
+<div class="modal fade" id="auditDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalle de Versión y Cambios</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="border-bottom pb-2 text-danger">Valor Anterior</h6>
+                        <pre id="audit-old-data" class="p-3 rounded" style="font-size: 0.8rem; max-height: 500px; overflow: auto; background-color: rgba(0,0,0,0.05);"></pre>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="border-bottom pb-2 text-success">Valor Nuevo</h6>
+                        <pre id="audit-new-data" class="p-3 rounded" style="font-size: 0.8rem; max-height: 500px; overflow: auto; background-color: rgba(0,0,0,0.05);"></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="machine-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="machine-modal-title">Añadir Máquina</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <form id="machine-form">
+                    <input id="machine-id-hidden" type="hidden"/>
+
+                    <ul class="nav nav-tabs mb-3" id="machine-form-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic-panel" type="button" role="tab">Datos Básicos</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="specs-tab" data-bs-toggle="tab" data-bs-target="#specs-panel" type="button" role="tab">Clasificación Técnica y Regulatoria</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="validation-tab" data-bs-toggle="tab" data-bs-target="#validation-panel" type="button" role="tab">Calificación y Fechas</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="machine-form-tab-content">
+                        <!-- Datos Básicos -->
+                        <div class="tab-pane fade show active" id="basic-panel" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-id">ID Máquina</label>
+                                    <input class="form-control" id="machine-id" required="" type="text"/>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-name">Nombre</label>
+                                    <input class="form-control" id="machine-name" required="" type="text"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-type">Tipo</label>
+                                    <select class="form-select" id="machine-type">
+                                        <option value="maquina">Máquina</option>
+                                        <option value="instalacion">Instalación (Edificio)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-location">Ubicación</label>
+                                    <input class="form-control" id="machine-location" required="" type="text"/>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="machine-criticidad">Clasificación de Criticidad</label>
+                                <select class="form-select" id="machine-criticidad" required="">
+                                    <option value="Baja" selected>Baja</option>
+                                    <option value="Media">Media</option>
+                                    <option value="Alta">Alta</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <label class="form-label mb-0">Horario Operativo</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" id="disable-schedule-check" type="checkbox"/>
+                                        <label class="form-check-label" for="disable-schedule-check">Deshabilitar Horario (Solo Costos)</label>
+                                    </div>
+                                </div>
+                                <div id="schedule-wrapper">
+                                    <div class="p-2 border rounded mb-2">
+                                        <label class="form-label fw-bold small">Lunes a Viernes</label>
+                                        <div class="d-flex justify-content-around mb-2">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input day-check" id="day-mon" type="checkbox" value="1"/>
+                                                <label class="form-check-label" for="day-mon">Lun</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input day-check" id="day-tue" type="checkbox" value="2"/>
+                                                <label class="form-check-label" for="day-tue">Mar</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input day-check" id="day-wed" type="checkbox" value="3"/>
+                                                <label class="form-check-label" for="day-wed">Mié</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input day-check" id="day-thu" type="checkbox" value="4"/>
+                                                <label class="form-check-label" for="day-thu">Jue</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input day-check" id="day-fri" type="checkbox" value="5"/>
+                                                <label class="form-check-label" for="day-fri">Vie</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <label class="form-label small" for="machine-start-time-weekday">Hora Inicio</label>
+                                            <input class="form-control" id="machine-start-time-weekday" type="time"/>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label small" for="machine-end-time-weekday">Hora Fin</label>
+                                            <input class="form-control" id="machine-end-time-weekday" type="time"/>
+                                        </div>
+                                    </div>
+                                    <div class="p-2 border rounded mb-2 mt-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input day-check" id="day-sat" type="checkbox" value="6"/>
+                                            <label class="form-check-label fw-bold small" for="day-sat">Sábado</label>
+                                        </div>
+                                        <div class="row mt-2">
+                                            <div class="col-6">
+                                                <label class="form-label small" for="machine-start-time-saturday">Hora Inicio</label>
+                                                <input class="form-control" id="machine-start-time-saturday" type="time"/>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small" for="machine-end-time-saturday">Hora Fin</label>
+                                                <input class="form-control" id="machine-end-time-saturday" type="time"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-2 border rounded">
+                                        <div class="form-check">
+                                            <input class="form-check-input day-check" id="day-sun" type="checkbox" value="0"/>
+                                            <label class="form-check-label fw-bold small" for="day-sun">Domingo</label>
+                                        </div>
+                                        <div class="row mt-2">
+                                            <div class="col-6">
+                                                <label class="form-label small" for="machine-start-time-sunday">Hora Inicio</label>
+                                                <input class="form-control" id="machine-start-time-sunday" type="time"/>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small" for="machine-end-time-sunday">Hora Fin</label>
+                                                <input class="form-control" id="machine-end-time-sunday" type="time"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Especificaciones -->
+                        <div class="tab-pane fade" id="specs-panel" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-brand">Marca</label>
+                                    <input class="form-control" id="machine-brand" type="text" placeholder="Ej: BioTech Solutions"/>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-model">Modelo</label>
+                                    <input class="form-control" id="machine-model" type="text" placeholder="Ej: HC-2000"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-serial">Número de Serie</label>
+                                    <input class="form-control font-mono" id="machine-serial" type="text" placeholder="Ej: SN-987654321"/>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-risk">Impacto en Calidad del Producto</label>
+                                    <select class="form-select" id="machine-risk">
+                                        <option value="">N/A</option>
+                                        <option value="Indirecto">Indirecto</option>
+                                        <option value="Directo">Directo</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="machine-image-file"><i class="fas fa-image me-2"></i>Imagen de la Máquina (PNG, JPG)</label>
+                                <input class="form-control" id="machine-image-file" type="file" accept="image/*"/>
+                                <div id="machine-image-status" class="mt-2"></div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-user-manual-file"><i class="fas fa-file-pdf me-2"></i>Manual del Usuario (PDF)</label>
+                                    <input class="form-control" id="machine-user-manual-file" type="file" accept=".pdf"/>
+                                    <div id="machine-user-manual-status" class="mt-2"></div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-tech-manual-file"><i class="fas fa-file-pdf me-2"></i>Manual del Técnico (PDF)</label>
+                                    <input class="form-control" id="machine-tech-manual-file" type="file" accept=".pdf"/>
+                                    <div id="machine-tech-manual-status" class="mt-2"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Calificación y Fechas -->
+                        <div class="tab-pane fade" id="validation-panel" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-purchase-date">Fecha de Compra</label>
+                                    <input class="form-control" id="machine-purchase-date" type="date"/>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-commissioning-date">Puesta en Marcha</label>
+                                    <input class="form-control" id="machine-commissioning-date" type="date"/>
+                                </div>
+                            </div>
+                            <hr>
+                            <h6 class="mb-3">Estado de Calificación (IQ/OQ/PQ)</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="p-3 border rounded">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="machine-iq-status">
+                                            <label class="form-check-label fw-bold" for="machine-iq-status">IQ Validado</label>
+                                        </div>
+                                        <label class="form-label small" for="machine-iq-date">Fecha IQ</label>
+                                        <input class="form-control form-control-sm" id="machine-iq-date" type="date"/>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 border rounded">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="machine-oq-status">
+                                            <label class="form-check-label fw-bold" for="machine-oq-status">OQ Validado</label>
+                                        </div>
+                                        <label class="form-label small" for="machine-oq-date">Fecha OQ</label>
+                                        <input class="form-control form-control-sm" id="machine-oq-date" type="date"/>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 border rounded">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="machine-pq-status">
+                                            <label class="form-check-label fw-bold" for="machine-pq-status">PQ Vigente</label>
+                                        </div>
+                                        <label class="form-label small" for="machine-pq-next-date">Próximo Vencimiento</label>
+                                        <input class="form-control form-control-sm" id="machine-pq-next-date" type="date"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer mt-3">
+                        <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+                        <button class="btn btn-primary" type="submit">Guardar Máquina</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="part-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white border-bottom-0 p-4">
+                <h5 class="modal-title fw-bold" id="part-modal-title">Añadir Repuesto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="part-form">
+                    <input type="hidden" id="part-id-hidden">
+                    <input type="hidden" id="part-image-url">
+
+                    <!-- Foto del Repuesto -->
+                    <div class="section-card p-4 text-center mb-4">
+                        <h6 class="text-uppercase fw-bold text-muted small mb-3">Imagen del Repuesto</h6>
+                        <div class="part-image-upload-container mx-auto position-relative border-2 border-dashed rounded-3 d-flex align-items-center justify-content-center overflow-hidden" id="part-image-preview-container" style="width: 160px; height: 160px;">
+                            <div class="upload-placeholder d-flex flex-column align-items-center justify-content-center">
+                                <i class="fas fa-camera fa-2x text-muted mb-2"></i>
+                                <span class="text-muted small px-2">Subir o capturar foto</span>
+                            </div>
+                            <img id="part-image-preview" src="" class="position-absolute top-0 start-0 w-100 h-100 object-fit-cover d-none">
+                            <input type="file" id="part-image-file" accept="image/*" class="position-absolute top-0 start-0 w-100 h-100 opacity-0 cursor-pointer">
+                        </div>
+                    </div>
+
+                    <!-- Información Básica -->
+                    <div class="section-card p-4 mb-4">
+                        <div class="mb-3">
+                            <label for="part-id" class="form-label fw-bold small text-muted text-uppercase mb-1">ID Repuesto</label>
+                            <input type="text" class="form-control border-0 shadow-sm" id="part-id" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="part-description" class="form-label fw-bold small text-muted text-uppercase mb-1">Descripción</label>
+                            <textarea class="form-control border-0 shadow-sm" id="part-description" rows="2" required></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="part-classification" class="form-label fw-bold small text-muted text-uppercase mb-1">Clasificación</label>
+                                <select class="form-select border-0 shadow-sm" id="part-classification" required>
+                                    <option value="insumo">Insumo</option>
+                                    <option value="mecanico">Mecánico</option>
+                                    <option value="electrico">Eléctrico</option>
+                                    <option value="neumatico">Neumático</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="part-supplier" class="form-label fw-bold small text-muted text-uppercase mb-1">Proveedor</label>
+                                <select class="form-select border-0 shadow-sm" id="part-supplier">
+                                    <option value="">Seleccione un proveedor...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Máquinas Vinculadas -->
+                    <div class="section-card p-4 mb-4">
+                        <label class="form-label fw-bold small text-muted text-uppercase mb-2">Máquinas Vinculadas (Opcional)</label>
+                        <div class="border rounded-3 p-2 bg-light custom-scrollbar" id="part-machines-list" style="max-height: 150px; overflow-y: auto;">
+                            <!-- Inyectado por JS -->
+                        </div>
+                    </div>
+
+                    <!-- Inventario y Costos -->
+                    <div class="section-card p-4 mb-4">
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label for="part-cost" class="form-label fw-bold small text-muted text-uppercase mb-1">Costo (Lps)</label>
+                                <input type="number" step="0.01" class="form-control border-0 shadow-sm" id="part-cost" required>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label for="part-stock" class="form-label fw-bold small text-muted text-uppercase mb-1">Stock Actual</label>
+                                <input type="number" class="form-control border-0 shadow-sm fw-bold text-primary" id="part-stock" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label for="part-criticidad" class="form-label fw-bold small text-muted text-uppercase mb-1">Criticidad</label>
+                                <select id="part-criticidad" class="form-select border-0 shadow-sm">
+                                    <option value="Bajo">Bajo</option>
+                                    <option value="Medio">Medio</option>
+                                    <option value="Alto">Alto</option>
+                                    <option value="Crítico">Crítico</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label for="part-minStock" class="form-label fw-bold small text-muted text-uppercase mb-1">Stock Mínimo</label>
+                                <input type="number" class="form-control border-0 shadow-sm" id="part-minStock" required>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label for="part-location" class="form-label fw-bold small text-muted text-uppercase mb-1">Ubicación</label>
+                            <input type="text" class="form-control border-0 shadow-sm" id="part-location" placeholder="Ej: Pasillo A, Estante 4">
+                        </div>
+                    </div>
+
+                    <!-- Fichas Técnicas -->
+                    <div class="section-card p-4 mb-0">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <label class="form-label fw-bold small text-muted text-uppercase mb-0">Fichas Técnicas</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="add-part-doc-btn">
+                                <i class="fas fa-plus me-1"></i> Agregar PDF
+                            </button>
+                            <input type="file" id="part-doc-file" accept="application/pdf" class="d-none">
+                        </div>
+                        <div id="part-docs-list" class="d-flex flex-column gap-2">
+                            <!-- List of documents will be rendered here -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-white border-top-0 p-4 pt-0 gap-3">
+                <button type="button" class="btn btn-lg btn-light flex-grow-1 fw-bold rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="part-form" class="btn btn-lg btn-primary flex-grow-1 fw-bold rounded-3 shadow">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="proveedor-modal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="proveedor-modal-title">Añadir Proveedor</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="proveedor-form">
+<input id="proveedor-id-hidden" type="hidden"/>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label" for="proveedor-id">Código</label>
+<input class="form-control" id="proveedor-id" required="" type="text"/>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label" for="proveedor-nombre">Nombre</label>
+<input class="form-control" id="proveedor-nombre" required="" type="text"/>
+</div>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label" for="proveedor-rtn">RTN</label>
+<input class="form-control" id="proveedor-rtn" type="text"/>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label" for="proveedor-telefono">Teléfono</label>
+<input class="form-control" id="proveedor-telefono" type="tel"/>
+</div>
+</div>
+<div class="mb-3">
+<label class="form-label" for="proveedor-email">Correo Electrónico</label>
+<input class="form-control" id="proveedor-email" type="email"/>
+</div>
+<div class="mb-3">
+<label class="form-label" for="proveedor-direccion">Dirección</label>
+<textarea class="form-control" id="proveedor-direccion" rows="2"></textarea>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+<button class="btn btn-primary" type="submit">Guardar</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="technician-modal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="technician-modal-title">Añadir Usuario</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="technician-form">
+<input id="technician-id-hidden" type="hidden"/>
+<div class="mb-3">
+<label class="form-label" for="technician-username">Usuario</label>
+<input class="form-control" id="technician-username" required="" type="text"/>
+</div>
+<div class="mb-3">
+<label class="form-label" for="technician-password">Contraseña</label>
+<input class="form-control" id="technician-password" required="" type="password"/>
+</div>
+<div class="mb-3" id="technician-salary-wrapper">
+<label class="form-label" for="technician-salary">Salario Mensual (HNL)</label>
+<input class="form-control" id="technician-salary" required="" step="0.01" type="number"/>
+</div>
+<div class="mb-3">
+<label class="form-label" for="technician-role">Rol</label>
+<select class="form-select" id="technician-role" required="">
+<option value="Admin">Admin</option>
+<option value="Jefe de Area">Jefe de Area</option>
+<option value="Planificador">Planificador</option>
+<option value="Técnico">Técnico</option>
+<option value="Operario">Operario</option>
+<option value="Invitado">Invitado</option>
+</select>
+</div>
+<div class="mb-3 d-none" id="jefe-maquinas-wrapper">
+<label class="form-label">Máquinas a Cargo</label>
+<div class="border rounded p-2" id="jefe-maquinas-list" style="max-height: 150px; overflow-y: auto;">
+</div>
+</div>
+<div class="mb-3 d-none" id="tecnico-maquinas-wrapper">
+<label class="form-label">Asignar Equipo</label>
+<div class="border rounded p-2" id="tecnico-maquinas-list" style="max-height: 150px; overflow-y: auto;">
+</div>
+</div>
+<div class="mb-3 d-none" id="jefe-permissions-wrapper">
+<label class="form-label">Permisos de Módulo (para Jefe de Area)</label>
+<div id="jefe-permissions">
+<div class="form-check">
+<input class="form-check-input jefe-permission-check" id="jefe-perm-maquinaria" type="checkbox" value="maquinaria"/>
+<label class="form-check-label" for="jefe-perm-maquinaria">Maquinaria</label>
+</div>
+<div class="form-check">
+<input class="form-check-input jefe-permission-check" id="jefe-perm-repuestos" type="checkbox" value="repuestos"/>
+<label class="form-check-label" for="jefe-perm-repuestos">Repuestos</label>
+</div>
+<div class="form-check">
+<input class="form-check-input jefe-permission-check" id="jefe-perm-proveedores" type="checkbox" value="proveedores"/>
+<label class="form-check-label" for="jefe-perm-proveedores">Proveedores</label>
+</div>
+<div class="form-check">
+<input class="form-check-input jefe-permission-check" id="jefe-perm-trabajo-activo" type="checkbox" value="trabajo-activo"/>
+<label class="form-check-label" for="jefe-perm-trabajo-activo">Trabajo Activo</label>
+</div>
+<div class="form-check">
+<input class="form-check-input jefe-permission-check" id="jefe-perm-planificador" type="checkbox" value="planificador"/>
+<label class="form-check-label" for="jefe-perm-planificador">Planificador</label>
+</div>
+<div class="form-check">
+<input class="form-check-input jefe-permission-check" id="jefe-perm-reportes" type="checkbox" value="reportes"/>
+<label class="form-check-label" for="jefe-perm-reportes">Reportes</label>
+</div>
+<div class="form-check">
+<input class="form-check-input jefe-permission-check" id="jefe-perm-solicitudes" type="checkbox" value="solicitudes"/>
+<label class="form-check-label" for="jefe-perm-solicitudes">Solicitudes</label>
+</div>
+<div class="form-check">
+<input class="form-check-input jefe-permission-check" id="jefe-perm-solicitudes-repuestos" type="checkbox" value="solicitudes-repuestos"/>
+<label class="form-check-label" for="jefe-perm-solicitudes-repuestos">Solicitudes de Repuestos/Insumos</label>
+</div>
+</div>
+</div>
+<div class="mb-3" id="technician-permissions-wrapper">
+<label class="form-label">Permisos de Acceso (para Técnicos)</label>
+<div id="technician-permissions">
+<div class="form-check">
+<input class="form-check-input permission-check" id="perm-maquinaria" type="checkbox" value="maquinaria"/>
+<label class="form-check-label" for="perm-maquinaria">Maquinaria</label>
+</div>
+<div class="form-check">
+<input class="form-check-input permission-check" id="perm-repuestos" type="checkbox" value="repuestos"/>
+<label class="form-check-label" for="perm-repuestos">Repuestos</label>
+</div>
+<div class="form-check">
+<input class="form-check-input permission-check" id="perm-proveedores" type="checkbox" value="proveedores"/>
+<label class="form-check-label" for="perm-proveedores">Proveedores</label>
+</div>
+<div class="form-check">
+<input class="form-check-input permission-check" id="perm-planificador" type="checkbox" value="planificador"/>
+<label class="form-check-label" for="perm-planificador">Planificador</label>
+</div>
+<div class="form-check">
+<input class="form-check-input permission-check" id="perm-ordenes-asignadas" type="checkbox" value="ordenes-asignadas"/>
+<label class="form-check-label" for="perm-ordenes-asignadas">Ver Órdenes Asignadas</label>
+</div>
+<div class="form-check">
+<input class="form-check-input permission-check" id="perm-reportes" type="checkbox" value="reportes"/>
+<label class="form-check-label" for="perm-reportes">Reportes</label>
+</div>
+</div>
+</div>
+<div class="mb-3">
+    <label class="form-label fw-bold"><i class="fas fa-signature me-2"></i>Firma Digital</label>
+    <div class="d-flex gap-2 mb-2">
+        <button type="button" class="btn btn-outline-primary btn-sm" id="toggle-draw-sig">Dibujar Firma</button>
+        <button type="button" class="btn btn-outline-primary btn-sm" id="toggle-upload-sig">Subir Imagen</button>
+    </div>
+    <div id="signature-draw-container" class="border rounded bg-light p-2" style="display: none;">
+        <canvas id="signature-pad" width="400" height="200" style="width: 100%; height: 200px; touch-action: none; cursor: crosshair; background: white;"></canvas>
+        <div class="p-1 text-end">
+            <button type="button" class="btn btn-link btn-sm text-danger text-decoration-none" id="clear-signature"><i class="fas fa-eraser me-1"></i>Limpiar</button>
+        </div>
+    </div>
+    <div id="signature-upload-container" style="display: none;">
+        <input type="file" class="form-control" id="signature-upload" accept="image/*">
+        <small class="text-muted">Se recomienda fondo blanco o transparente.</small>
+    </div>
+    <div id="signature-preview-container" class="mt-2 text-center d-none">
+        <p class="small text-muted mb-1">Firma Actual:</p>
+        <img src="" id="signature-preview" class="img-fluid border rounded bg-white" style="max-height: 100px;">
+    </div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+<button class="btn btn-primary" type="submit">Guardar</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="solicitud-modal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="solicitud-modal-title">Nueva Solicitud</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="solicitud-form">
+                    <input type="hidden" id="solicitud-modal-fb-id-hidden">
+<div class="mb-3">
+    <label class="form-label" for="solicitud-type">Tipo de Solicitud</label>
+    <select class="form-select" id="solicitud-type" required="">
+        <option value="mantenimiento">Mantenimiento / Falla de Máquina</option>
+        <option value="insumos">Insumos / Accesorios</option>
+    </select>
+</div>
+<div class="mb-3">
+<label class="form-label" id="solicitud-machine-label" for="solicitud-machine">Máquina</label>
+<select class="form-select" id="solicitud-machine" required=""></select>
+</div>
+<div class="row d-none" id="solicitud-extra-fields">
+    <div class="col-md-6 mb-3">
+        <label class="form-label" for="solicitud-quantity">Cantidad</label>
+        <input type="number" class="form-control" id="solicitud-quantity" min="1" value="1">
+    </div>
+    <div class="col-md-6 mb-3">
+        <label class="form-label" for="solicitud-urgency">Urgencia</label>
+        <select class="form-select" id="solicitud-urgency">
+            <option value="Baja">Baja</option>
+            <option value="Media" selected>Media</option>
+            <option value="Alta">Alta</option>
+        </select>
+    </div>
+</div>
+<div class="mb-3">
+<label class="form-label" id="solicitud-description-label" for="solicitud-description">Descripción</label>
+<textarea class="form-control" id="solicitud-description" required="" rows="4"></textarea>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+<button class="btn btn-primary" id="solicitud-submit-btn" type="submit">Enviar Solicitud</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="work-order-modal" tabindex="-1">
+<div class="modal-dialog modal-xl">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="work-order-modal-title">Detalles de Orden de Trabajo</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="work-order-form">
+<input id="work-order-id-hidden" type="hidden"/>
+<input id="wo-fb-id-hidden" type="hidden"/>
+<input id="source-solicitud-id-hidden" type="hidden"/>
+<input id="solicitud-fb-id-hidden" type="hidden"/>
+<div class="row">
+<div class="col-lg-8 col-12">
+<div class="row">
+<div class="col-md-4 mb-3">
+<label class="form-label" for="wo-id">ID Orden</label>
+<input class="form-control" id="wo-id" readonly="" required="" type="text"/>
+</div>
+<div class="col-md-8 mb-3">
+<label class="form-label" for="wo-machine">Máquina</label>
+<input type="text" id="wo-machine-search" class="form-control mb-2" placeholder="Buscar máquina...">
+<div id="wo-machine-no-results" class="alert alert-warning d-none">No se encontraron Maquinas</div>
+<select class="form-select" id="wo-machine" required=""></select>
+</div>
+<div class="col-md-12 mb-3">
+<label class="form-label" for="wo-description">Descripción de la Falla / Tarea</label>
+<textarea class="form-control" id="wo-description" required="" rows="3"></textarea>
+</div>
+<div class="col-md-12 mb-3" id="wo-observaciones-group">
+    <label class="form-label fw-bold" for="wo-observaciones">Observaciones</label>
+    <textarea class="form-control" id="wo-observaciones" rows="3"></textarea>
+</div>
+<div class="col-md-12 mb-3 d-none" id="wo-checklist-group">
+    <label class="form-label fw-bold">Plan de Mantenimiento Vinculado</label>
+    <div class="d-flex justify-content-between align-items-center border rounded p-3">
+        <p id="wo-plan-name" class="fw-bold mb-0"></p>
+        <button type="button" class="btn btn-primary" id="wo-start-plan-btn"><i class="fas fa-play me-2"></i>Iniciar Plan</button>
+    </div>
+</div>
+<div class="col-md-12 mb-4">
+    <h6><i class="fas fa-boxes me-2"></i>Repuestos Utilizados (Inventario)</h6>
+    <div class="mb-2" id="wo-parts-list"></div>
+    <div class="input-group">
+        <select class="form-select" id="wo-part-select"></select>
+        <input class="form-control" id="wo-part-quantity" min="1" placeholder="Cant." style="max-width: 80px;" type="number" value="1"/>
+        <button class="btn btn-outline-success" id="wo-add-part-btn" type="button"><i class="fas fa-plus"></i></button>
+    </div>
+</div>
+
+<div class="col-md-12 border-top pt-3" id="wo-external-request-section">
+    <h6><i class="fas fa-shopping-cart me-2"></i>Solicitar Repuestos Externos / No Vinculados</h6>
+    <p class="small text-muted mb-2">Use este formulario si el repuesto no se encuentra en el inventario actual.</p>
+    <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+            <label class="form-label small mb-1">Descripción del Repuesto / Insumo</label>
+            <input type="text" class="form-control form-control-sm" id="wo-request-description" placeholder="Nombre, modelo, etc...">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-1">Cant.</label>
+            <input type="number" class="form-control form-control-sm" id="wo-request-quantity" min="1" value="1">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-1">Urgencia</label>
+            <select class="form-select form-select-sm" id="wo-request-urgency">
+                <option value="Baja">Baja</option>
+                <option value="Media" selected>Media</option>
+                <option value="Alta">Alta</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="button" class="btn btn-sm btn-primary w-100" id="wo-submit-request-btn"><i class="fas fa-paper-plane me-1"></i>Solicitar</button>
+        </div>
+    </div>
+    <div id="wo-pending-requests-list" class="mt-3">
+        <!-- List showing pending requests for this WO -->
+    </div>
+</div>
+</div>
+</div>
+<div class="col-lg-4 col-12">
+<div class="card p-3 h-100" style="background-color: rgba(0,0,0,0.02);">
+<div class="mb-3">
+<label class="form-label" for="wo-status">Estado</label>
+<select class="form-select" id="wo-status" required=""></select>
+</div>
+<div class="mb-3">
+<label class="form-label" for="wo-type">Tipo</label>
+<select class="form-select" id="wo-type" required="">
+<option>Preventivo</option>
+<option>Correctivo</option>
+</select>
+</div>
+<div class="mb-3">
+<label class="form-label" for="wo-priority">Prioridad</label>
+<select class="form-select" id="wo-priority" required="">
+<option value="Baja">Baja</option>
+<option value="Media" selected>Media</option>
+<option value="Alta">Alta</option>
+</select>
+</div>
+<div class="mb-3">
+<label class="form-label" for="wo-work-plan">Vincular Plan de Mantenimiento (Opcional)</label>
+<select class="form-select" id="wo-work-plan">
+<option value="">No vincular ningún plan</option>
+</select>
+</div>
+<div class="mb-3 d-none" id="wo-maintenance-type-group">
+<label class="form-label" for="wo-maintenance-type">Tipo de Mantenimiento</label>
+<select class="form-select" id="wo-maintenance-type">
+<option value="">Seleccione un tipo...</option>
+<option>Mecánico</option>
+<option>Eléctrico</option>
+<option>Electrónico</option>
+<option>Otros</option>
+</select>
+</div>
+<div class="mb-3 d-none" id="wo-failure-type-group">
+<label class="form-label" for="wo-failure-type">Tipo de Falla</label>
+<select class="form-select" id="wo-failure-type">
+<option value="">Seleccione un tipo...</option>
+<option>Mecánica</option>
+<option>Eléctrica</option>
+<option>Electrónica</option>
+<option>Falla de Operación</option>
+</select>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label" for="wo-start-date">Fecha de Inicio</label>
+<input class="form-control" id="wo-start-date" required="" type="date"/>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label" for="wo-start-time">Hora de Inicio</label>
+<input class="form-control" id="wo-start-time" type="time"/>
+</div>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label" for="wo-end-date">Fecha Final</label>
+<input class="form-control" id="wo-end-date" type="date"/>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label" for="wo-end-time">Hora Final</label>
+<input class="form-control" id="wo-end-time" type="time"/>
+</div>
+</div>
+<hr/>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label text-primary" for="wo-real-start-date">Fecha Real de Inicio</label>
+<input class="form-control" id="wo-real-start-date" readonly="" type="date"/>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label text-primary" for="wo-real-start-time">Hora Real de Inicio</label>
+<input class="form-control" id="wo-real-start-time" readonly="" type="time"/>
+</div>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label text-primary" for="wo-real-end-date">Fecha Real Final</label>
+<input class="form-control" id="wo-real-end-date" readonly="" type="date"/>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label text-primary" for="wo-real-end-time">Hora Real Final</label>
+<input class="form-control" id="wo-real-end-time" readonly="" type="time"/>
+</div>
+</div>
+<div class="row">
+<div class="col-md-12 mb-3">
+<label class="form-label text-primary" for="wo-total-duration">Duración Total del Trabajo</label>
+<input class="form-control" id="wo-total-duration" readonly="" type="text"/>
+</div>
+</div>
+<div class="mb-3">
+<label class="form-label" for="wo-requester">Solicitante</label>
+<input class="form-control" id="wo-requester" readonly="" type="text"/>
+</div>
+<div class="mb-3">
+<label class="form-label fw-bold" for="wo-lead-technician-select">Técnico Responsable</label>
+<select class="form-select" id="wo-lead-technician-select" required="">
+<option value="">Seleccione un responsable...</option>
+</select>
+</div>
+<div class="mb-3">
+<label class="form-label" for="wo-support-technician-select">Técnicos de Apoyo</label>
+<div class="input-group">
+<select class="form-select" id="wo-support-technician-select">
+<option value="">Seleccione un técnico de apoyo...</option>
+</select>
+<button class="btn btn-outline-success" id="wo-add-support-technician-btn" type="button"><i class="fas fa-plus"></i> Añadir</button>
+</div>
+<div class="mt-2" id="wo-support-technicians-list">
+</div>
+</div>
+</div>
+</div>
+</div>
+</form>
+</div>
+<div class="modal-footer justify-content-between">
+<div>
+<button class="btn btn-info" id="wo-start-btn" type="button"><i class="fas fa-play me-2"></i>Iniciar</button>
+<button class="btn btn-warning" id="wo-pause-btn" type="button"><i class="fas fa-pause me-2"></i>Pausar</button>
+<button class="btn btn-info" id="wo-resume-btn" type="button"><i class="fas fa-play me-2"></i>Reanudar</button>
+<button class="btn btn-info text-white" id="wo-validate-btn" type="button" style="display:none;"><i class="fas fa-clipboard-check me-2"></i>Validar y Pasar a Evaluación</button>
+<button class="btn btn-danger" id="wo-reject-btn" type="button" style="display:none;"><i class="fas fa-times me-2"></i>Rechazar Trabajo</button>
+<button class="btn btn-success" id="wo-complete-btn" type="button"><i class="fas fa-check me-2"></i>Completar</button>
+</div>
+<div>
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cerrar</button>
+<button class="btn btn-primary" id="wo-save-btn" type="button">Guardar Cambios</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="confirm-modal" tabindex="-1">
+<div class="modal-dialog modal-sm">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="confirm-modal-title">Confirmar Acción</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<p id="confirm-modal-body">¿Está seguro?</p>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+<button class="btn btn-danger" id="confirm-modal-btn" type="button">Confirmar</button>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="manage-parts-modal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="manage-parts-modal-title">Gestionar Repuestos</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<input id="manage-parts-wo-id" type="hidden"/>
+<h6>Repuestos Actuales</h6>
+<div class="mb-3 list-group" id="current-parts-list">
+</div>
+<h6>Añadir/Actualizar Repuesto</h6>
+<div class="input-group mb-3">
+<select class="form-select" id="manage-part-select"></select>
+<input class="form-control" id="manage-part-quantity" min="1" placeholder="Cant." style="max-width: 80px;" type="number" value="1"/>
+<button class="btn btn-outline-success" id="add-update-part-btn" type="button"><i class="fas fa-plus"></i> Añadir</button>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+<button class="btn btn-primary" id="save-managed-parts-btn" type="button">Guardar Cambios</button>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="work-plan-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="work-plan-modal-title">Nuevo Plan de Trabajo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="work-plan-form">
+                    <input type="hidden" id="work-plan-id-hidden">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="work-plan-name" class="form-label">Nombre del Plan</label>
+                            <input type="text" class="form-control" id="work-plan-name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="work-plan-machine" class="form-label">Máquina Aplicable</label>
+                            <select class="form-select" id="work-plan-machine" required>
+                                <option value="">Seleccione una máquina...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="work-plan-description" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="work-plan-description" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="work-plan-responsible" class="form-label">Técnico Responsable</label>
+                            <select class="form-select" id="work-plan-responsible" required>
+                                 <option value="">Seleccione un técnico...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="work-plan-frequency-value" class="form-label">Frecuencia</label>
+                            <div class="input-group">
+                                <span class="input-group-text">Cada</span>
+                                <input type="number" class="form-control" id="work-plan-frequency-value" value="1" min="1" required>
+                                <select class="form-select" id="work-plan-frequency-unit" required>
+                                    <option value="h">Hora(s) Operación</option>
+                                    <option value="d">Día(s)</option>
+                                    <option value="w">Semana(s)</option>
+                                    <option value="m">Mes(es)</option>
+                                    <option value="y">Año(s)</option>
+                                </select>
+                            </div>
+                        </div>
+                         <div class="col-md-6 mb-3">
+                            <label for="work-plan-start-date" class="form-label">Próxima Ejecución</label>
+                            <input type="date" class="form-control" id="work-plan-start-date" required>
+                        </div>
+                    </div>
+                     <hr>
+                    <h6>Tareas del Plan</h6>
+                    <div id="task-groups-container"></div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="add-task-group-btn"><i class="fas fa-plus me-1"></i>Añadir Grupo de Tareas</button>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="save-work-plan-btn">Guardar Plan</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="criteria-modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="criteria-modal-title">Añadir Criterio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="criteria-form">
+                    <input type="hidden" id="criteria-id-hidden">
+                    <div class="mb-3">
+                        <label for="criteria-description" class="form-label">Descripción</label>
+                        <input type="text" class="form-control" id="criteria-description" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="criteria-role" class="form-label">Rol que evalúa</label>
+                        <select id="criteria-role" class="form-select" required>
+                            <option value="Operario">Operario / Admin</option>
+                            <option value="Jefe de Area">Jefe de Área</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="criteria-pair" class="form-label">Vincular con (Pareja para 50/50)</label>
+                        <select id="criteria-pair" class="form-select">
+                            <option value="">Ninguno (Criterio independiente)</option>
+                        </select>
+                        <small class="text-muted">Vincule un criterio del rol opuesto para que ambos formen una sola estrella (50% cada uno).</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="criteria-status" class="form-label">Estado</label>
+                        <select id="criteria-status" class="form-select">
+                            <option value="activo">Activo</option>
+                            <option value="inactivo">Inactivo</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" form="criteria-form">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Evaluation Details Modal -->
+<div class="modal fade" id="evaluation-details-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-star me-2"></i>Detalle de Evaluación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="evaluation-details-content">
+                    <!-- Content populated by script -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="evaluation-modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="evaluation-modal-title">Evaluar Orden de Trabajo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="evaluation-read-only-badge" class="alert alert-info d-none mb-3">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Esta evaluación ya ha sido completada por: <strong id="evaluation-evaluator-name"></strong>
+                </div>
+                <form id="evaluation-form">
+                    <input type="hidden" id="evaluation-wo-id-hidden">
+                    <div id="evaluation-criteria-container"></div>
+                    <div class="mb-3">
+                        <label for="evaluation-comments" class="form-label">Comentarios Adicionales</label>
+                        <textarea id="evaluation-comments" class="form-control" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" id="evaluation-save-btn" class="btn btn-primary" form="evaluation-form">Guardar Evaluación</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="technician-profile-modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="technician-profile-modal-title">Perfil de Técnico</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img src="" id="technician-profile-avatar" class="rounded-circle mb-3" alt="Avatar" width="100" height="100">
+                <h4 id="technician-profile-name"></h4>
+                <p id="technician-profile-role" class="text-muted"></p>
+                <div class="d-flex justify-content-around my-3">
+                    <div>
+                        <h5>Órdenes Asignadas</h5>
+                        <p id="technician-profile-assigned" class="h3">0</p>
+                    </div>
+                    <div>
+                        <h5>Órdenes Completadas</h5>
+                        <p id="technician-profile-completed" class="h3">0</p>
+                    </div>
+                </div>
+                <hr>
+                <h5>Resultados de Evaluación</h5>
+                <div id="technician-profile-evaluations">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Historial de Máquina -->
+<div class="modal fade" id="part-history-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="part-history-modal-title">Historial de Movimientos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>ID Orden</th>
+                                <th>Descripción</th>
+                                <th>Cantidad</th>
+                                <th>Tipo</th>
+                                <th>Usuario</th>
+                            </tr>
+                        </thead>
+                        <tbody id="part-history-list">
+                            <!-- Contenido inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Machine Detail Modal (Asset Information) -->
+<div class="modal fade" id="machine-detail-modal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header border-bottom px-4 py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fas fa-info-circle text-primary" style="color: #0068b8 !important;"></i>
+                    <h5 class="modal-title fw-bold mb-0">Detalle del Activo</h5>
+                </div>
+                <div class="ms-auto me-3" id="machine-detail-actions-top">
+                    <!-- Dynamic buttons -->
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="machine-detail-view-container">
+                    <!-- Dynamic Content populated by showMachineDetail -->
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="part-detail-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="background-color: var(--content-bg);">
+            <div id="part-detail-content">
+                <!-- Contenido dinámico inyectado por showPartDetail -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="machine-history-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="machine-history-modal-title">Historial de Órdenes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="machine-history-list">
+                            <!-- Contenido inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+        // ▼▼▼ PEGA AQUÍ EL CÓDIGO 'firebaseConfig' QUE COPIASTE EN EL PASO 1 ▼▼▼
+    const firebaseConfig = {
+    apiKey: "AIzaSyCnAxQqlkVzEPpcwXLO-MhIfK0517lSvT4",
+    authDomain: "gestion-de-mantenimeinto.firebaseapp.com",
+    projectId: "gestion-de-mantenimeinto",
+    storageBucket: "gestion-de-mantenimeinto.firebasestorage.app",
+    messagingSenderId: "1098054951785",
+    appId: "1:1098054951785:web:902d45380a599b3474d3f8",
+    measurementId: "G-W67MRDWH3J"
+     };
+        // ▲▲▲ NO TOQUES NADA DEBAJO DE ESTA LÍNEA EN ESTE BLOQUE ▲▲▲
+        
+        // Esta línea prepara la configuración para que el otro archivo la pueda usar.
+        const __firebase_config = JSON.stringify(firebaseConfig);
+    </script>
+<!-- Inlined script.js -->
+
+<script src="script.js" type="module"></script>
+<div id="plan-execution-view" class="d-none">
+    <div class="execution-view-container">
+        <header class="execution-view-header">
+            <div class="d-flex align-items-center gap-3">
+                <div class="header-icon">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <div>
+                    <h2 id="execution-view-title" class="mb-0">Ejecución de Plan</h2>
+                    <div id="execution-view-subtitle" class="text-white-50 x-small fw-bold">ID: PLAN-2025-0001 | Responsable: Técnico</div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button id="execution-view-history-btn" class="btn btn-light btn-sm fw-bold shadow-sm d-none d-md-flex align-items-center gap-2">
+                    <i class="fas fa-history text-primary"></i> Ver Historial
+                </button>
+                <button id="execution-view-close-btn" class="btn-close btn-close-white ms-3"></button>
+            </div>
+        </header>
+
+        <main class="execution-view-content">
+            <div id="execution-view-body" class="row g-4">
+                <!-- Task groups will be rendered here -->
+            </div>
+        </main>
+
+        <footer class="execution-view-footer">
+            <div class="d-flex flex-column flex-md-row align-items-center justify-content-end gap-3 w-100">
+                <button id="execution-view-pause-btn" class="btn btn-outline-secondary btn-lg px-4 fw-bold d-flex align-items-center justify-content-center gap-2 w-100 w-md-auto">
+                    <i class="fas fa-save"></i> Guardar Borrador
+                </button>
+                <button id="execution-view-finish-btn" class="btn btn-primary btn-lg px-5 fw-bold shadow-lg d-flex align-items-center justify-content-center gap-2 w-100 w-md-auto">
+                    <i class="fas fa-check-circle"></i> Finalizar Plan
+                </button>
+            </div>
+        </footer>
+    </div>
+</div>
+
+</body>
+</html>

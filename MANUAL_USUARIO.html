@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Usuario - CMMS Corinfar</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #0f172a;
+            --secondary-color: #3b82f6;
+            --accent-color: #10b981;
+            --text-main: #334155;
+            --bg-light: #f8fafc;
+            --sidebar-width: 280px;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text-main);
+            background-color: var(--bg-light);
+            line-height: 1.6;
+        }
+        .sidebar {
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            background-color: var(--primary-color);
+            color: white;
+            padding: 2rem 1rem;
+            overflow-y: auto;
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+        .sidebar h4 {
+            color: white;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-left: 0.5rem;
+            display: flex;
+            align-items: center;
+        }
+        .sidebar h4 i {
+            color: var(--secondary-color);
+            margin-right: 10px;
+        }
+        .sidebar a {
+            color: #94a3b8;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+        .sidebar a i {
+            width: 20px;
+            margin-right: 10px;
+            text-align: center;
+        }
+        .sidebar a:hover, .sidebar a.active {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .sidebar a.active {
+            background-color: var(--secondary-color);
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 4rem;
+            max-width: 1100px;
+        }
+        .card {
+            border: none;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            margin-bottom: 3rem;
+            overflow: hidden;
+        }
+        .card-header {
+            background-color: white;
+            border-bottom: 1px solid #f1f5f9;
+            padding: 1.5rem 2rem;
+        }
+        .card-body {
+            padding: 2.5rem;
+        }
+        h2 {
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0;
+            display: flex;
+            align-items: center;
+            font-size: 1.75rem;
+        }
+        h3 {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-top: 2rem;
+            margin-bottom: 1.25rem;
+            font-size: 1.35rem;
+            border-left: 4px solid var(--secondary-color);
+            padding-left: 1rem;
+        }
+        .step-card {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: flex-start;
+        }
+        .step-number {
+            background-color: var(--secondary-color);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+        .step-content {
+            flex-grow: 1;
+        }
+        .step-content strong {
+            display: block;
+            margin-bottom: 0.25rem;
+            color: var(--primary-color);
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            display: block;
+        }
+        .img-caption {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-top: -1rem;
+            margin-bottom: 1.5rem;
+        }
+        .kpi-badge {
+            background-color: #eff6ff;
+            color: #1e40af;
+            padding: 1.25rem;
+            border-radius: 0.75rem;
+            border-left: 5px solid var(--secondary-color);
+            margin-bottom: 1rem;
+            height: 100%;
+        }
+        .alert-info {
+            background-color: #f0f9ff;
+            border-color: #bae6fd;
+            color: #0369a1;
+            border-radius: 0.75rem;
+        }
+        .alert-warning {
+            background-color: #fffbeb;
+            border-color: #fef3c7;
+            color: #92400e;
+            border-radius: 0.75rem;
+        }
+        code {
+            background-color: #f1f5f9;
+            color: #e11d48;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.9em;
+        }
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 2rem 1.5rem;
+            }
+        }
+        @media print {
+            .sidebar { display: none !important; }
+            .main-content { margin-left: 0 !important; padding: 0 !important; }
+            .card { box-shadow: none !important; border: 1px solid #eee !important; break-inside: avoid; }
+        }
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+        /* Role badges */
+        .badge-role {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 2rem;
+            font-weight: 600;
+        }
+        .bg-operario { background-color: #dcfce7; color: #166534; }
+        .bg-tecnico { background-color: #dbeafe; color: #1e40af; }
+        .bg-admin { background-color: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar d-none d-lg-block">
+        <h4><i class="fas fa-microchip"></i> Corinfar CMMS</h4>
+        <nav class="nav flex-column">
+            <a href="#intro" class="active"><i class="fas fa-home"></i> Introducción</a>
+            <a href="#acceso"><i class="fas fa-key"></i> Acceso al Sistema</a>
+            <a href="#operario"><i class="fas fa-user-cog"></i> Guía del Operario</a>
+            <a href="#seguridad"><i class="fas fa-shield-alt"></i> Seguridad y Firmas</a>
+            <a href="#roles"><i class="fas fa-users"></i> Roles y Permisos</a>
+            <a href="#ots"><i class="fas fa-clipboard-list"></i> Órdenes de Trabajo</a>
+            <a href="#kpis"><i class="fas fa-chart-line"></i> Dashboard y KPIs</a>
+            <a href="#odoo"><i class="fas fa-sync"></i> Integración Odoo</a>
+            <a href="#mobile"><i class="fas fa-mobile-alt"></i> Diseño Móvil</a>
+            <a href="#consejos"><i class="fas fa-lightbulb"></i> Consejos Útiles</a>
+            <a href="#actualizacion-operario"><i class="fas fa-star"></i> Actualización: Guía Paso a Paso</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <header class="mb-5">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h1 class="display-4 fw-bold text-dark">Manual de Usuario</h1>
+                    <p class="lead text-secondary">Sistema de Gestión de Mantenimiento Integral - Versión 2.0</p>
+                </div>
+                <button onclick="window.print()" class="btn btn-outline-primary d-none d-md-block mt-3">
+                    <i class="fas fa-print me-2"></i> Imprimir Manual
+                </button>
+            </div>
+            <div class="alert alert-info d-flex align-items-center">
+                <i class="fas fa-lightbulb me-3 fa-2x"></i>
+                <div>
+                    <strong>¿Primera vez usando el sistema?</strong> Esta guía está diseñada para ayudarle a familiarizarse con las funciones principales de forma rápida y sencilla.
+                </div>
+            </div>
+        </header>
+
+        <!-- Introducción -->
+        <section id="intro" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-info-circle me-3 text-primary"></i> 1. Introducción</h2>
+                </div>
+                <div class="card-body">
+                    <p>Bienvenido a la plataforma CMMS de Corinfar. Este sistema ha sido diseñado para centralizar la gestión de mantenimiento, garantizando la trazabilidad total de las operaciones y el cumplimiento de normativas de calidad (21 CFR Part 11).</p>
+                    <img src="manual_images/dashboard_light.png" alt="Dashboard Principal">
+                    <p class="img-caption">Vista principal del Dashboard con indicadores clave.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Acceso -->
+        <section id="acceso" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-key me-3 text-primary"></i> 2. Acceso al Sistema</h2>
+                </div>
+                <div class="card-body">
+                    <p>Para ingresar al sistema, siga estos sencillos pasos:</p>
+
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <strong>Abrir el Navegador</strong>
+                            Ingrese a la dirección web proporcionada por el departamento de IT.
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <strong>Identificación</strong>
+                            En la pantalla de inicio, escriba su correo electrónico institucional en el campo "Email".
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <strong>Contraseña</strong>
+                            Escriba su contraseña personal. Recuerde que es privada e intransferible.
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <strong>Entrar</strong>
+                            Haga clic en el botón azul que dice "Iniciar Sesión".
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i> Si olvidó su contraseña, por favor contacte al administrador del sistema para un reinicio seguro.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Guía del Operario -->
+        <section id="operario" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-user-cog me-3 text-primary"></i> 3. Guía para el Operario</h2>
+                </div>
+                <div class="card-body">
+                    <p class="lead">Como Operario, su rol es fundamental para reportar fallas y solicitar los recursos necesarios para la producción.</p>
+
+                    <h3>3.1 Cómo realizar una Solicitud de Mantenimiento</h3>
+                    <p>Si una máquina presenta una falla o requiere revisión, siga estos pasos:</p>
+
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <strong>Botón Nueva Solicitud</strong>
+                            Haga clic en el botón flotante o en el menú que dice <span class="badge bg-primary"><i class="fas fa-plus me-1"></i> Nueva Solicitud</span>.
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <strong>Tipo de Solicitud</strong>
+                            Seleccione la opción <i class="fas fa-tools me-1"></i> <strong>Mantenimiento</strong>.
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <strong>Datos del Problema</strong>
+                            - <strong>Máquina:</strong> Seleccione el equipo que tiene el problema (ej: Blistera 01).<br>
+                            - <strong>Descripción:</strong> Explique brevemente qué sucede (ej: "No enciende el panel principal").<br>
+                            - <strong>Urgencia:</strong> Seleccione qué tan rápido necesita la reparación.
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <strong>Enviar</strong>
+                            Presione el botón verde "Guardar Solicitud". El equipo técnico será notificado de inmediato.
+                        </div>
+                    </div>
+
+                    <h3>3.2 Cómo solicitar un Accesorio o Consumible</h3>
+                    <p>Si necesita repuestos, herramientas o materiales de limpieza:</p>
+
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <strong>Nueva Solicitud</strong>
+                            Al igual que antes, haga clic en "Nueva Solicitud".
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <strong>Tipo Insumos</strong>
+                            Seleccione la opción <i class="fas fa-box-open me-1"></i> <strong>Insumos y Accesorios</strong>.
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <strong>Detalles del Pedido</strong>
+                            Escriba el nombre del material, la cantidad que necesita y qué tan urgente es.
+                        </div>
+                    </div>
+
+                    <img src="manual_images/solicitudes_operario.png" alt="Panel de Solicitudes">
+                    <p class="img-caption">Panel donde el operario puede ver el estado de sus reportes.</p>
+
+                    <h3>3.3 Evaluación del Trabajo Realizado</h3>
+                    <p>Cuando un técnico termina una reparación, usted debe confirmar que todo quedó bien:</p>
+
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <strong>Pestaña Solicitudes</strong>
+                            Diríjase a la sección "Solicitudes" en el menú lateral.
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <strong>Estado Evaluación</strong>
+                            Busque las solicitudes que digan <span class="badge bg-warning text-dark">Pendiente de Evaluación</span>.
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <strong>Calificar</strong>
+                            Haga clic en el botón <strong>Evaluar</strong>. Se abrirá una ventana donde podrá dar estrellas al servicio y dejar un comentario sobre el estado de la máquina.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Seguridad -->
+        <section id="seguridad" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-shield-check me-3 text-primary"></i> 4. Seguridad (21 CFR Part 11)</h2>
+                </div>
+                <div class="card-body">
+                    <p>El sistema cumple con normativas internacionales para asegurar que cada acción sea rastreable y legalmente válida.</p>
+
+                    <h5>Firma Electrónica</h5>
+                    <p>Para acciones importantes (como finalizar un trabajo), el sistema le pedirá:</p>
+                    <ul>
+                        <li>Su firma manuscrita (dibujada en pantalla).</li>
+                        <li>Confirmar nuevamente su contraseña de acceso.</li>
+                    </ul>
+                    <img src="manual_images/firma_seguridad.png" alt="Seguridad y Firmas">
+                    <p class="img-caption">Interfaz de seguridad para firmas vinculantes.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Roles -->
+        <section id="roles" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-user-tag me-3 text-primary"></i> 5. Roles y Permisos</h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover border">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Rol</th>
+                                    <th>Identificador</th>
+                                    <th>Funciones Principales</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Admin</strong></td>
+                                    <td><span class="badge-role bg-admin">Administrador</span></td>
+                                    <td>Control total, gestión de usuarios y auditoría profunda.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Técnico</strong></td>
+                                    <td><span class="badge-role bg-tecnico">Mantenimiento</span></td>
+                                    <td>Ejecución de OTs, registro de repuestos y tiempos.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Operario</strong></td>
+                                    <td><span class="badge-role bg-operario">Usuario Planta</span></td>
+                                    <td>Reporte de fallas, solicitudes de insumos y evaluación de servicio.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- OTs -->
+        <section id="ots" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-clipboard-list me-3 text-primary"></i> 6. Órdenes de Trabajo (OT)</h2>
+                </div>
+                <div class="card-body">
+                    <p>Las OTs son el corazón del sistema. Existen dos tipos principales:</p>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded bg-light h-100">
+                                <h5 class="text-danger"><i class="fas fa-exclamation-circle me-2"></i> Correctivas</h5>
+                                <p class="small">Se generan cuando algo se rompe. El objetivo es reparar el equipo lo antes posible.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded bg-light h-100">
+                                <h5 class="text-success"><i class="fas fa-calendar-check me-2"></i> Preventivas</h5>
+                                <p class="small">Son planificadas con antelación para evitar fallas futuras. El sistema las crea automáticamente.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <img src="manual_images/modal_ot.png" alt="Detalle de Orden de Trabajo" class="mt-4">
+                    <p class="img-caption">Formulario detallado de una Orden de Trabajo.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPIs -->
+        <section id="kpis" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-chart-line me-3 text-primary"></i> 7. Dashboard y KPIs</h2>
+                </div>
+                <div class="card-body">
+                    <p>Para los roles administrativos y de planificación, el Dashboard ofrece métricas en tiempo real:</p>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="kpi-badge">
+                                <strong>MTBF</strong><br>
+                                <span class="small text-muted">Tiempo medio entre fallas. Indica qué tan confiable es una máquina.</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="kpi-badge">
+                                <strong>MTTR</strong><br>
+                                <span class="small text-muted">Tiempo medio de reparación. Indica la eficiencia del equipo técnico.</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="kpi-badge">
+                                <strong>Disponibilidad</strong><br>
+                                <span class="small text-muted">Porcentaje de tiempo que la máquina estuvo lista para producir.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <img src="manual_images/dashboard_dark.png" alt="Panel de Indicadores en Modo Oscuro" class="mt-4">
+                </div>
+            </div>
+        </section>
+
+        <!-- Odoo -->
+        <section id="odoo" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-sync me-3 text-primary"></i> 8. Integración con Odoo</h2>
+                </div>
+                <div class="card-body">
+                    <p>El CMMS está conectado permanentemente con el ERP Odoo para mantener actualizado el inventario y los costos.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-check-circle me-2"></i> Cada vez que se usa un repuesto en una OT, el stock se descuenta automáticamente en Odoo.
+                    </div>
+                    <img src="manual_images/odoo_config.png" alt="Configuración de Odoo">
+                </div>
+            </div>
+        </section>
+
+        <!-- Diseño Móvil -->
+        <section id="mobile" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-mobile-alt me-3 text-primary"></i> 9. Diseño Móvil (Responsive)</h2>
+                </div>
+                <div class="card-body">
+                    <p>La aplicación está diseñada para funcionar perfectamente en celulares y tablets, permitiendo a los técnicos trabajar en el campo sin necesidad de una computadora.</p>
+                    <div class="row justify-content-center">
+                        <div class="col-md-6">
+                            <img src="manual_images/dashboard_mobile.png" alt="Vista Móvil" style="max-width: 300px; margin: 0 auto; display: block;">
+                            <p class="img-caption mt-3">Interfaz optimizada para dispositivos móviles.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Consejos para Usuarios Nuevos -->
+        <section id="consejos" class="mb-5">
+            <div class="card bg-light border-0">
+                <div class="card-body">
+                    <h2><i class="fas fa-lightbulb me-3 text-warning"></i> 10. Consejos para Usuarios Nuevos</h2>
+                    <p>Si usted no acostumbra usar computadoras con frecuencia, estos consejos le ayudarán:</p>
+                    <ul>
+                        <li><strong>No tenga miedo:</strong> El sistema está diseñado para que sea difícil cometer errores graves. Siempre puede cancelar una acción antes de guardar.</li>
+                        <li><strong>Lea los mensajes:</strong> Si el sistema no le deja guardar, lea el mensaje que aparece en rojo; suele decir qué campo falta completar.</li>
+                        <li><strong>Iconos de ayuda:</strong> Si ve un icono con una "i" o un signo de pregunta, pase el ratón por encima para ver una breve explicación.</li>
+                        <li><strong>Uso en celular:</strong> Si usa el sistema en su celular, puede usar la cámara para tomar fotos de las fallas y subirlas directamente.</li>
+                        <li><strong>Cerrar Sesión:</strong> Por seguridad, siempre cierre su sesión cuando termine de usar un equipo compartido en planta.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Actualización Operario -->
+        <section id="actualizacion-operario" class="mb-5">
+            <div class="card border-primary" style="border-width: 2px;">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="text-white"><i class="fas fa-star me-3"></i> 11. Actualización: Guía Visual Paso a Paso para el Operario</h2>
+                </div>
+                <div class="card-body">
+                    <p class="lead">Esta sección ha sido añadida como una actualización detallada con imágenes para facilitar el uso del sistema a todo el personal de planta.</p>
+
+                    <div class="alert alert-primary">
+                        <h5><i class="fas fa-sign-in-alt me-2"></i> Paso 1: Acceso Seguro y Firma</h5>
+                        <p>Cada vez que usted necesite entrar al sistema o confirmar un trabajo, verá una pantalla de seguridad. Ingrese su contraseña personal con cuidado.</p>
+                        <img src="manual_images/firma_seguridad.png" alt="Pantalla de Seguridad">
+                        <p class="img-caption">Imagen 1: Ventana de confirmación de identidad. Aquí debe poner su clave.</p>
+                    </div>
+
+                    <div class="alert alert-primary mt-5">
+                        <h5><i class="fas fa-list-check me-2"></i> Paso 2: Revisar sus Solicitudes</h5>
+                        <p>En el menú lateral, haga clic en "Solicitudes". Verá una lista de todos sus reportes y su estado actual (si están siendo atendidos o ya terminaron).</p>
+                        <img src="manual_images/solicitudes_operario.png" alt="Panel de Solicitudes">
+                        <p class="img-caption">Imagen 2: Listado de solicitudes. El color azul indica que están en planificación.</p>
+                    </div>
+
+                    <div class="alert alert-primary mt-5">
+                        <h5><i class="fas fa-box-open me-2"></i> Paso 3: Solicitar Repuestos o Insumos</h5>
+                        <p>Si necesita algo del almacén, puede usar el botón "Nueva Solicitud". En la pantalla que se abre, podrá detallar qué repuesto necesita y la cantidad.</p>
+                        <img src="manual_images/modal_ot.png" alt="Formulario de Solicitud">
+                        <p class="img-caption">Imagen 3: Ejemplo de formulario para pedir repuestos e insumos al equipo técnico.</p>
+                    </div>
+
+                    <div class="alert alert-primary mt-5">
+                        <h5><i class="fas fa-check-double me-2"></i> Paso 4: Evaluación del Trabajo</h5>
+                        <p>No olvide que al finalizar una reparación, debe presionar el botón "Evaluar" para que el sistema sepa que la máquina está funcionando correctamente en producción.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="text-center text-muted mt-5 pb-5">
+            <hr>
+            <p>&copy; 2026 Corinfar CMMS - Sistema de Gestión de Mantenimiento<br>
+            <small>Documentación Confidencial para Uso Interno (Actualizado: Febrero 2026)</small></p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Handle broken images
+        document.querySelectorAll('img').forEach(img => {
+            img.onerror = function() {
+                this.style.display = 'none';
+                const p = document.createElement('p');
+                p.className = 'alert alert-danger';
+                p.innerHTML = '<i class="fas fa-image-slash me-2"></i> Error: No se pudo cargar la imagen "' + this.src.split('/').pop() + '". Verifique que la carpeta manual_images esté en la misma ubicación que este archivo.';
+                this.parentNode.insertBefore(p, this.nextSibling);
+            };
+        });
+
+        // Simple script to highlight active section in sidebar
+        window.addEventListener('scroll', () => {
+            let current = '';
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.sidebar a');
+
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').substring(1) === current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
