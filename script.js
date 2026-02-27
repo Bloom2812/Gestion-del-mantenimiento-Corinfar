@@ -495,6 +495,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.modals.machineDetail = new bootstrap.Modal(document.getElementById('machine-detail-modal'));
     state.modals.auditDetail = new bootstrap.Modal(document.getElementById('auditDetailModal'));
     state.modals.passwordConfirm = new bootstrap.Modal(document.getElementById('passwordConfirmModal'));
+    state.modals.variableName = new bootstrap.Modal(document.getElementById('variable-name-modal'));
     state.modals.partDetail = new bootstrap.Modal(document.getElementById('part-detail-modal'));
     state.modals.measurementHistory = new bootstrap.Modal(document.getElementById('measurement-history-modal'));
     
@@ -1003,7 +1004,15 @@ function setupEventListeners() {
     // Monitoring Config Listeners
     document.getElementById('m-config-cancel-btn').addEventListener('click', hideMonitoringConfig);
     document.getElementById('m-config-save-btn').addEventListener('click', handleSaveMonitoringConfig);
-    document.getElementById('m-config-add-var-btn').addEventListener('click', handleAddMonitoringVariable);
+    document.getElementById('m-config-add-var-btn').addEventListener('click', () => {
+        document.getElementById('new-variable-name').value = '';
+        state.modals.variableName.show();
+    });
+
+    document.getElementById('save-variable-name-btn').addEventListener('click', handleAddMonitoringVariable);
+    document.getElementById('new-variable-name').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleAddMonitoringVariable();
+    });
 
     // Threshold Inputs Listeners
     ['normal', 'warning', 'critical'].forEach(type => {
@@ -2864,6 +2873,7 @@ function showMachineModal(machineId = null) {
             document.getElementById('machine-type').value = machine.type || 'maquina';
             document.getElementById('machine-location').value = machine.location;
             document.getElementById('machine-criticidad').value = machine.criticidad || 'Baja';
+            document.getElementById('machine-monitoring-enabled').checked = machine.monitoringEnabled !== false;
             idInput.setAttribute('readonly', true);
 
             // New fields
@@ -2978,6 +2988,7 @@ async function handleMachineSubmit(e) {
         type: document.getElementById('machine-type').value,
         location: document.getElementById('machine-location').value,
         criticidad: document.getElementById('machine-criticidad').value,
+        monitoringEnabled: document.getElementById('machine-monitoring-enabled').checked,
         scheduleDisabled: document.getElementById('disable-schedule-check').checked,
         schedule: schedule,
         brand: document.getElementById('machine-brand')?.value || '',
@@ -11350,6 +11361,9 @@ function renderSmartMonitoring() {
         machinesToRender = machinesToRender.filter(m => m.location === state.monitoringLocationFilter);
     }
 
+    // Filter out machines with monitoring disabled
+    machinesToRender = machinesToRender.filter(m => m.monitoringEnabled !== false);
+
     if (machinesToRender.length === 0) {
         container.innerHTML = '<div class="col-12 text-center py-5 text-muted">No se encontraron equipos para monitorear.</div>';
         return;
@@ -11740,8 +11754,11 @@ async function handleSaveMonitoringConfig() {
 }
 
 function handleAddMonitoringVariable() {
-    const varName = prompt("Nombre de la nueva variable:");
-    if (!varName) return;
+    const varName = document.getElementById('new-variable-name').value.trim();
+    if (!varName) {
+        showToast('Ingrese un nombre para la variable', 'warning');
+        return;
+    }
 
     if (state.currentMonitoringConfig.variables.find(v => v.name === varName)) {
         showToast('Esta variable ya existe.', 'warning');
@@ -11759,6 +11776,7 @@ function handleAddMonitoringVariable() {
         }
     });
 
+    state.modals.variableName.hide();
     renderMonitoringConfigVariables();
     selectMonitoringVar(varName);
 }
