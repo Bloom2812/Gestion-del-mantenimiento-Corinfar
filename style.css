@@ -2377,16 +2377,162 @@ body.dark-mode .measurement-item:hover {
 }
 
 #monitoring-filters .filter-btn {
-    border-radius: 12px;
-    padding: 0.5rem 1.25rem;
     font-weight: 600;
-    border: none;
-    background-color: var(--card-bg);
     color: var(--text-color);
-    box-shadow: 0 2px 5px var(--shadow-color);
 }
 
 #monitoring-filters .filter-btn.active {
-    background-color: #f15a24 !important; /* Color naranja de la imagen */
-    color: white;
+    background-color: #f15a24 !important;
+    color: white !important;
+}
+
+/* --- Monitoring Configuration View Styles --- */
+.text-orange { color: #f15a24 !important; }
+.bg-orange { background-color: #f15a24 !important; color: white !important; }
+
+#monitoring-config-view {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--content-bg);
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#monitoring-config-view.d-none { display: none !important; }
+
+.m-config-var-card {
+    background-color: var(--card-bg);
+    border-radius: 15px;
+    border: 1px solid var(--border-color);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.m-config-var-card:hover {
+    transform: translateX(5px);
+    border-color: #f15a24;
+}
+
+.m-config-var-card.active {
+    border-color: #f15a24;
+    background-color: rgba(241, 90, 36, 0.03);
+    box-shadow: 0 4px 15px rgba(241, 90, 36, 0.1);
+}
+
+.m-config-var-icon {
+    width: 50px;
+    height: 50px;
+    background-color: #f8fafc;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: #64748b;
+    flex-shrink: 0;
+}
+
+body.dark-mode .m-config-var-icon {
+    background-color: rgba(255,255,255,0.05);
+}
+
+.m-config-var-info {
+    flex: 1;
+}
+
+.m-config-var-info h6 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.m-config-var-info p {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+/* Custom Toggle Switch (Orange) */
+.m-config-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.m-config-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.m-config-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #e2e8f0;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+body.dark-mode .m-config-slider {
+    background-color: #334155;
+}
+
+.m-config-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+.m-config-switch input:checked + .m-config-slider {
+    background-color: #f15a24;
+}
+
+.m-config-switch input:checked + .m-config-slider:before {
+    transform: translateX(20px);
+}
+
+#m-config-thresholds-card {
+    position: sticky;
+    top: 0;
+}
+
+.bg-success-subtle { background-color: rgba(16, 185, 129, 0.1) !important; }
+.bg-warning-subtle { background-color: rgba(245, 158, 11, 0.1) !important; }
+.bg-danger-subtle { background-color: rgba(239, 68, 68, 0.1) !important; }
+
+#monitoring-filters-wrapper .dropdown-toggle::after {
+    margin-left: 0.75rem;
+}
+
+#monitoring-filters-wrapper .dropdown-item {
+    border-radius: 8px;
+    margin: 2px 8px;
+    width: calc(100% - 16px);
+    font-weight: 500;
+}
+
+#monitoring-filters-wrapper .dropdown-item.active {
+    background-color: #f15a24 !important;
 }

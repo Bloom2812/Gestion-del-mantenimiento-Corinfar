@@ -75,7 +75,11 @@ const state = {
         partRequests: collection(db, `/artifacts/${appId}/public/data/partRequests`),
         settings: collection(db, `/artifacts/${appId}/public/data/settings`),
         auditLogs: collection(db, `/artifacts/${appId}/public/data/auditLogs`),
+        monitoringConfigs: collection(db, `/artifacts/${appId}/public/data/monitoringConfigs`),
     },
+    monitoringConfigs: [],
+    currentMonitoringConfig: null,
+    activeMonitoringVar: null,
     partMovements: [],
     partRequests: [],
         auditLogs: [],
@@ -702,6 +706,11 @@ function setupRealtimeListeners() {
         populateExecutionReportSelector();
     });
 
+    onSnapshot(query(state.collections.monitoringConfigs), snapshot => {
+        state.monitoringConfigs = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+        if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
+    });
+
     if (state.currentUser) {
         const solicitudesQuery = query(state.collections.solicitudes);
 
@@ -989,6 +998,17 @@ function setupEventListeners() {
     document.getElementById('refresh-monitoring-btn').addEventListener('click', () => {
         renderSmartMonitoring();
         document.getElementById('last-update-text').textContent = 'Actualizado hace un momento';
+    });
+
+    // Monitoring Config Listeners
+    document.getElementById('m-config-cancel-btn').addEventListener('click', hideMonitoringConfig);
+    document.getElementById('m-config-save-btn').addEventListener('click', handleSaveMonitoringConfig);
+    document.getElementById('m-config-add-var-btn').addEventListener('click', handleAddMonitoringVariable);
+
+    // Threshold Inputs Listeners
+    ['normal', 'warning', 'critical'].forEach(type => {
+        document.getElementById(`m-threshold-${type}-min`).addEventListener('input', updateActiveVarThresholds);
+        document.getElementById(`m-threshold-${type}-max`).addEventListener('input', updateActiveVarThresholds);
     });
 
     document.getElementById('technician-list').addEventListener('click', (e) => {
@@ -11317,7 +11337,7 @@ function renderSmartMonitoring() {
     state.machines.forEach(m => { if (m.location) locations.add(m.location); });
     renderSmartMonitoringFilters(Array.from(locations));
 
-    let machinesToRender = state.machines;
+    let machinesToRender = [...state.machines];
     if (state.currentUser?.role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
         const managedIds = new Set(state.currentUser.managedMachineIds);
         machinesToRender = state.machines.filter(m => managedIds.has(m.id));
@@ -11397,9 +11417,44 @@ function renderSmartMonitoring() {
                 }
                 if (latest.status === 'Alerta' || latest.status === 'Fallo') trend = 'alert';
 
+                // Get config for this variable
+                const config = state.monitoringConfigs.find(c => c.machineId === machine.id);
+                const varConfig = config?.variables?.find(v => v.name === key);
+
+                // Skip if explicitly disabled in config
+                if (varConfig && varConfig.enabled === false) return;
+
+                let currentStatus = latest.status;
+
+                // Apply custom thresholds if available
+                if (varConfig && varConfig.thresholds) {
+                    const val = latest.value;
+                    const t = varConfig.thresholds;
+
+                    const isInRange = (thr) => {
+                        if (!thr) return false;
+                        const min = thr.min !== "" ? parseFloat(thr.min) : null;
+                        const max = thr.max !== "" ? parseFloat(thr.max) : null;
+
+                        if (min !== null && max !== null) return val >= min && val <= max;
+                        if (min !== null) return val >= min;
+                        if (max !== null) return val <= max;
+                        return false;
+                    };
+
+                    if (isInRange(t.critical)) {
+                        currentStatus = 'Fallo';
+                    } else if (isInRange(t.warning)) {
+                        currentStatus = 'Alerta';
+                    } else if (isInRange(t.normal)) {
+                        currentStatus = 'Aprobó';
+                    }
+                }
+
                 latestMeasurements.push({
                     key: key,
                     ...latest,
+                    status: currentStatus,
                     trend: trend,
                     history: history
                 });
@@ -11448,9 +11503,11 @@ function renderSmartMonitoring() {
                     </div>
                     <div class="dropdown">
                         <button class="btn btn-link text-muted p-0" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v"></i></button>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#" onclick="showMachineDetail('${machine.fb_id}')">Ver Detalle</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="executeWorkPlanForMachine('${machine.id}')">Nuevo Plan</a></li>
+                        <ul class="dropdown-menu shadow border-0">
+                            <li><a class="dropdown-item" href="#" onclick="showMachineDetail('${machine.fb_id}')"><i class="fas fa-info-circle me-2"></i>Ver Detalle</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="executeWorkPlanForMachine('${machine.id}')"><i class="fas fa-play-circle me-2"></i>Nuevo Plan</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="showMonitoringConfig('${machine.id}')"><i class="fas fa-cog me-2"></i>Configuración</a></li>
                         </ul>
                     </div>
                 </div>
@@ -11479,22 +11536,231 @@ function renderSmartMonitoringFilters(locations) {
     if (!container) return;
 
     const currentFilter = state.monitoringLocationFilter;
-    container.innerHTML = `<button class="btn filter-btn ${currentFilter === 'all' ? 'active' : ''}" data-location="all">Todos</button>`;
+    const activeBtn = document.getElementById('active-location-filter');
+
+    container.innerHTML = `<li><button class="dropdown-item filter-btn ${currentFilter === 'all' ? 'active' : ''}" data-location="all">Todos</button></li>`;
 
     locations.sort().forEach(loc => {
-        const btn = document.createElement('button');
-        btn.className = `btn filter-btn ${currentFilter === loc ? 'active' : ''}`;
-        btn.dataset.location = loc;
-        btn.textContent = loc;
-        container.appendChild(btn);
+        const li = document.createElement('li');
+        li.innerHTML = `<button class="dropdown-item filter-btn ${currentFilter === loc ? 'active' : ''}" data-location="${loc}">${loc}</button>`;
+        container.appendChild(li);
     });
 
+    if (activeBtn) {
+        activeBtn.innerHTML = `<i class="fas fa-map-marker-alt me-2"></i> Área: ${currentFilter === 'all' ? 'Todos' : currentFilter}`;
+    }
+
     container.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
             state.monitoringLocationFilter = btn.dataset.location;
             renderSmartMonitoring();
         });
     });
+}
+
+async function showMonitoringConfig(machineId) {
+    const machine = state.machines.find(m => m.id === machineId);
+    if (!machine) return;
+
+    showLoading(true);
+
+    // Get current config or create default
+    let config = state.monitoringConfigs.find(c => c.machineId === machineId);
+    if (!config) {
+        config = {
+            machineId: machineId,
+            variables: []
+        };
+    }
+
+    // Ensure all variables from plans are present
+    const planVars = new Set();
+    state.workPlans.filter(p => p.machineId === machineId).forEach(p => {
+        (p.taskGroups || []).forEach(g => {
+            g.tasks.forEach(t => {
+                if (t.type === 'numeric') planVars.add(t.description);
+                else if (t.type === 'multi_numeric') {
+                    (t.fields || []).forEach(f => planVars.add(`${t.description} - ${f}`));
+                }
+            });
+        });
+    });
+
+    planVars.forEach(vName => {
+        if (!config.variables.find(v => v.name === vName)) {
+            config.variables.push({
+                name: vName,
+                enabled: true,
+                description: '',
+                thresholds: {
+                    normal: { min: "", max: "" },
+                    warning: { min: "", max: "" },
+                    critical: { min: "", max: "" }
+                }
+            });
+        }
+    });
+
+    state.currentMonitoringConfig = JSON.parse(JSON.stringify(config));
+    state.activeMonitoringVar = null;
+
+    document.getElementById('m-config-machine-name').textContent = machine.name;
+    document.getElementById('monitoring-config-view').classList.remove('d-none');
+
+    renderMonitoringConfigVariables();
+    clearThresholdInputs();
+
+    showLoading(false);
+}
+
+function hideMonitoringConfig() {
+    document.getElementById('monitoring-config-view').classList.add('d-none');
+    state.currentMonitoringConfig = null;
+    state.activeMonitoringVar = null;
+}
+
+function renderMonitoringConfigVariables() {
+    const container = document.getElementById('m-config-variables-container');
+    container.innerHTML = '';
+
+    const vars = state.currentMonitoringConfig.variables;
+
+    if (vars.length === 0) {
+        container.innerHTML = '<div class="text-center py-5 text-muted">No hay variables configuradas para este equipo.</div>';
+        return;
+    }
+
+    const varIcons = {
+        'temperatura': 'fa-thermometer-half',
+        'voltaje': 'fa-bolt',
+        'amperios': 'fa-bolt',
+        'presión': 'fa-compress-arrows-alt',
+        'aceite': 'fa-oil-can',
+        'motor': 'fa-clock',
+        'horas': 'fa-clock'
+    };
+
+    vars.forEach((v, idx) => {
+        const card = document.createElement('div');
+        card.className = `m-config-var-card ${state.activeMonitoringVar === v.name ? 'active' : ''}`;
+        card.onclick = () => selectMonitoringVar(v.name);
+
+        let iconClass = 'fa-chart-line';
+        const lowerName = v.name.toLowerCase();
+        for (const [key, icon] of Object.entries(varIcons)) {
+            if (lowerName.includes(key)) {
+                iconClass = icon;
+                break;
+            }
+        }
+
+        card.innerHTML = `
+            <div class="m-config-var-icon">
+                <i class="fas ${iconClass}"></i>
+            </div>
+            <div class="m-config-var-info">
+                <h6>${v.name}</h6>
+                <p>${v.description || 'Variable de monitoreo'}</p>
+            </div>
+            <label class="m-config-switch" onclick="event.stopPropagation()">
+                <input type="checkbox" ${v.enabled !== false ? 'checked' : ''} onchange="toggleMonitoringVar('${v.name.replace(/'/g, "\\'")}', this.checked)">
+                <span class="m-config-slider"></span>
+            </label>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function selectMonitoringVar(varName) {
+    state.activeMonitoringVar = varName;
+    renderMonitoringConfigVariables();
+
+    const v = state.currentMonitoringConfig.variables.find(v => v.name === varName);
+    document.getElementById('m-config-active-var-name').textContent = v.name;
+
+    const t = v.thresholds || {};
+    ['normal', 'warning', 'critical'].forEach(type => {
+        const tt = t[type] || { min: "", max: "" };
+        document.getElementById(`m-threshold-${type}-min`).value = tt.min;
+        document.getElementById(`m-threshold-${type}-max`).value = tt.max;
+    });
+}
+
+function toggleMonitoringVar(varName, enabled) {
+    const v = state.currentMonitoringConfig.variables.find(v => v.name === varName);
+    if (v) v.enabled = enabled;
+}
+
+function clearThresholdInputs() {
+    document.getElementById('m-config-active-var-name').textContent = 'Ninguna';
+    ['normal', 'warning', 'critical'].forEach(type => {
+        document.getElementById(`m-threshold-${type}-min`).value = "";
+        document.getElementById(`m-threshold-${type}-max`).value = "";
+    });
+}
+
+function updateActiveVarThresholds() {
+    if (!state.activeMonitoringVar) return;
+
+    const v = state.currentMonitoringConfig.variables.find(v => v.name === state.activeMonitoringVar);
+    if (!v) return;
+
+    if (!v.thresholds) v.thresholds = {};
+
+    ['normal', 'warning', 'critical'].forEach(type => {
+        v.thresholds[type] = {
+            min: document.getElementById(`m-threshold-${type}-min`).value,
+            max: document.getElementById(`m-threshold-${type}-max`).value
+        };
+    });
+}
+
+async function handleSaveMonitoringConfig() {
+    if (!state.currentMonitoringConfig) return;
+
+    showLoading(true);
+    try {
+        const config = state.currentMonitoringConfig;
+        const existing = state.monitoringConfigs.find(c => c.machineId === config.machineId);
+
+        if (existing) {
+            await updateDoc(doc(state.collections.monitoringConfigs, existing.fb_id), config);
+        } else {
+            await addDoc(state.collections.monitoringConfigs, config);
+        }
+
+        showToast('Configuración guardada correctamente.', 'success');
+        hideMonitoringConfig();
+    } catch (error) {
+        console.error("Error saving monitoring config:", error);
+        showToast('Error al guardar la configuración.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+function handleAddMonitoringVariable() {
+    const varName = prompt("Nombre de la nueva variable:");
+    if (!varName) return;
+
+    if (state.currentMonitoringConfig.variables.find(v => v.name === varName)) {
+        showToast('Esta variable ya existe.', 'warning');
+        return;
+    }
+
+    state.currentMonitoringConfig.variables.push({
+        name: varName,
+        enabled: true,
+        description: 'Variable personalizada',
+        thresholds: {
+            normal: { min: "", max: "" },
+            warning: { min: "", max: "" },
+            critical: { min: "", max: "" }
+        }
+    });
+
+    renderMonitoringConfigVariables();
+    selectMonitoringVar(varName);
 }
 
 async function showMeasurementHistory(machineId, measurementKey) {
@@ -11637,3 +11903,7 @@ window.showMeasurementHistory = showMeasurementHistory;
 window.createWorkOrderFromMonitoring = createWorkOrderFromMonitoring;
 window.executeWorkPlanForMachine = executeWorkPlanForMachine;
 window.switchTab = switchTab;
+window.showMonitoringConfig = showMonitoringConfig;
+window.hideMonitoringConfig = hideMonitoringConfig;
+window.selectMonitoringVar = selectMonitoringVar;
+window.toggleMonitoringVar = toggleMonitoringVar;
