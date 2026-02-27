@@ -139,9 +139,14 @@
 </header>
 <div class="tab-content d-none" id="monitoreo-inteligente">
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-        <div class="d-flex gap-2" id="monitoring-filters">
-            <button class="btn btn-primary filter-btn active" data-location="all">Todos</button>
-            <!-- Dinámicamente poblado con ubicaciones -->
+        <div class="dropdown" id="monitoring-filters-wrapper">
+            <button class="btn btn-outline-primary dropdown-toggle fw-bold" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="active-location-filter">
+                <i class="fas fa-map-marker-alt me-2"></i> Área: Todos
+            </button>
+            <ul class="dropdown-menu shadow border-0" id="monitoring-filters" style="min-width: 200px;">
+                <li><button class="dropdown-item filter-btn active" data-location="all">Todos</button></li>
+                <!-- Dinámicamente poblado con ubicaciones -->
+            </ul>
         </div>
         <div class="text-muted small">
             <span id="last-update-text">Actualizado hace un momento</span>
@@ -2242,6 +2247,116 @@
 <!-- Inlined script.js -->
 
 <script src="script.js" type="module"></script>
+
+<div id="monitoring-config-view" class="d-none">
+    <div class="execution-view-container">
+        <header class="execution-view-header">
+            <div class="d-flex align-items-center gap-3">
+                <div class="header-icon bg-orange">
+                    <i class="fas fa-sliders-h"></i>
+                </div>
+                <div>
+                    <h2 class="mb-0">Configuración de Monitoreo</h2>
+                    <div class="text-white-50 x-small fw-bold">Equipo: <span id="m-config-machine-name" class="text-white">---</span></div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button id="m-config-cancel-btn" class="btn btn-light btn-sm fw-bold shadow-sm">Cancelar</button>
+                <button id="m-config-save-btn" class="btn btn-primary btn-sm fw-bold shadow-sm ms-2" style="background-color: #f15a24 !important; border: none;">
+                    <i class="fas fa-save me-1"></i> Guardar Cambios
+                </button>
+            </div>
+        </header>
+
+        <main class="execution-view-content py-4">
+            <div class="container-fluid">
+                <div class="row g-4">
+                    <!-- Columna Izquierda: Variables -->
+                    <div class="col-lg-8">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0 fw-bold"><i class="fas fa-chart-line text-orange me-2"></i>Variables de Estado</h5>
+                            <button class="btn btn-link text-orange text-decoration-none fw-bold" id="m-config-add-var-btn">
+                                <i class="fas fa-plus-circle me-1"></i> Añadir Variable
+                            </button>
+                        </div>
+                        <div id="m-config-variables-container" class="d-flex flex-column gap-3">
+                            <!-- Variables list -->
+                        </div>
+                    </div>
+
+                    <!-- Columna Derecha: Umbrales y Consejos -->
+                    <div class="col-lg-4">
+                        <div class="card shadow-sm border-0 rounded-4 mb-4" id="m-config-thresholds-card">
+                            <div class="card-body p-4">
+                                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                                    <i class="fas fa-bullseye text-orange me-2"></i> Umbrales de Alerta
+                                </h6>
+                                <p class="text-muted x-small mb-3">
+                                    Seleccione una variable para configurar sus umbrales. <br>
+                                    <span class="fw-bold">Configurando:</span> <span id="m-config-active-var-name" class="text-orange">Ninguna</span>
+                                </p>
+
+                                <div id="m-config-thresholds-inputs">
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <label class="x-small fw-bold text-success"><i class="fas fa-check-circle me-1"></i> Normal</label>
+                                            <span class="badge bg-success-subtle text-success x-small">Rango Ideal</span>
+                                        </div>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" class="form-control" id="m-threshold-normal-min" placeholder="Min">
+                                            <input type="number" class="form-control" id="m-threshold-normal-max" placeholder="Max">
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <label class="x-small fw-bold text-warning"><i class="fas fa-exclamation-triangle me-1"></i> Advertencia</label>
+                                            <span class="badge bg-warning-subtle text-warning x-small">Atención</span>
+                                        </div>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" class="form-control" id="m-threshold-warning-min" placeholder="Min">
+                                            <input type="number" class="form-control" id="m-threshold-warning-max" placeholder="Max">
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <label class="x-small fw-bold text-danger"><i class="fas fa-times-circle me-1"></i> Crítico</label>
+                                            <span class="badge bg-danger-subtle text-danger x-small">Parada</span>
+                                        </div>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" class="form-control" id="m-threshold-critical-min" placeholder="Min">
+                                            <input type="number" class="form-control" id="m-threshold-critical-max" placeholder="Max">
+                                        </div>
+                                    </div>
+
+                                    <button class="btn btn-light btn-sm w-100 fw-bold text-orange py-2 rounded-3 border">
+                                        <i class="fas fa-bell me-2"></i> Configurar Notificaciones
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 rounded-4" style="background-color: #f15a24; color: white;">
+                            <div class="card-body p-4">
+                                <div class="d-flex gap-3">
+                                    <i class="fas fa-lightbulb fa-2x"></i>
+                                    <div>
+                                        <h6 class="fw-bold mb-2">Consejo Profesional</h6>
+                                        <p class="x-small mb-0 opacity-90">
+                                            Configura los umbrales críticos para que coincidan con las especificaciones del fabricante para evitar daños permanentes en el equipo.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
 <div id="plan-execution-view" class="d-none">
     <div class="execution-view-container">
         <header class="execution-view-header">
