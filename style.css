@@ -19,6 +19,7 @@
     --current-date-bg: #ffffff;
     --shadow-color: rgba(0,0,0,0.08);
     --transition-speed: 0.3s;
+    --hover-bg: #f1f2f6;
 }
 
 body.dark-mode {
@@ -38,6 +39,7 @@ body.dark-mode {
     --kanban-col-bg: #0f172a;
     --current-date-bg: #1e293b;
     --shadow-color: rgba(0,0,0,0.6);
+    --hover-bg: #334155;
 }
 
 body.dark-mode h1,
@@ -597,6 +599,11 @@ body.dark-mode .table-light {
     background-color: var(--input-bg);
     color: var(--input-color);
     border-color: var(--border-color);
+    transition: background-color var(--transition-speed), border-color var(--transition-speed);
+}
+
+.form-control:hover, .form-select:hover {
+    background-color: var(--hover-bg);
 }
 
 .form-control:focus, .form-select:focus {
@@ -2082,7 +2089,7 @@ body.dark-mode .card-header {
 }
 
 .dropdown-item:hover {
-    background-color: var(--sidebar-active-bg);
+    background-color: var(--hover-bg);
     color: var(--text-color);
 }
 
@@ -2101,7 +2108,7 @@ body.dark-mode .card-header {
 }
 
 #theme-toggle-btn:hover {
-    background: var(--sidebar-active-bg);
+    background: var(--hover-bg);
     transform: translateY(-1px);
 }
 
@@ -2292,11 +2299,7 @@ body.dark-mode .measurement-item {
 }
 
 .measurement-item:hover {
-    background-color: #f1f5f9;
-}
-
-body.dark-mode .measurement-item:hover {
-    background-color: rgba(255,255,255,0.08);
+    background-color: var(--hover-bg);
 }
 
 .measurement-label {
