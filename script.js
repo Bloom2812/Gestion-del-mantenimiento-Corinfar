@@ -1870,8 +1870,8 @@ function renderMachines() {
             wo.machineId === machineId &&
             ['En Proceso', 'Pausado'].includes(wo.status)
         );
-        const hasCorrective = activeOrders.some(wo => wo.type === 'Correctivo');
-        const hasPreventive = activeOrders.some(wo => wo.type === 'Preventivo');
+        const hasCorrective = activeOrders.some(wo => ['Correctivo', 'Emergencia', 'Calibración'].includes(wo.type));
+        const hasPreventive = activeOrders.some(wo => ['Preventivo', 'Predictivo', 'Mecanizado'].includes(wo.type));
 
         if (hasCorrective) return 'parada';
         if (hasPreventive) return 'mantenimiento';
@@ -1929,8 +1929,8 @@ function renderMachines() {
         // Solo contar órdenes que no hayan sido canceladas o rechazadas
         const machineOrders = state.workOrders.filter(wo => wo.machineId === machineId && !['Cancelado', 'Rechazado'].includes(wo.status));
         return {
-            correctivos: machineOrders.filter(wo => wo.type === 'Correctivo').length,
-            preventivos: machineOrders.filter(wo => wo.type === 'Preventivo').length
+            correctivos: machineOrders.filter(wo => ['Correctivo', 'Emergencia', 'Calibración'].includes(wo.type)).length,
+            preventivos: machineOrders.filter(wo => ['Preventivo', 'Predictivo', 'Mecanizado'].includes(wo.type)).length
         };
     };
 
@@ -9300,7 +9300,7 @@ function generateGlobalReport() {
 
             // 2. Calculate KPIs
             // 2.1. % de trabajo no planificado
-            const totalCorrective = ordersInPeriod.filter(o => o.type === 'Correctivo').length;
+            const totalCorrective = ordersInPeriod.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type)).length;
             const unplannedWorkPercentage = (totalCorrective / ordersInPeriod.length) * 100;
 
             // 2.2. Disponibilidad operacional
@@ -9308,7 +9308,7 @@ function generateGlobalReport() {
             const machineObjects = state.machines.filter(m => machinesInPeriod.includes(m.id));
             const scheduledUptimeMs = calculateScheduledUptimeMs(machineObjects, startDate, endDate);
 
-            const completedCorrectives = ordersInPeriod.filter(o => o.type === 'Correctivo' && o.status === 'Completado');
+            const completedCorrectives = ordersInPeriod.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type) && o.status === 'Completado');
             const totalDowntimeMs = completedCorrectives.reduce((sum, o) => sum + getTotalWorkDurationMs(o), 0);
 
             let operationalAvailability = 'N/A';
@@ -9319,7 +9319,7 @@ function generateGlobalReport() {
 
             // 2.3. Top 5 equipos problemáticos
             const correctiveCountsByMachine = ordersInPeriod
-                .filter(o => o.type === 'Correctivo')
+                .filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type))
                 .reduce((acc, order) => {
                     acc[order.machineId] = (acc[order.machineId] || 0) + 1;
                     return acc;
@@ -9380,7 +9380,7 @@ function generateGlobalReport() {
                 doc.setFont(undefined, 'bold');
                 doc.text(`${index + 1}. ${machine.name} (${machine.failures} fallos)`, 14, finalY + 10);
 
-                const machineOrders = ordersInPeriod.filter(o => o.machineId === machine.machineId && o.type === 'Correctivo');
+                const machineOrders = ordersInPeriod.filter(o => o.machineId === machine.machineId && ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type));
                 const body = machineOrders.map(o => {
                     const durationMs = getTotalWorkDurationMs(o);
                     const hours = (durationMs / (1000 * 60 * 60)).toFixed(2);
@@ -10235,8 +10235,8 @@ function updateStats(ordersThisPeriod) {
     updateMachineCriticidadChart();
     document.getElementById('stat-solicitudes').textContent = state.solicitudes.filter(s => s.status === 'Pendiente').length;
     
-    document.getElementById('stat-preventivos').textContent = ordersThisPeriod.filter(o => o.type === 'Preventivo').length;
-    document.getElementById('stat-correctivos').textContent = ordersThisPeriod.filter(o => o.type === 'Correctivo').length;
+    document.getElementById('stat-preventivos').textContent = ordersThisPeriod.filter(o => ['Preventivo', 'Predictivo', 'Mecanizado'].includes(o.type)).length;
+    document.getElementById('stat-correctivos').textContent = ordersThisPeriod.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type)).length;
     
     const f = new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' });
 
@@ -10266,7 +10266,7 @@ function calculateKpisForPeriod(ordersInPeriod, startDate, endDate, machineId = 
     };
 
     // MTBF & MTTR
-    const correctiveOrdersForPeriod = periodOrders.filter(o => o.type === 'Correctivo');
+    const correctiveOrdersForPeriod = periodOrders.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type));
 
     // MTBF actualizado: (Tiempo transcurrido en el periodo hasta hoy) / (Fallas + 1)
     const now = new Date();
@@ -10308,9 +10308,9 @@ function calculateKpisForPeriod(ordersInPeriod, startDate, endDate, machineId = 
     kpis.otsPlanned = plannedOrdersInPeriod.length;
     kpis.otsCompleted = completedOrdersInPeriod.length;
 
-    const preventivePlanned = periodOrders.filter(o => o.type === 'Preventivo').length;
+    const preventivePlanned = periodOrders.filter(o => ['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)).length;
     if (preventivePlanned > 0) {
-        const preventiveCompleted = completedOrdersInPeriod.filter(o => o.type === 'Preventivo').length;
+        const preventiveCompleted = completedOrdersInPeriod.filter(o => ['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)).length;
         kpis.pmp = (preventiveCompleted / preventivePlanned) * 100;
     }
 
@@ -12096,3 +12096,656 @@ window.selectMonitoringVar = selectMonitoringVar;
 window.toggleMonitoringVar = toggleMonitoringVar;
 window.saveWorkOrder = saveWorkOrder;
 window.handleKanbanWorkOrderAction = handleKanbanWorkOrderAction;
+
+// --- Executive Report Functions ---
+async function generateExecutiveReportData() {
+    const month = parseInt(document.getElementById('report-executive-month').value);
+    const year = parseInt(document.getElementById('report-executive-year').value);
+    const startDateInput = document.getElementById('report-executive-start-date').value;
+    const endDateInput = document.getElementById('report-executive-end-date').value;
+
+    let startDate, endDate, reportTitle;
+
+    if (startDateInput && endDateInput) {
+        startDate = new Date(startDateInput + 'T00:00:00');
+        endDate = new Date(endDateInput + 'T23:59:59');
+        reportTitle = `Periodo: ${startDate.toLocaleDateString()} al ${endDate.toLocaleDateString()}`;
+    } else {
+        if (isNaN(month) || isNaN(year)) {
+            showToast('Seleccione un mes/año o un rango de fechas.', 'error');
+            return;
+        }
+        startDate = new Date(year, month, 1);
+        endDate = new Date(year, month + 1, 0, 23, 59, 59);
+        const monthName = document.getElementById('report-executive-month').options[month].text;
+        reportTitle = `${monthName} ${year}`;
+    }
+
+    showLoading(true);
+    switchTab('executive-report-preview');
+
+    setTimeout(async () => {
+        try {
+            const data = await calculateExecutiveMetrics(startDate, endDate);
+            data.reportTitle = reportTitle;
+            data.startDate = startDate;
+            data.endDate = endDate;
+            renderExecutiveReportPreview(data);
+
+            document.getElementById('export-executive-excel-btn').onclick = () => exportExecutiveToExcel(data);
+            document.getElementById('export-executive-pdf-btn').onclick = () => exportExecutiveToPDF(data);
+        } catch (error) {
+            console.error("Error generating executive report:", error);
+            showToast('Error al generar el informe ejecutivo.', 'error');
+        } finally {
+            showLoading(false);
+        }
+    }, 500);
+}
+
+async function calculateExecutiveMetrics(startDate, endDate) {
+    const prevMonthStart = new Date(startDate);
+    prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
+    const prevMonthEnd = new Date(startDate.getTime() - 1);
+
+    const filterArea = document.getElementById('report-executive-area').value;
+    const filterCC = document.getElementById('report-executive-cost-center').value;
+    const filterType = document.getElementById('report-executive-type').value;
+
+    const applyFilters = (orders) => {
+        return orders.filter(o => {
+            const machine = state.machines.find(m => m.id === o.machineId);
+            const areaMatch = filterArea === 'all' || (machine && machine.location === filterArea);
+            const ccMatch = filterCC === 'all' || (machine && machine.centroCosto === filterCC);
+            const typeMatch = filterType === 'all' || o.type === filterType;
+            return areaMatch && ccMatch && typeMatch;
+        });
+    };
+
+    const ordersInPeriod = applyFilters(state.workOrders.filter(o => {
+        if (!o.date) return false;
+        const d = new Date(o.date + 'T12:00:00Z');
+        return d >= startDate && d <= endDate;
+    }));
+
+    const ordersPrevPeriod = applyFilters(state.workOrders.filter(o => {
+        if (!o.date) return false;
+        const d = new Date(o.date + 'T12:00:00Z');
+        return d >= prevMonthStart && d <= prevMonthEnd;
+    }));
+
+    const failureTypes = ['Correctivo', 'Emergencia', 'Calibración'];
+
+    // 1. Resumen General
+    const totalGenerated = ordersInPeriod.length;
+    const totalAttended = ordersInPeriod.filter(o => ['Completado', 'Pendiente de Evaluación', 'Pendiente de Aprobación'].includes(o.status)).length;
+    const pendingAtClose = ordersInPeriod.filter(o => ['Pendiente', 'En Proceso', 'Pausado'].includes(o.status)).length;
+
+    const byType = ordersInPeriod.reduce((acc, o) => {
+        acc[o.type] = (acc[o.type] || 0) + 1;
+        return acc;
+    }, {});
+
+    const byArea = ordersInPeriod.reduce((acc, o) => {
+        const machine = state.machines.find(m => m.id === o.machineId);
+        const area = machine?.location || 'Sin Área';
+        acc[area] = (acc[area] || 0) + 1;
+        return acc;
+    }, {});
+
+    // 2. Costos
+    const currentCosts = calculateTotalCostForMultiple(ordersInPeriod.filter(o => o.status === 'Completado'));
+    const prevCosts = calculateTotalCostForMultiple(ordersPrevPeriod.filter(o => o.status === 'Completado'));
+
+    const costByMachine = ordersInPeriod.filter(o => o.status === 'Completado').reduce((acc, o) => {
+        acc[o.machineId] = (acc[o.machineId] || 0) + calculateTotalCost(o);
+        return acc;
+    }, {});
+
+    const costByType = ordersInPeriod.filter(o => o.status === 'Completado').reduce((acc, o) => {
+        acc[o.type] = (acc[o.type] || 0) + calculateTotalCost(o);
+        return acc;
+    }, {});
+
+    // 3. KPIs
+    const kpis = calculateKpisForPeriod(ordersInPeriod, startDate, endDate);
+    const prevKpis = calculateKpisForPeriod(ordersPrevPeriod, prevMonthStart, prevMonthEnd);
+
+    let reincidenceCount = 0;
+    const sortedOrders = [...state.workOrders].sort((a,b) => new Date(a.date) - new Date(b.date));
+    ordersInPeriod.filter(o => failureTypes.includes(o.type)).forEach(order => {
+        const prevFailures = sortedOrders.filter(so =>
+            so.machineId === order.machineId &&
+            failureTypes.includes(so.type) &&
+            so.fb_id !== order.fb_id &&
+            new Date(so.date) < new Date(order.date) &&
+            (new Date(order.date) - new Date(so.date)) < (30 * 24 * 60 * 60 * 1000) &&
+            (so.failureType === order.failureType || (so.description && order.description && so.description.toLowerCase() === order.description.toLowerCase()))
+        );
+        if (prevFailures.length > 0) reincidenceCount++;
+    });
+
+    const completedInPeriod = ordersInPeriod.filter(o => o.status === 'Completado' && o.date && o.fechaFinalizacionReal);
+    let avgAttentionTimeHours = 0;
+    if (completedInPeriod.length > 0) {
+        const totalAttentionMs = completedInPeriod.reduce((sum, o) => {
+            const start = new Date(o.date + 'T00:00:00Z');
+            const end = new Date(o.fechaFinalizacionReal);
+            return sum + Math.max(0, end - start);
+        }, 0);
+        avgAttentionTimeHours = (totalAttentionMs / completedInPeriod.length) / (1000 * 60 * 60);
+    }
+
+    // 4. Análisis de Equipos Críticos
+    const criticalMachines = state.machines.filter(m => m.criticidad === 'Alta');
+    const machineAnalysis = criticalMachines.map(m => {
+        const mOrders = ordersInPeriod.filter(o => o.machineId === m.id);
+        const failures = mOrders.filter(o => failureTypes.includes(o.type));
+        const downtimeMs = failures.reduce((sum, o) => sum + getTotalWorkDurationMs(o), 0);
+
+        const causes = failures.reduce((acc, o) => {
+            const fType = o.type === 'Calibración' ? 'Falla de Operación' : (o.failureType || 'Otras');
+            acc[fType] = (acc[fType] || 0) + 1;
+            return acc;
+        }, {});
+        const mainCause = Object.entries(causes).sort((a,b) => b[1] - a[1])[0]?.[0] || 'N/A';
+
+        return {
+            id: m.id,
+            name: m.name,
+            failures: failures.length,
+            downtimeHours: downtimeMs / (1000 * 60 * 60),
+            mainCause,
+            cost: mOrders.filter(o => o.status === 'Completado').reduce((sum, o) => sum + calculateTotalCost(o), 0)
+        };
+    }).sort((a,b) => b.cost - a.cost);
+
+    // 5. Paros
+    const downtimeByArea = {};
+    ordersInPeriod.filter(o => failureTypes.includes(o.type)).forEach(o => {
+        const machine = state.machines.find(m => m.id === o.machineId);
+        const area = machine?.location || 'Sin Área';
+        const hours = getTotalWorkDurationMs(o) / (1000 * 60 * 60);
+        downtimeByArea[area] = (downtimeByArea[area] || 0) + hours;
+    });
+
+    return {
+        summary: { totalGenerated, totalAttended, pendingAtClose, byType, byArea },
+        costs: {
+            current: currentCosts,
+            prev: prevCosts,
+            variation: prevCosts.totalCost > 0 ? ((currentCosts.totalCost - prevCosts.totalCost) / prevCosts.totalCost) * 100 : 0,
+            byMachine: Object.entries(costByMachine).map(([id, cost]) => ({ id, name: state.machines.find(m => m.id === id)?.name || id, cost })).sort((a,b) => b.cost - a.cost),
+            byType: costByType
+        },
+        kpis: {
+            current: { ...kpis, reincidence: reincidenceCount, avgAttentionTime: avgAttentionTimeHours },
+            prev: { ...prevKpis, reincidence: 0, avgAttentionTime: 0 }
+        },
+        machineAnalysis,
+        downtime: {
+            byMachine: machineAnalysis.map(ma => ({ name: ma.name, hours: ma.downtimeHours, impact: ma.downtimeHours * (state.machines.find(m => m.id === ma.id)?.costoParoHora || 0) })).sort((a,b) => b.hours - a.hours),
+            byArea: Object.entries(downtimeByArea).map(([name, hours]) => ({ name, hours }))
+        }
+    };
+}
+
+function renderExecutiveReportPreview(data) {
+    const container = document.getElementById('executive-report-content');
+
+    const getTrendIcon = (curr, prev, higherIsBetter) => {
+        if (curr === null || prev === null) return '';
+        const diff = curr - prev;
+        if (Math.abs(diff) < 0.01) return '<i class="fas fa-minus text-muted ms-1"></i>';
+        const up = diff > 0;
+        const color = (up === higherIsBetter) ? 'text-success' : 'text-danger';
+        return `<i class="fas fa-arrow-${up ? 'up' : 'down'} ${color} ms-1"></i>`;
+    };
+
+    const getTrafficLight = (val, type, machineId = 'all') => {
+        if (type === 'mtbf') {
+            if (val < 15) return 'bg-danger';
+            if (val <= 19.9) return 'bg-warning text-dark';
+            return 'bg-success';
+        }
+        if (type === 'availability') return val >= 95 ? 'bg-success' : (val >= 90 ? 'bg-warning text-dark' : 'bg-danger');
+        if (type === 'pmp') return val >= 90 ? 'bg-success' : (val >= 75 ? 'bg-warning text-dark' : 'bg-danger');
+        return 'bg-secondary';
+    };
+
+    const formatKpiValue = (val, type) => {
+        if (val === null || val === undefined) return 'N/A';
+        if (type === 'mtbf' || type === 'mttr') return val.toFixed(1);
+        if (type === 'availability' || type === 'pmp') return val.toFixed(1) + '%';
+        return val;
+    };
+
+    container.innerHTML = `
+        <div class="row mb-4 border-bottom pb-3">
+            <div class="col-md-8">
+                <h3 class="text-primary fw-bold">RESUMEN EJECUTIVO DE MANTENIMIENTO</h3>
+                <h5 class="text-muted">${data.reportTitle}</h5>
+            </div>
+            <div class="col-md-4 text-end">
+                <p class="mb-0"><strong>Responsable:</strong> ${state.currentUser.username}</p>
+                <p class="mb-0"><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}</p>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-2">
+                <div class="card h-100 text-center border-0 bg-light shadow-sm">
+                    <div class="card-body">
+                        <small class="text-uppercase fw-bold text-muted d-block mb-1" title="${getKpiFormula('mtbf')}">MTBF (días)</small>
+                        <h3 class="mb-0">${formatKpiValue(data.kpis.current.mtbf, 'mtbf')}</h3>
+                        <div class="mt-2">
+                            <span class="badge ${getTrafficLight(data.kpis.current.mtbf, 'mtbf')}">Estado</span>
+                            ${getTrendIcon(data.kpis.current.mtbf, data.kpis.prev.mtbf, true)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card h-100 text-center border-0 bg-light shadow-sm">
+                    <div class="card-body">
+                        <small class="text-uppercase fw-bold text-muted d-block mb-1" title="${getKpiFormula('mttr')}">MTTR (horas)</small>
+                        <h3 class="mb-0">${formatKpiValue(data.kpis.current.mttr, 'mttr')}</h3>
+                        <div class="mt-2">
+                            ${getTrendIcon(data.kpis.current.mttr, data.kpis.prev.mttr, false)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card h-100 text-center border-0 bg-light shadow-sm">
+                    <div class="card-body">
+                        <small class="text-uppercase fw-bold text-muted d-block mb-1" title="${getKpiFormula('availability')}">Disponibilidad</small>
+                        <h3 class="mb-0">${formatKpiValue(data.kpis.current.availability, 'availability')}</h3>
+                        <div class="mt-2">
+                            <span class="badge ${getTrafficLight(data.kpis.current.availability, 'availability')}">Meta</span>
+                            ${getTrendIcon(data.kpis.current.availability, data.kpis.prev.availability, true)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card h-100 text-center border-0 bg-light shadow-sm">
+                    <div class="card-body">
+                        <small class="text-uppercase fw-bold text-muted d-block mb-1" title="${getKpiFormula('pmp')}">Cumplimiento PMP</small>
+                        <h3 class="mb-0">${formatKpiValue(data.kpis.current.pmp, 'pmp')}</h3>
+                        <div class="mt-2">
+                            <span class="badge ${getTrafficLight(data.kpis.current.pmp, 'pmp')}">Meta</span>
+                            ${getTrendIcon(data.kpis.current.pmp, data.kpis.prev.pmp, true)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card h-100 text-center border-0 bg-light shadow-sm">
+                    <div class="card-body">
+                        <small class="text-uppercase fw-bold text-muted d-block mb-1" title="${getKpiFormula('backlog')}">Backlog</small>
+                        <h3 class="mb-0">${data.summary.pendingAtClose}</h3>
+                        <p class="small text-muted mb-0">Órdenes Pendientes</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card h-100 text-center border-0 bg-light shadow-sm">
+                    <div class="card-body">
+                        <small class="text-uppercase fw-bold text-muted d-block mb-1" title="${getKpiFormula('reincidence')}">Reincidencia</small>
+                        <h3 class="mb-0">${data.kpis.current.reincidence}</h3>
+                        <p class="small text-muted mb-0">Repetición Fallas</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card h-100 text-center border-0 bg-light shadow-sm">
+                    <div class="card-body">
+                        <small class="text-uppercase fw-bold text-muted d-block mb-1" title="${getKpiFormula('attention')}">Tiempo Prom. Atención (Horas)</small>
+                        <h3 class="mb-0">${data.kpis.current.avgAttentionTime?.toFixed(1) || '0'}</h3>
+                        <div class="mt-2">
+                            ${getTrendIcon(data.kpis.current.avgAttentionTime, data.kpis.prev.avgAttentionTime, false)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h6 class="fw-bold border-start border-primary border-4 ps-2 mb-3">ANÁLISIS DE COSTOS</h6>
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr><th>Concepto</th><th class="text-end">Costo (Lps)</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Mano de Obra</td><td class="text-end">${formatCurrency(data.costs.current.laborCost)}</td></tr>
+                        <tr><td>Repuestos / Insumos</td><td class="text-end">${formatCurrency(data.costs.current.partsCost)}</td></tr>
+                        <tr><td>Servicios Externos</td><td class="text-end">${formatCurrency(data.costs.current.externalCost)}</td></tr>
+                        <tr class="table-info fw-bold">
+                            <td>COSTO TOTAL</td><td class="text-end">${formatCurrency(data.costs.current.totalCost)}</td>
+                        </tr>
+                        <tr>
+                            <td>Variación vs Periodo Ant.</td>
+                            <td class="text-end ${data.costs.variation > 0 ? 'text-danger' : 'text-success'}">
+                                ${data.costs.variation.toFixed(1)}% ${getTrendIcon(data.costs.current.totalCost, data.costs.prev.totalCost, false)}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <h6 class="fw-bold border-start border-primary border-4 ps-2 mb-3 mt-4">DISTRIBUCIÓN POR TIPO</h6>
+                <table class="table table-sm table-hover">
+                    <tbody>
+                        ${Object.entries(data.costs.byType).map(([type, cost]) => `<tr><td>${type}</td><td class="text-end">${formatCurrency(cost)}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6 class="fw-bold border-start border-primary border-4 ps-2 mb-3">RESUMEN OPERATIVO</h6>
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="p-2 border rounded bg-light">
+                            <small class="d-block text-muted">Generadas</small>
+                            <span class="h4 fw-bold">${data.summary.totalGenerated}</span>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 border rounded bg-light">
+                            <small class="d-block text-muted">Atendidas</small>
+                            <span class="h4 fw-bold">${data.summary.totalAttended}</span>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 border rounded bg-light">
+                            <small class="d-block text-muted">Pendientes</small>
+                            <span class="h4 fw-bold">${data.summary.pendingAtClose}</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="height: 200px;">
+                    <canvas id="executiveOrdersChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h6 class="fw-bold border-start border-primary border-4 ps-2 mb-3">RANKING EQUIPOS MÁS COSTOSOS</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr><th>Equipo</th><th class="text-end">Costo (Lps)</th></tr>
+                        </thead>
+                        <tbody>
+                            ${data.costs.byMachine.slice(0, 5).map(m => `<tr><td>${m.name}</td><td class="text-end">${formatCurrency(m.cost)}</td></tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h6 class="fw-bold border-start border-primary border-4 ps-2 mb-3">EQUIPOS CON MAYOR TIEMPO DE PARO</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr><th>Equipo</th><th class="text-end">Horas Paro</th><th class="text-end">Impacto Est.</th></tr>
+                        </thead>
+                        <tbody>
+                            ${data.downtime.byMachine.slice(0, 5).map(m => `<tr><td>${m.name}</td><td class="text-end">${m.hours.toFixed(1)}h</td><td class="text-end">${formatCurrency(m.impact)}</td></tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <h6 class="fw-bold border-start border-primary border-4 ps-2 mb-3">ANÁLISIS DE EQUIPOS CRÍTICOS</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Equipo</th>
+                                <th class="text-center">Num. Fallas</th>
+                                <th class="text-center">Tiempo Paro (h)</th>
+                                <th>Causa Principal</th>
+                                <th class="text-end">Costo Asociado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.machineAnalysis.map(ma => `
+                                <tr>
+                                    <td>${ma.name}</td>
+                                    <td class="text-center">${ma.failures}</td>
+                                    <td class="text-center">${ma.downtimeHours.toFixed(1)}</td>
+                                    <td>${ma.mainCause}</td>
+                                    <td class="text-end">${formatCurrency(ma.cost)}</td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="5" class="text-center">No hay equipos críticos registrados</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const ctx = document.getElementById('executiveOrdersChart').getContext('2d');
+    if (state.charts.executiveOrders) state.charts.executiveOrders.destroy();
+
+    state.charts.executiveOrders = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(data.summary.byType),
+            datasets: [{
+                label: 'Cant. Órdenes',
+                data: Object.values(data.summary.byType),
+                backgroundColor: ['#3498db', '#e74c3c', '#f1c40f', '#8e44ad', '#2ecc71', '#d35400']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+async function exportExecutiveToPDF(data) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const margin = 14;
+    const logoBase64 = typeof GLOBAL_LOGO !== 'undefined' ? GLOBAL_LOGO : "";
+
+    doc.setFillColor(30, 59, 138);
+    doc.rect(0, 0, 210, 40, 'F');
+
+    if (logoBase64) {
+        try { doc.addImage(logoBase64, 'PNG', margin, 7, 60, 20); } catch(e){}
+    }
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont(undefined, 'bold');
+    doc.text('INFORME MENSUAL EJECUTIVO', 200, 20, { align: 'right' });
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'normal');
+    doc.text(data.reportTitle, 200, 30, { align: 'right' });
+
+    doc.setTextColor(0, 0, 0);
+    let y = 50;
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('1. Resumen Ejecutivo', margin, y);
+    y += 10;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    const summaryText = `Durante el periodo ${data.reportTitle}, se gestionaron un total de ${data.summary.totalGenerated} órdenes de trabajo, de las cuales ${data.summary.totalAttended} fueron atendidas satisfactoriamente. Se cerró el periodo con ${data.summary.pendingAtClose} órdenes pendientes (Backlog). El costo total de mantenimiento ascendió a ${formatCurrency(data.costs.current.totalCost)}, representando una variación del ${data.costs.variation.toFixed(1)}% respecto al periodo anterior.`;
+    const splitSummary = doc.splitTextToSize(summaryText, 180);
+    doc.text(splitSummary, margin, y);
+    y += (splitSummary.length * 5) + 10;
+
+    doc.autoTable({
+        startY: y,
+        head: [['Indicador KPI', 'Valor Actual', 'Tendencia', 'Meta']],
+        body: [
+            ['Disponibilidad (%)', `${data.kpis.current.availability?.toFixed(1) || '0'}%`, data.kpis.current.availability > data.kpis.prev.availability ? 'Mejora' : 'Descenso', '95%'],
+            ['MTBF (días)', data.kpis.current.mtbf?.toFixed(1) || 'N/A', data.kpis.current.mtbf > data.kpis.prev.mtbf ? 'Mejora' : 'Descenso', '20-30'],
+            ['MTTR (horas)', data.kpis.current.mttr?.toFixed(1) || 'N/A', data.kpis.current.mttr < data.kpis.prev.mttr ? 'Mejora' : 'Descenso', '< 4h'],
+            ['Cumplimiento PMP (%)', `${data.kpis.current.pmp?.toFixed(1) || '0'}%`, data.kpis.current.pmp > data.kpis.prev.pmp ? 'Mejora' : 'Descenso', '90%'],
+            ['Reincidencia de Fallas', data.kpis.current.reincidence, '-', '0']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [44, 62, 80] }
+    });
+    y = doc.autoTable.previous.finalY + 15;
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('2. Análisis de Costos', margin, y);
+    y += 7;
+    doc.autoTable({
+        startY: y,
+        head: [['Categoría', 'Monto (Lps)', '% del Total']],
+        body: [
+            ['Mano de Obra', formatCurrency(data.costs.current.laborCost), `${((data.costs.current.laborCost / data.costs.current.totalCost)*100 || 0).toFixed(1)}%`],
+            ['Repuestos', formatCurrency(data.costs.current.partsCost), `${((data.costs.current.partsCost / data.costs.current.totalCost)*100 || 0).toFixed(1)}%`],
+            ['Servicios Externos', formatCurrency(data.costs.current.externalCost), `${((data.costs.current.externalCost / data.costs.current.totalCost)*100 || 0).toFixed(1)}%`],
+            ['TOTAL', formatCurrency(data.costs.current.totalCost), '100%']
+        ],
+        theme: 'striped'
+    });
+    y = doc.autoTable.previous.finalY + 15;
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('3. Rankings de Desempeño', margin, y);
+    y += 7;
+
+    const rankingData = [];
+    const maxRank = Math.max(data.costs.byMachine.length, data.downtime.byMachine.length);
+    for (let i = 0; i < Math.min(maxRank, 10); i++) {
+        rankingData.push([
+            i + 1,
+            data.costs.byMachine[i]?.name || '-',
+            formatCurrency(data.costs.byMachine[i]?.cost || 0),
+            data.downtime.byMachine[i]?.name || '-',
+            (data.downtime.byMachine[i]?.hours || 0).toFixed(1) + ' h'
+        ]);
+    }
+
+    doc.autoTable({
+        startY: y,
+        head: [['#', 'Equipo (Más Costoso)', 'Costo', 'Equipo (Mayor Paro)', 'Horas Paro']],
+        body: rankingData,
+        theme: 'striped',
+        headStyles: { fillColor: [127, 140, 141] }
+    });
+    y = doc.autoTable.previous.finalY + 15;
+
+    if (y > 200) { doc.addPage(); y = 20; }
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('4. Análisis de Equipos Críticos', margin, y);
+    y += 7;
+    doc.autoTable({
+        startY: y,
+        head: [['Equipo', 'Fallas', 'Paro (h)', 'Causa Principal', 'Costo Asociado']],
+        body: data.machineAnalysis.map(ma => [ma.name, ma.failures, ma.downtimeHours.toFixed(1), ma.mainCause, formatCurrency(ma.cost)]),
+        theme: 'grid',
+        headStyles: { fillColor: [30, 59, 138] }
+    });
+
+    y = doc.autoTable.previous.finalY + 15;
+    if (y > 220) { doc.addPage(); y = 20; }
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('5. Análisis de Paros por Área', margin, y);
+    y += 7;
+    doc.autoTable({
+        startY: y,
+        head: [['Área / Ubicación', 'Total Horas Paro']],
+        body: data.downtime.byArea.map(a => [a.name, a.hours.toFixed(1) + ' h']),
+        theme: 'striped'
+    });
+
+    const pageCount = doc.internal.getNumberOfPages();
+    for(let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(`CORINFAR CMMS - Informe Ejecutivo - Página ${i} de ${pageCount}`, margin, 285);
+        doc.text(`Fecha Emisión: ${new Date().toLocaleString()}`, 200, 285, { align: 'right' });
+    }
+
+    doc.save(`Informe_Ejecutivo_${data.reportTitle.replace(/\s/g, '_')}.pdf`);
+}
+
+function exportExecutiveToExcel(data) {
+    const wb = XLSX.utils.book_new();
+
+    const summaryData = [
+        ["INFORME MENSUAL EJECUTIVO"],
+        ["Periodo", data.reportTitle],
+        ["Emitido por", state.currentUser.username],
+        ["Fecha Emisión", new Date().toLocaleString()],
+        [],
+        ["INDICADORES KPI", "Valor", "Meta"],
+        ["MTBF (días)", data.kpis.current.mtbf || 0, "20-30"],
+        ["MTTR (horas)", data.kpis.current.mttr || 0, "< 4"],
+        ["Disponibilidad (%)", data.kpis.current.availability || 0, "95%"],
+        ["Cumplimiento PMP (%)", data.kpis.current.pmp || 0, "90%"],
+        ["Reincidencia", data.kpis.current.reincidence, "0"],
+        ["Tiempo Prom. Atención (h)", data.kpis.current.avgAttentionTime || 0, "-"],
+        [],
+        ["RESUMEN OPERATIVO", "Cantidad"],
+        ["OT Generadas", data.summary.totalGenerated],
+        ["OT Atendidas", data.summary.totalAttended],
+        ["Backlog (Pendientes)", data.summary.pendingAtClose],
+    ];
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen y KPIs");
+
+    const costData = [
+        ["ANÁLISIS DE COSTOS", "Monto (Lps)"],
+        ["Mano de Obra", data.costs.current.laborCost],
+        ["Repuestos", data.costs.current.partsCost],
+        ["Servicios Externos", data.costs.current.externalCost],
+        ["COSTO TOTAL", data.costs.current.totalCost],
+        ["Variación vs Anterior (%)", data.costs.variation],
+        [],
+        ["COSTO POR EQUIPO (TOP 20)", "Costo (Lps)"],
+        ...data.costs.byMachine.slice(0, 20).map(m => [m.name, m.cost])
+    ];
+    const wsCosts = XLSX.utils.aoa_to_sheet(costData);
+    XLSX.utils.book_append_sheet(wb, wsCosts, "Costos");
+
+    const assetData = [
+        ["ANÁLISIS DE EQUIPOS CRÍTICOS", "Fallas", "Horas Paro", "Causa Principal", "Costo"],
+        ...data.machineAnalysis.map(ma => [ma.name, ma.failures, ma.downtimeHours, ma.mainCause, ma.cost]),
+        [],
+        ["PAROS POR ÁREA", "Horas Totales"],
+        ...data.downtime.byArea.map(a => [a.name, a.hours])
+    ];
+    const wsAssets = XLSX.utils.aoa_to_sheet(assetData);
+    XLSX.utils.book_append_sheet(wb, wsAssets, "Análisis Equipos");
+
+    XLSX.writeFile(wb, `Informe_Ejecutivo_${data.reportTitle.replace(/\s/g, '_')}.xlsx`);
+}
+
+function getKpiFormula(type) {
+    const formulas = {
+        'mtbf': 'MTBF = (Tiempo Operativo Total) / (Número de Fallas)',
+        'mttr': 'MTTR = (Tiempo Total de Reparación) / (Número de Reparaciones)',
+        'availability': 'Disponibilidad = [(Tiempo Programado - Tiempo Parada) / Tiempo Programado] x 100',
+        'pmp': 'Cumplimiento PMP = (Mantenimientos Preventivos Completados / Programados) x 100',
+        'backlog': 'Backlog = Órdenes de trabajo pendientes al cierre del periodo',
+        'attention': 'Tiempo Atención = Promedio de tiempo desde creación hasta finalización de OT',
+        'reincidence': 'Reincidencia = Cantidad de fallas repetidas en el mismo equipo en < 30 días'
+    };
+    return formulas[type] || '';
+}
+
+window.generateExecutiveReportData = generateExecutiveReportData;
+window.switchTab = switchTab;
