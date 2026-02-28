@@ -6736,6 +6736,39 @@ async function handleKanbanWorkOrderAction(workOrderFbId, newStatus) {
             updates.fechaInicioReal = now.toISOString();
             // Actualizar la fecha principal de la orden a la fecha local actual para que se mueva en el planificador
             updates.date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+            // Filtrar repuestos sin stock al iniciar la orden desde Kanban
+            let removedParts = [];
+            let adjustedParts = [];
+            const processedParts = [];
+
+            for (const item of (orderData.partsUsed || [])) {
+                const part = state.parts.find(p => p.id === item.partId);
+                const stock = part ? (part.stock || 0) : 0;
+
+                if (stock <= 0) {
+                    removedParts.push(part ? part.description : item.partId);
+                } else {
+                    let finalQty = item.quantity;
+                    if (stock < item.quantity) {
+                        finalQty = stock;
+                        adjustedParts.push(`${part ? part.description : item.partId} (ajustado de ${item.quantity} a ${stock})`);
+                    }
+                    processedParts.push({ ...item, quantity: finalQty });
+                }
+            }
+
+            if (removedParts.length > 0 || adjustedParts.length > 0) {
+                updates.partsUsed = processedParts;
+                let note = "\n\nNota del Sistema (Inicio de OT desde Kanban):";
+                if (removedParts.length > 0) {
+                    note += `\n- Se eliminaron por falta de stock: ${removedParts.join(', ')}.`;
+                }
+                if (adjustedParts.length > 0) {
+                    note += `\n- Se ajustó cantidad por stock insuficiente: ${adjustedParts.join(', ')}.`;
+                }
+                updates.observaciones = (orderData.observaciones || "") + note;
+            }
         }
 
         let workIntervals = orderData.workIntervals ? JSON.parse(JSON.stringify(orderData.workIntervals)) : [];
@@ -7935,6 +7968,41 @@ async function saveWorkOrder(updates = {}) {
 
         if (isFirstStart) {
             orderData.id = generateNextId('MA'); // Assign active ID
+
+            // Filtrar repuestos sin stock al iniciar la orden
+            let removedParts = [];
+            let adjustedParts = [];
+            const processedParts = [];
+
+            for (const item of (orderData.partsUsed || [])) {
+                const part = state.parts.find(p => p.id === item.partId);
+                const stock = part ? (part.stock || 0) : 0;
+
+                if (stock <= 0) {
+                    removedParts.push(part ? part.description : item.partId);
+                } else {
+                    let finalQty = item.quantity;
+                    if (stock < item.quantity) {
+                        finalQty = stock;
+                        adjustedParts.push(`${part ? part.description : item.partId} (ajustado de ${item.quantity} a ${stock})`);
+                    }
+                    processedParts.push({ ...item, quantity: finalQty });
+                }
+            }
+
+            if (removedParts.length > 0 || adjustedParts.length > 0) {
+                orderData.partsUsed = processedParts;
+                let note = "\n\nNota del Sistema (Inicio de OT):";
+                if (removedParts.length > 0) {
+                    note += `\n- Se eliminaron por falta de stock: ${removedParts.join(', ')}.`;
+                }
+                if (adjustedParts.length > 0) {
+                    note += `\n- Se ajustó cantidad por stock insuficiente: ${adjustedParts.join(', ')}.`;
+                }
+                orderData.observaciones = (orderData.observaciones || "") + note;
+                const obsTextarea = document.getElementById('wo-observaciones');
+                if (obsTextarea) obsTextarea.value = orderData.observaciones;
+            }
         } else if (isNew) {
             orderData.id = generateNextId('MP'); // Assign planned ID
         }
@@ -12021,3 +12089,5 @@ window.showMonitoringConfig = showMonitoringConfig;
 window.hideMonitoringConfig = hideMonitoringConfig;
 window.selectMonitoringVar = selectMonitoringVar;
 window.toggleMonitoringVar = toggleMonitoringVar;
+window.saveWorkOrder = saveWorkOrder;
+window.handleKanbanWorkOrderAction = handleKanbanWorkOrderAction;
