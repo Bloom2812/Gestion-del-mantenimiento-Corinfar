@@ -1298,7 +1298,7 @@ function resetSessionTimeout() {
     if (state.currentUser) {
         sessionTimeout = setTimeout(() => {
             handleLogout(true);
-        }, 15 * 60 * 1000); // 15 minutos de inactividad
+        }, 5 * 60 * 1000); // 5 minutos de inactividad
     }
 }
 ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(name => {
@@ -6078,6 +6078,11 @@ async function handleFinishPlanExecution() {
     }
 
     showConfirmation('Finalizar Plan', '¿Está seguro? Esto completará la ejecución y enviará la orden a evaluación técnica.', async () => {
+        const confirmed = await new Promise(resolve => {
+            requestSignature(() => resolve(true), () => resolve(false));
+        });
+        if (!confirmed) return;
+
         showLoading(true);
         try {
             const now = new Date().toISOString();
@@ -7930,9 +7935,10 @@ async function saveWorkOrder(updates = {}) {
         const oldStatus = existingOrder.status;
         let newStatus = orderData.status;
 
-        // 21 CFR Part 11: Re-autenticación para firma electrónica al completar/evaluar
+        // 21 CFR Part 11: Re-autenticación para firma electrónica al completar/evaluar o validar
         const isFinishing = (newStatus === 'Pendiente de Evaluación' || newStatus === 'Completado' || newStatus === 'Pendiente de Aprobación');
-        if (isFinishing && oldStatus !== newStatus) {
+        const isValidating = !existingOrder.validatedBy && orderData.validatedBy;
+        if ((isFinishing && oldStatus !== newStatus) || isValidating) {
             const confirmed = await new Promise(resolve => {
                 requestSignature(() => resolve(true), () => resolve(false));
             });
