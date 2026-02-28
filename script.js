@@ -10392,17 +10392,16 @@ function updateComparison(kpiName, current, previous, higherIsBetter) {
 function updateCharts(ordersForPeriod) {
     if (!state.charts.maintenance) return;
 
-    const preventiveCount = ordersForPeriod.filter(o => o.type === 'Preventivo').length;
-    const correctiveCount = ordersForPeriod.filter(o => o.type === 'Correctivo').length;
+    const preventiveCount = ordersForPeriod.filter(o => ['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)).length;
+    const correctiveCount = ordersForPeriod.filter(o => ['Correctivo', 'Emergencia'].includes(o.type)).length;
     state.charts.maintenance.data.datasets[0].data = [preventiveCount, correctiveCount];
     state.charts.maintenance.update();
 
-    const correctiveOrdersForPeriod = ordersForPeriod.filter(o => o.type === 'Correctivo');
     const failureCounts = {
-        'Mecánica': correctiveOrdersForPeriod.filter(o => o.failureType === 'Mecánica').length,
-        'Eléctrica': correctiveOrdersForPeriod.filter(o => o.failureType === 'Eléctrica').length,
-        'Electrónica': correctiveOrdersForPeriod.filter(o => o.failureType === 'Electrónica').length,
-        'Falla de Operación': correctiveOrdersForPeriod.filter(o => o.failureType === 'Falla de Operación').length,
+        'Mecánica': ordersForPeriod.filter(o => o.failureType === 'Mecánica').length,
+        'Eléctrica': ordersForPeriod.filter(o => o.failureType === 'Eléctrica').length,
+        'Electrónica': ordersForPeriod.filter(o => o.failureType === 'Electrónica').length,
+        'Falla de Operación': ordersForPeriod.filter(o => o.failureType === 'Falla de Operación' || o.type === 'Calibración').length,
     };
     state.charts.failureType.data.datasets[0].data = Object.values(failureCounts);
     state.charts.failureType.update();
