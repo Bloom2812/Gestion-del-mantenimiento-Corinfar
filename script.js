@@ -993,6 +993,7 @@ function setupEventListeners() {
     document.getElementById('generate-machine-parts-report-btn').addEventListener('click', generateMachinePartsReport);
     document.getElementById('generate-single-wo-report-btn').addEventListener('click', generateSingleWorkOrderReport);
     document.getElementById('generate-global-report-btn').addEventListener('click', generateGlobalReport);
+    document.getElementById('generate-executive-report-btn').addEventListener('click', generateExecutiveReportData);
     document.getElementById('generate-execution-report-btn').addEventListener('click', generateExecutionReportPDF);
     document.getElementById('generate-technician-performance-report-btn').addEventListener('click', generateTechnicianPerformanceReport);
     document.getElementById('backup-db-btn').addEventListener('click', downloadBackup);
@@ -1522,6 +1523,8 @@ function populateDateSelectors() {
     const yearSelect = document.getElementById('dashboardYear');
     const globalMonthSelect = document.getElementById('report-global-month');
     const globalYearSelect = document.getElementById('report-global-year');
+    const executiveMonthSelect = document.getElementById('report-executive-month');
+    const executiveYearSelect = document.getElementById('report-executive-year');
     // REMOVED: const techMonthSelect = document.getElementById('report-technician-month');
     // REMOVED: const techYearSelect = document.getElementById('report-technician-year');
     const dateSelect = document.getElementById('dashboardDate');
@@ -1583,6 +1586,56 @@ function populateDateSelectors() {
                 option.selected = true;
             }
             globalMonthSelect.appendChild(option);
+        });
+    }
+
+    if (executiveMonthSelect) {
+        executiveMonthSelect.innerHTML = '';
+        months.forEach((month, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = month;
+            if (index === currentMonth) {
+                option.selected = true;
+            }
+            executiveMonthSelect.appendChild(option);
+        });
+    }
+
+    if (executiveYearSelect) {
+        executiveYearSelect.innerHTML = '';
+        for (let i = currentYear + 1; i >= currentYear - 5; i--) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            if (i === currentYear) {
+                option.selected = true;
+            }
+            executiveYearSelect.appendChild(option);
+        }
+    }
+
+    const executiveAreaSelect = document.getElementById('report-executive-area');
+    if (executiveAreaSelect) {
+        const areas = [...new Set(state.machines.map(m => m.location).filter(Boolean))].sort();
+        executiveAreaSelect.innerHTML = '<option value="all">Todas las Áreas</option>';
+        areas.forEach(area => {
+            const option = document.createElement('option');
+            option.value = area;
+            option.textContent = area;
+            executiveAreaSelect.appendChild(option);
+        });
+    }
+
+    const executiveCCSelect = document.getElementById('report-executive-cost-center');
+    if (executiveCCSelect) {
+        const ccs = [...new Set(state.machines.map(m => m.centroCosto).filter(Boolean))].sort();
+        executiveCCSelect.innerHTML = '<option value="all">Todos los Centros de Costo</option>';
+        ccs.forEach(cc => {
+            const option = document.createElement('option');
+            option.value = cc;
+            option.textContent = cc;
+            executiveCCSelect.appendChild(option);
         });
     }
 
@@ -2073,8 +2126,8 @@ function showMachineDetail(machineId) {
 
     // Status Logic
     const activeOrders = state.workOrders.filter(wo => wo.machineId === machineId && ['En Proceso', 'Pausado'].includes(wo.status));
-    const hasCorrective = activeOrders.some(wo => wo.type === 'Correctivo');
-    const hasPreventive = activeOrders.some(wo => wo.type === 'Preventivo');
+    const hasCorrective = activeOrders.some(wo => ['Correctivo', 'Emergencia', 'Calibración'].includes(wo.type));
+    const hasPreventive = activeOrders.some(wo => ['Preventivo', 'Predictivo', 'Mecanizado'].includes(wo.type));
 
     let statusLabel = 'Operativo / Calificado';
     let statusClass = 'success';
@@ -2096,7 +2149,7 @@ function showMachineDetail(machineId) {
 
     // History and Parts
     const orders = state.workOrders
-        .filter(wo => wo.machineId === machineId && wo.type === 'Preventivo')
+        .filter(wo => wo.machineId === machineId && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(wo.type))
         .sort((a, b) => new Date((b.date || '1970-01-01') + 'T12:00:00Z') - new Date((a.date || '1970-01-01') + 'T12:00:00Z'))
         .slice(0, 5);
 
@@ -2255,7 +2308,7 @@ function showMachineDetail(machineId) {
                                                 <tr>
                                                     <td class="small fw-bold">${o.id}</td>
                                                     <td class="small">${o.date || 'N/A'}</td>
-                                                    <td><span class="badge ${o.type === 'Preventivo' ? 'bg-info' : 'bg-danger'}" style="font-size: 0.6rem;">${o.type}</span></td>
+                                                    <td><span class="badge ${['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(o.type) ? 'bg-info' : 'bg-danger'}" style="font-size: 0.6rem;">${o.type}</span></td>
                                                     <td class="small">${o.leadTechnician || (o.technicians && o.technicians[0]) || 'N/A'}</td>
                                                     <td><span class="badge ${statusClass}" style="font-size: 0.6rem;">${o.status}</span></td>
                                                     <td>
@@ -2339,6 +2392,7 @@ function showMachineDetail(machineId) {
                 </div>
             </div>
         </div>
+
     `;
 
     // Re-attach listeners for buttons inside the modal
@@ -2618,8 +2672,8 @@ async function generateFichaMaestra(machineId) {
 
     // Status Badge
     const activeOrders = state.workOrders.filter(wo => wo.machineId === machineId && ['En Proceso', 'Pausado'].includes(wo.status));
-    const hasCorrective = activeOrders.some(wo => wo.type === 'Correctivo');
-    const hasPreventive = activeOrders.some(wo => wo.type === 'Preventivo');
+    const hasCorrective = activeOrders.some(wo => ['Correctivo', 'Emergencia', 'Calibración'].includes(wo.type));
+    const hasPreventive = activeOrders.some(wo => ['Preventivo', 'Predictivo', 'Mecanizado'].includes(wo.type));
 
     let statusText = '● Operativo';
     let statusColorClass = 'bg-green-100 text-green-800';
@@ -2642,7 +2696,7 @@ async function generateFichaMaestra(machineId) {
         o.machineId === machineId &&
         new Date(o.date || o.createdAt) >= startOfMonth
     );
-    const correctiveOrders = machineWorkOrders.filter(o => o.type === 'Correctivo');
+    const correctiveOrders = machineWorkOrders.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type));
 
     let mtbf = 'N/A';
     let calcStartDate = startOfMonth;
@@ -2698,7 +2752,7 @@ async function generateFichaMaestra(machineId) {
 
     // History Table
     const recentOrders = [...machineWorkOrders]
-        .filter(o => o.type === 'Preventivo')
+        .filter(o => ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(o.type))
         .sort((a, b) => new Date(b.date || '1970-01-01') - new Date(a.date || '1970-01-01'))
         .slice(0, 5);
 
@@ -2706,7 +2760,7 @@ async function generateFichaMaestra(machineId) {
         <tr>
             <td class="px-3 py-1.5 font-medium border-b border-slate-100">${o.id}</td>
             <td class="px-3 py-1.5 border-b border-slate-100">${new Date(o.date + 'T12:00:00Z').toLocaleDateString('es-ES')}</td>
-            <td class="px-3 py-1.5 border-b border-slate-100 ${o.type === 'Preventivo' ? 'text-green-600' : 'text-red-600'} font-medium italic">${o.type}</td>
+            <td class="px-3 py-1.5 border-b border-slate-100 ${['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(o.type) ? 'text-green-600' : 'text-red-600'} font-medium italic">${o.type}</td>
         </tr>
     `).join('') || '<tr><td colspan="3" class="px-3 py-1.5 text-center text-slate-400">Sin historial registrado</td></tr>';
 
@@ -2881,6 +2935,8 @@ function showMachineModal(machineId = null) {
             document.getElementById('machine-model').value = machine.model || '';
             document.getElementById('machine-serial').value = machine.serialNumber || '';
             document.getElementById('machine-risk').value = machine.riskClassification || '';
+            document.getElementById('machine-centro-costo').value = machine.centroCosto || 'General';
+            document.getElementById('machine-costo-paro').value = machine.costoParoHora || 0;
 
             // Mostrar estado de archivos actuales
             if (machine.imageUrl) {
@@ -2997,6 +3053,8 @@ async function handleMachineSubmit(e) {
         riskClassification: document.getElementById('machine-risk')?.value || '',
         purchaseDate: document.getElementById('machine-purchase-date')?.value || '',
         commissioningDate: document.getElementById('machine-commissioning-date')?.value || '',
+        centroCosto: document.getElementById('machine-centro-costo')?.value || 'General',
+        costoParoHora: parseFloat(document.getElementById('machine-costo-paro')?.value) || 0,
         iqStatus: document.getElementById('machine-iq-status')?.checked || false,
         iqDate: document.getElementById('machine-iq-date')?.value || '',
         oqStatus: document.getElementById('machine-oq-status')?.checked || false,
@@ -4783,7 +4841,7 @@ function showEvaluationModal(workOrderId) {
     }
 
     // Bloquear evaluación si es de plan o de solicitud y no ha sido validada por el planificador
-    const isPlanOrder = workOrder.type === 'Preventivo' || workOrder.linkedPlanId;
+    const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(workOrder.type) || workOrder.linkedPlanId;
     const hasRequest = workOrder.solicitudId || workOrder.sourceSolicitudId;
     if ((isPlanOrder || hasRequest) && !workOrder.validatedBy) {
         showToast('Esta orden debe ser validada por el Planificador antes de proceder a la evaluación.', 'warning');
@@ -4807,7 +4865,7 @@ function showEvaluationModal(workOrderId) {
         else if (!hasJfEval) evaluatingRole = 'Jefe de Area';
         else evaluatingRole = 'Jefe de Area'; // Por defecto vista de Jefe
     } else {
-        const isJefeCandidate = (userRole === 'Jefe de Area' || (userRole === 'Planificador' && workOrder.type === 'Preventivo'));
+        const isJefeCandidate = (userRole === 'Jefe de Area' || (userRole === 'Planificador' && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(workOrder.type)));
         const isOperarioCandidate = (userRole === 'Operario' || isRequester);
 
         if (isJefeCandidate && isOperarioCandidate) {
@@ -6412,7 +6470,7 @@ function createWorkOrderCard(order) {
     const machine = state.machines.find(m => m.id === order.machineId) || { name: 'Desconocido' };
     const isLeadTechnician = state.currentUser?.username === order.leadTechnician;
     const canAction = state.currentUser?.role === 'Admin' || isLeadTechnician;
-    const isPlanOrder = order.type === 'Preventivo' || order.linkedPlanId;
+    const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) || order.linkedPlanId;
     
     let footerContent = '';
     
@@ -6428,7 +6486,7 @@ function createWorkOrderCard(order) {
     const isRequester = originalSolicitud && originalSolicitud.requester === state.currentUser?.username;
     const isAssignedOperario = userRole === 'Operario' && Array.isArray(state.currentUser?.equipoAsignado) && state.currentUser.equipoAsignado.includes(order.machineId);
 
-    const canEvalAsJefe = (userRole === 'Admin' || (userRole === 'Planificador' && order.type === 'Preventivo') || (userRole === 'Jefe de Area' && Array.isArray(state.currentUser?.managedMachineIds) && state.currentUser.managedMachineIds.includes(order.machineId)));
+    const canEvalAsJefe = (userRole === 'Admin' || (userRole === 'Planificador' && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type)) || (userRole === 'Jefe de Area' && Array.isArray(state.currentUser?.managedMachineIds) && state.currentUser.managedMachineIds.includes(order.machineId)));
     const canEvalAsOp = (userRole === 'Admin' || (userRole === 'Operario' && Array.isArray(state.currentUser?.equipoAsignado) && state.currentUser.equipoAsignado.includes(order.machineId)) || isRequester);
 
     if ((canEvalAsJefe && !hasJf) || (canEvalAsOp && !hasOp)) {
@@ -6494,7 +6552,7 @@ function createWorkOrderCard(order) {
                 ${originalSolicitud ? `<br><small class="text-info fw-bold">Solicitud: ${originalSolicitud.id}</small>` : ''}
             </div>
             <div class="text-end">
-                <span class="badge bg-${order.type === 'Preventivo' ? 'primary' : 'danger'}">${order.type}</span>
+                <span class="badge bg-${['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) ? 'primary' : 'danger'}">${order.type}</span>
                 ${expiredBadge}
             </div>
         </div>
@@ -6517,7 +6575,7 @@ function createWorkOrderCard(order) {
         card.querySelector('.pause-task-btn')?.addEventListener('click', () => handleKanbanWorkOrderAction(order.fb_id, 'Pausado'));
         card.querySelector('.resume-task-btn')?.addEventListener('click', () => handleKanbanWorkOrderAction(order.fb_id, 'En Proceso'));
         card.querySelector('.complete-task-btn')?.addEventListener('click', () => {
-            const isPlanOrder = order.type === 'Preventivo' || order.linkedPlanId;
+            const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) || order.linkedPlanId;
             const confirmTitle = isPlanOrder ? 'Finalizar Trabajo' : 'Completar Orden de Trabajo';
             const confirmMsg = isPlanOrder
                 ? `¿Está seguro que desea finalizar el trabajo en la orden ${order.id || `(${order.machineId})`}? Se notificará al planificador.`
@@ -6721,7 +6779,7 @@ async function handleKanbanWorkOrderAction(workOrderFbId, newStatus) {
         const updates = {};
 
         // Si es de plan o viene de una solicitud y el técnico intenta completar sin validación, cambiar a Pendiente de Aprobación
-        const isPlanOrder = orderData.type === 'Preventivo' || orderData.linkedPlanId;
+        const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(orderData.type) || orderData.linkedPlanId;
         const hasRequest = orderData.solicitudId || orderData.sourceSolicitudId;
         if (newStatus === 'Pendiente de Evaluación' && (isPlanOrder || hasRequest) && !orderData.validatedBy) {
             finalStatus = 'Pendiente de Aprobación';
@@ -6947,7 +7005,7 @@ function createAssignedOrderCard(order) {
         ? new Date(order.date).toLocaleDateString('es-ES')
         : 'No especificada';
 
-    const typeBadge = `<span class="badge bg-${order.type === 'Preventivo' ? 'primary' : 'danger'} mb-2">${order.type}</span>`;
+    const typeBadge = `<span class="badge bg-${['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) ? 'primary' : 'danger'} mb-2">${order.type}</span>`;
     const statusBadge = `<span class="badge bg-${order.status === 'En Proceso' ? 'info text-dark' : (order.status === 'Pausado' ? 'secondary' : 'warning text-dark')}">${order.status}</span>`;
 
     card.innerHTML = `
@@ -6970,7 +7028,7 @@ function createAssignedOrderCard(order) {
                 </div>
             </div>
 
-            <div class="p-3 bg-light rounded mb-3 border-start border-4 border-${order.type === 'Preventivo' ? 'primary' : 'danger'}">
+            <div class="p-3 bg-light rounded mb-3 border-start border-4 border-${['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) ? 'primary' : 'danger'}">
                 <p class="card-text mb-0">${order.description}</p>
             </div>
 
@@ -7905,15 +7963,16 @@ async function saveWorkOrder(updates = {}) {
             solicitudId: solicitud ? solicitud.id : (existingOrder.solicitudId || null),
             sourceSolicitudId: solicitud ? solicitud.fb_id : (existingOrder.sourceSolicitudId || null),
             linkedPlanId: linkedPlanId,
+            externalCost: parseFloat(document.getElementById('wo-external-cost')?.value) || 0,
         };
 
-        if (formData.type === 'Correctivo' && !formData.failureType) {
+        if (['Correctivo', 'Emergencia'].includes(formData.type) && !formData.failureType) {
             showToast('Para órdenes correctivas, es obligatorio seleccionar un tipo de falla.', 'error');
             showLoading(false);
             return;
         }
 
-        if (formData.type === 'Preventivo' && !formData.maintenanceType) {
+        if (['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(formData.type) && !formData.maintenanceType) {
             showToast('Para órdenes preventivas, es obligatorio seleccionar un tipo de mantenimiento.', 'error');
             showLoading(false);
             return;
@@ -7950,7 +8009,7 @@ async function saveWorkOrder(updates = {}) {
         }
 
         // Si es de plan o viene de una solicitud y el técnico intenta completar sin validación, cambiar a Pendiente de Aprobación
-        const isPlanOrder = orderData.type === 'Preventivo' || orderData.linkedPlanId;
+        const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(orderData.type) || orderData.linkedPlanId;
         const hasRequest = orderData.solicitudId || orderData.sourceSolicitudId;
         if (newStatus === 'Pendiente de Evaluación' && (isPlanOrder || hasRequest) && !orderData.validatedBy) {
             newStatus = 'Pendiente de Aprobación';
@@ -8264,6 +8323,7 @@ async function showWorkOrderModal(identifier = null, type = 'Preventivo', source
                 document.getElementById('source-solicitud-id-hidden').value = solicitudRef.fb_id;
             }
             document.getElementById('wo-requester').value = order.requester;
+            document.getElementById('wo-external-cost').value = order.externalCost || 0;
             document.getElementById('wo-failure-type').value = order.failureType || '';
             document.getElementById('wo-maintenance-type').value = order.maintenanceType || '';
             
@@ -8516,7 +8576,7 @@ function updateWorkOrderModalButtons(status) {
     // For existing orders, check permissions.
     const isLeadTechnician = state.currentUser.username === order.leadTechnician;
     const isPlanificador = state.currentUser.role === 'Planificador' || state.currentUser.role === 'Admin';
-    const isPlanOrder = order.type === 'Preventivo' || order.linkedPlanId;
+    const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) || order.linkedPlanId;
     const canControl = state.currentUser.role === 'Admin' || isLeadTechnician;
 
     if (canControl) {
@@ -8706,7 +8766,7 @@ async function generateMachineReport() {
 
         // --- KPI Calculations ---
         const correctiveOrdersForKpi = machineWorkOrders
-            .filter(o => o.type === 'Correctivo')
+            .filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type))
             .sort((a, b) => new Date(a.createdAt || a.date) - new Date(b.createdAt || b.date));
         
         let mtbf = 'N/A';
@@ -8747,8 +8807,8 @@ async function generateMachineReport() {
         chartContainer.appendChild(effectivenessCanvas);
         chartContainer.appendChild(failureTrendCanvas);
 
-        const preventiveCount = machineWorkOrders.filter(o => o.type === 'Preventivo').length;
-        const correctiveCount = machineWorkOrders.filter(o => o.type === 'Correctivo').length;
+        const preventiveCount = machineWorkOrders.filter(o => ['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)).length;
+        const correctiveCount = machineWorkOrders.filter(o => ['Correctivo', 'Emergencia'].includes(o.type)).length;
 
         const effectivenessChartPromise = new Promise((resolve) => {
              new Chart(effectivenessCanvas, {
@@ -8815,7 +8875,7 @@ async function generateMachineReport() {
         doc.addImage(failureTrendChartImg, 'PNG', 100, 40, 95, 60);
 
         const workOrderBody = machineWorkOrders.map(o => [
-            o.id, o.type, o.type === 'Correctivo' ? o.failureType || 'N/A' : 'N/A',
+            o.id, o.type, ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type) ? o.failureType || 'N/A' : 'N/A',
             o.status, new Date(o.date).toLocaleDateString('es-ES'), o.description
         ]);
         
@@ -8851,7 +8911,7 @@ async function generateMachineReport() {
         // Availability Table
         const availabilityBody = [];
         const processedDates = new Set();
-        const completedCorrectives = machineWorkOrders.filter(o => o.type === 'Correctivo' && o.status === 'Completado' && o.date);
+        const completedCorrectives = machineWorkOrders.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type) && o.status === 'Completado' && o.date);
         
         completedCorrectives.forEach(o => {
             if (processedDates.has(o.date)) return;
@@ -10150,7 +10210,7 @@ function calculateTotalCost(order, returnParts = false) {
         }, 0);
     }
 
-    const totalCost = partsCost + laborCost + (order.additionalCost || 0);
+    const totalCost = partsCost + laborCost + (order.externalCost || order.additionalCost || 0);
     return returnParts ? { partsCost, laborCost, totalCost } : totalCost;
 }
 
@@ -10186,13 +10246,14 @@ function calculateTotalCostForMultiple(orders) {
             }, 0);
         }
 
-        const totalCost = partsCost + laborCost + (order.additionalCost || 0);
+        const totalCost = partsCost + laborCost + (order.externalCost || order.additionalCost || 0);
 
         totals.partsCost += partsCost;
         totals.laborCost += laborCost;
+        totals.externalCost += (order.externalCost || order.additionalCost || 0);
         totals.totalCost += totalCost;
         return totals;
-    }, { partsCost: 0, laborCost: 0, totalCost: 0 });
+    }, { partsCost: 0, laborCost: 0, externalCost: 0, totalCost: 0 });
 }
 
 
@@ -10235,8 +10296,8 @@ function updateStats(ordersThisPeriod) {
     updateMachineCriticidadChart();
     document.getElementById('stat-solicitudes').textContent = state.solicitudes.filter(s => s.status === 'Pendiente').length;
     
-    document.getElementById('stat-preventivos').textContent = ordersThisPeriod.filter(o => ['Preventivo', 'Predictivo', 'Mecanizado'].includes(o.type)).length;
-    document.getElementById('stat-correctivos').textContent = ordersThisPeriod.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type)).length;
+    document.getElementById('stat-preventivos').textContent = ordersThisPeriod.filter(o => ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(o.type)).length;
+    document.getElementById('stat-correctivos').textContent = ordersThisPeriod.filter(o => ['Correctivo', 'Emergencia'].includes(o.type)).length;
     
     const f = new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' });
 
@@ -10266,7 +10327,7 @@ function calculateKpisForPeriod(ordersInPeriod, startDate, endDate, machineId = 
     };
 
     // MTBF & MTTR
-    const correctiveOrdersForPeriod = periodOrders.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type));
+    const correctiveOrdersForPeriod = periodOrders.filter(o => ['Correctivo', 'Emergencia'].includes(o.type));
 
     // MTBF actualizado: (Tiempo transcurrido en el periodo hasta hoy) / (Fallas + 1)
     const now = new Date();
@@ -10431,8 +10492,10 @@ function updateCharts(ordersForPeriod) {
         if (!ordersByMonthAndType[monthKey]) {
             ordersByMonthAndType[monthKey] = { 'Preventivo': 0, 'Correctivo': 0 };
         }
-        if (ordersByMonthAndType[monthKey][o.type] !== undefined) {
-            ordersByMonthAndType[monthKey][o.type]++;
+        if (['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)) {
+            ordersByMonthAndType[monthKey]['Preventivo']++;
+        } else if (['Correctivo', 'Emergencia'].includes(o.type)) {
+            ordersByMonthAndType[monthKey]['Correctivo']++;
         }
     });
 
@@ -12294,9 +12357,9 @@ function renderExecutiveReportPreview(data) {
     const container = document.getElementById('executive-report-content');
 
     const getTrendIcon = (curr, prev, higherIsBetter) => {
-        if (curr === null || prev === null) return '';
+        if (curr === null || prev === null || isNaN(curr) || isNaN(prev)) return '';
         const diff = curr - prev;
-        if (Math.abs(diff) < 0.01) return '<i class="fas fa-minus text-muted ms-1"></i>';
+        if (Math.abs(diff) < 0.001) return '<i class="fas fa-minus text-muted ms-1" title="Sin variación"></i>';
         const up = diff > 0;
         const color = (up === higherIsBetter) ? 'text-success' : 'text-danger';
         return `<i class="fas fa-arrow-${up ? 'up' : 'down'} ${color} ms-1"></i>`;
@@ -12306,6 +12369,11 @@ function renderExecutiveReportPreview(data) {
         if (type === 'mtbf') {
             if (val < 15) return 'bg-danger';
             if (val <= 19.9) return 'bg-warning text-dark';
+            return 'bg-success';
+        }
+        if (type === 'mttr') {
+            if (val > 8) return 'bg-danger';
+            if (val >= 5) return 'bg-warning text-dark';
             return 'bg-success';
         }
         if (type === 'availability') return val >= 95 ? 'bg-success' : (val >= 90 ? 'bg-warning text-dark' : 'bg-danger');
@@ -12351,6 +12419,7 @@ function renderExecutiveReportPreview(data) {
                         <small class="text-uppercase fw-bold text-muted d-block mb-1" title="${getKpiFormula('mttr')}">MTTR (horas)</small>
                         <h3 class="mb-0">${formatKpiValue(data.kpis.current.mttr, 'mttr')}</h3>
                         <div class="mt-2">
+                            <span class="badge ${getTrafficLight(data.kpis.current.mttr, 'mttr')}">Estado</span>
                             ${getTrendIcon(data.kpis.current.mttr, data.kpis.prev.mttr, false)}
                         </div>
                     </div>
@@ -12358,8 +12427,8 @@ function renderExecutiveReportPreview(data) {
             </div>
             <div class="col-md-2">
                 <div class="card h-100 text-center border-0 bg-light shadow-sm">
-                    <div class="card-body">
-                        <small class="text-uppercase fw-bold text-muted d-block mb-1" title="${getKpiFormula('availability')}">Disponibilidad</small>
+                    <div class="card-body px-1">
+                        <small class="text-uppercase fw-bold text-muted d-block mb-1" title="${getKpiFormula('availability')}" style="font-size: 0.75rem;">Disponibilidad</small>
                         <h3 class="mb-0">${formatKpiValue(data.kpis.current.availability, 'availability')}</h3>
                         <div class="mt-2">
                             <span class="badge ${getTrafficLight(data.kpis.current.availability, 'availability')}">Meta</span>
@@ -12529,6 +12598,15 @@ function renderExecutiveReportPreview(data) {
                 </div>
             </div>
         </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <h6 class="fw-bold border-start border-primary border-4 ps-2 mb-3">TENDENCIA DE MANTENIMIENTO (12 MESES)</h6>
+                <div style="height: 300px;">
+                    <canvas id="executiveTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
     `;
 
     const ctx = document.getElementById('executiveOrdersChart').getContext('2d');
@@ -12548,6 +12626,68 @@ function renderExecutiveReportPreview(data) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } }
+        }
+    });
+
+    // 12-Month Trend Chart
+    const trendCtx = document.getElementById('executiveTrendChart').getContext('2d');
+    if (state.charts.executiveTrend) state.charts.executiveTrend.destroy();
+
+    const trendLabels = [];
+    const preventiveCounts = [];
+    const correctiveCounts = [];
+    const baseDate = data.startDate || new Date();
+
+    const ordersByMonthAndType = {};
+    state.workOrders.forEach(o => {
+        if (!o.date || !o.type) return;
+        const monthKey = o.date.substring(0, 7);
+        if (!ordersByMonthAndType[monthKey]) {
+            ordersByMonthAndType[monthKey] = { 'Preventivo': 0, 'Correctivo': 0 };
+        }
+        if (['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)) {
+            ordersByMonthAndType[monthKey]['Preventivo']++;
+        } else if (['Correctivo', 'Emergencia'].includes(o.type)) {
+            ordersByMonthAndType[monthKey]['Correctivo']++;
+        }
+    });
+
+    for (let i = 11; i >= 0; i--) {
+        const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
+        trendLabels.push(d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }));
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const stats = ordersByMonthAndType[monthKey] || { 'Preventivo': 0, 'Correctivo': 0 };
+        preventiveCounts.push(stats['Preventivo']);
+        correctiveCounts.push(stats['Correctivo']);
+    }
+
+    state.charts.executiveTrend = new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: trendLabels,
+            datasets: [
+                {
+                    label: 'Preventivos',
+                    data: preventiveCounts,
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Correctivos',
+                    data: correctiveCounts,
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } }
         }
     });
 }
@@ -12571,7 +12711,9 @@ async function exportExecutiveToPDF(data) {
     doc.text('INFORME MENSUAL EJECUTIVO', 200, 20, { align: 'right' });
     doc.setFontSize(12);
     doc.setFont(undefined, 'normal');
-    doc.text(data.reportTitle, 200, 30, { align: 'right' });
+    doc.text(data.reportTitle, 200, 27, { align: 'right' });
+    doc.setFontSize(10);
+    doc.text(`Responsable: ${state.currentUser.username}`, 200, 34, { align: 'right' });
 
     doc.setTextColor(0, 0, 0);
     let y = 50;
@@ -12593,7 +12735,7 @@ async function exportExecutiveToPDF(data) {
         body: [
             ['Disponibilidad (%)', `${data.kpis.current.availability?.toFixed(1) || '0'}%`, data.kpis.current.availability > data.kpis.prev.availability ? 'Mejora' : 'Descenso', '95%'],
             ['MTBF (días)', data.kpis.current.mtbf?.toFixed(1) || 'N/A', data.kpis.current.mtbf > data.kpis.prev.mtbf ? 'Mejora' : 'Descenso', '20-30'],
-            ['MTTR (horas)', data.kpis.current.mttr?.toFixed(1) || 'N/A', data.kpis.current.mttr < data.kpis.prev.mttr ? 'Mejora' : 'Descenso', '< 4h'],
+            ['MTTR (horas)', data.kpis.current.mttr?.toFixed(1) || 'N/A', data.kpis.current.mttr < data.kpis.prev.mttr ? 'Mejora' : 'Descenso', '< 5h'],
             ['Cumplimiento PMP (%)', `${data.kpis.current.pmp?.toFixed(1) || '0'}%`, data.kpis.current.pmp > data.kpis.prev.pmp ? 'Mejora' : 'Descenso', '90%'],
             ['Reincidencia de Fallas', data.kpis.current.reincidence, '-', '0']
         ],
@@ -12693,7 +12835,7 @@ function exportExecutiveToExcel(data) {
         [],
         ["INDICADORES KPI", "Valor", "Meta"],
         ["MTBF (días)", data.kpis.current.mtbf || 0, "20-30"],
-        ["MTTR (horas)", data.kpis.current.mttr || 0, "< 4"],
+        ["MTTR (horas)", data.kpis.current.mttr || 0, "< 5"],
         ["Disponibilidad (%)", data.kpis.current.availability || 0, "95%"],
         ["Cumplimiento PMP (%)", data.kpis.current.pmp || 0, "90%"],
         ["Reincidencia", data.kpis.current.reincidence, "0"],
