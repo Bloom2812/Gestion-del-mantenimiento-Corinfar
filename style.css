@@ -2539,3 +2539,58 @@ body.dark-mode .m-config-slider {
 #monitoring-filters-wrapper .dropdown-item.active {
     background-color: #f15a24 !important;
 }
+
+/* --- Executive Report Styles --- */
+#executive-report-content {
+    min-height: 80vh;
+    font-family: 'Inter', sans-serif;
+    color: #1e293b;
+}
+
+body.dark-mode #executive-report-content {
+    color: #f8fafc;
+    background-color: #0f172a !important;
+}
+
+#executive-report-content .card {
+    transition: none;
+}
+
+#executive-report-content .badge {
+    font-size: 0.7rem;
+    padding: 0.35em 0.65em;
+    font-weight: 700;
+}
+
+#executive-report-content .table-info {
+    background-color: rgba(52, 152, 219, 0.1) !important;
+}
+
+#executive-report-content .table-dark {
+    background-color: #1e293b !important;
+}
+
+#executive-report-content .border-primary {
+    border-color: #1e3b8a !important;
+}
+
+#executive-report-content h3,
+#executive-report-content h5,
+#executive-report-content h6 {
+    letter-spacing: -0.025em;
+}
+
+#executive-report-content .card-body h3 {
+    font-size: 1.75rem;
+    font-weight: 800;
+}
+
+#executive-report-content .trend-up { color: #10b981; }
+#executive-report-content .trend-down { color: #ef4444; }
+
+@media screen {
+    #executive-report-content {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+}
