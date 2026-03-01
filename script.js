@@ -9519,20 +9519,24 @@ async function generateExecutionReportPDF() {
             });
         };
 
-        // Strategy 1: Direct Load (Often works if CORS is configured or session is active)
-        let result = await attemptLoad(url);
-        if (result) return result;
+        // Optimization: For known cloud storage URLs (Firebase, Google), the proxy is often necessary
+        // to avoid CORS errors and console noise. Strategy 1 & 2 often fail for these.
+        const needsProxy = url.includes('firebasestorage.googleapis.com') || url.includes('googleusercontent.com');
 
-        // Strategy 2: Google Proxy (Legacy but often works for simple public files)
-        const googleProxy = "https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=" + encodeURIComponent(url);
-        result = await attemptLoad(googleProxy);
-        if (result) return result;
+        if (needsProxy) {
+            // Priority 1: Wsrv.nl Proxy (Modern, fast, and handles CORS very well)
+            const wsrvProxy = `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg&q=80`;
+            let result = await attemptLoad(wsrvProxy);
+            if (result) return result;
 
-        // Strategy 3: Wsrv.nl Proxy (Modern, fast, and handles CORS very well)
-        const wsrvProxy = `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg&q=80`;
-        result = await attemptLoad(wsrvProxy);
+            // Priority 2: Google Proxy (Legacy fallback)
+            const googleProxy = "https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=" + encodeURIComponent(url);
+            result = await attemptLoad(googleProxy);
+            if (result) return result;
+        }
 
-        return result;
+        // Priority 3 / Direct: Direct Load (Works for local files or properly configured CORS)
+        return await attemptLoad(url);
     };
 
     showLoading(true);
@@ -9834,8 +9838,8 @@ async function generateExecutionReportPDF() {
                 try {
                     const imgResult = await imageUrlToBase64(item.url);
                     if (imgResult) {
-                        const maxW = 130;
-                        const maxH = 90;
+                        const maxW = 350; // Aumentado de 130 a 350 para mejor visualización
+                        const maxH = 250; // Aumentado de 90 a 250
 
                         let finalW = imgResult.width;
                         let finalH = imgResult.height;
@@ -9844,10 +9848,10 @@ async function generateExecutionReportPDF() {
                         finalW = finalW * ratio;
                         finalH = finalH * ratio;
 
-                        // Center the image relative to content area if desired,
-                        // but sticking to left margin is usually cleaner in reports
-                        doc.addImage(imgResult.data, 'JPEG', margin, annexY, finalW, finalH);
-                        annexY += finalH + 10;
+                        // Centrar la imagen en el ancho de la página
+                        const centerX = margin + (maxWidth - finalW) / 2;
+                        doc.addImage(imgResult.data, 'JPEG', centerX, annexY, finalW, finalH);
+                        annexY += finalH + 15;
                     } else {
                         doc.setTextColor(180, 180, 180);
                         doc.setFontSize(8);
