@@ -11210,7 +11210,9 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
         document.getElementById('report-machine-select'),
         document.getElementById('report-machine-parts-select'),
         document.getElementById('kpi-machine-select'),
-        document.getElementById('solicitud-machine')
+        document.getElementById('solicitud-machine'),
+        document.getElementById('report-executive-area'),
+        document.getElementById('report-executive-cost-center')
     ];
     
     selectors.forEach(selector => {
@@ -11231,6 +11233,18 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
 
                 techniciansToPopulate.forEach(tech => {
                     selector.innerHTML += `<option value="${tech.username}">${tech.username}</option>`;
+                });
+            } else if (selector.id === 'report-executive-area') {
+                const areas = [...new Set(state.machines.map(m => m.location).filter(Boolean))].sort();
+                selector.innerHTML = '<option value="all">Todas las Áreas</option>';
+                areas.forEach(area => {
+                    selector.innerHTML += `<option value="${area}">${area}</option>`;
+                });
+            } else if (selector.id === 'report-executive-cost-center') {
+                const ccs = [...new Set(state.machines.map(m => m.centroCosto).filter(Boolean))].sort();
+                selector.innerHTML = '<option value="all">Todos los Centros de Costo</option>';
+                ccs.forEach(cc => {
+                    selector.innerHTML += `<option value="${cc}">${cc}</option>`;
                 });
             } else {
                 const isKpiSelector = selector.id === 'kpi-machine-select';
@@ -11284,6 +11298,10 @@ window.syncPartToOdoo = syncPartToOdoo;
 window.syncPartStockToOdoo = syncPartStockToOdoo;
 window.renderAuditLogs = renderAuditLogs;
 window.viewAuditDetail = viewAuditDetail;
+window.populateDynamicSelectors = populateDynamicSelectors;
+window.populateWorkOrderSelectors = populateWorkOrderSelectors;
+window.populateExecutionReportSelector = populateExecutionReportSelector;
+window.showMachineHistory = showMachineHistory;
 window.generateFichaMaestra = generateFichaMaestra;
 window.requestSignature = requestSignature;
 window.handleStartLinkedPlan = handleStartLinkedPlan;
