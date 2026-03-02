@@ -491,6 +491,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.modals.variableName = new bootstrap.Modal(document.getElementById('variable-name-modal'));
     state.modals.partDetail = new bootstrap.Modal(document.getElementById('part-detail-modal'));
     state.modals.measurementHistory = new bootstrap.Modal(document.getElementById('measurement-history-modal'));
+    state.modals.forgotPassword = new bootstrap.Modal(document.getElementById('forgot-password-modal'));
+    state.modals.invitationLink = new bootstrap.Modal(document.getElementById('invitation-link-modal'));
     
     setupEventListeners();
     updateCurrentDate();
@@ -508,6 +510,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     onAuthStateChanged(auth, async (user) => {
         const urlParams = new URLSearchParams(window.location.search);
         const machineId = urlParams.get('machineId');
+        const token = urlParams.get('token');
+
+        if (token) {
+            handleInvitationToken(token);
+        }
 
         if (machineId) {
             document.getElementById('login-overlay').classList.add('d-none');
@@ -816,6 +823,19 @@ function handleReportExecutionSearch(e) {
 // --- Event Listeners Setup ---
 function setupEventListeners() {
     document.getElementById('login-form').addEventListener('submit', handleLogin);
+    document.getElementById('forgot-password-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        state.modals.forgotPassword.show();
+    });
+    document.getElementById('submit-forgot-password').addEventListener('click', handleForgotPasswordRequest);
+    document.getElementById('set-password-form').addEventListener('submit', handleSetPasswordSubmit);
+    document.getElementById('copy-link-btn').addEventListener('click', () => {
+        const input = document.getElementById('generated-link-input');
+        input.select();
+        document.execCommand('copy');
+        showToast('Link copiado al portapapeles', 'success');
+    });
+
     document.getElementById('theme-toggle-btn').addEventListener('click', toggleTheme);
     document.getElementById('password-toggle').addEventListener('click', togglePasswordVisibility);
     document.getElementById('solicitud-type').addEventListener('change', (e) => {
@@ -929,6 +949,17 @@ function setupEventListeners() {
     document.getElementById('technician-form').addEventListener('submit', handleTechnicianSubmit);
     document.getElementById('technician-role').addEventListener('change', (e) => {
         updateTechnicianModalUIForRole(e.target.value);
+    });
+    document.getElementById('technician-genera-gasto').addEventListener('change', (e) => {
+        const wrapper = document.getElementById('technician-salary-wrapper');
+        const salaryInput = document.getElementById('technician-salary');
+        if (e.target.checked) {
+            wrapper.classList.remove('d-none');
+            salaryInput.required = true;
+        } else {
+            wrapper.classList.add('d-none');
+            salaryInput.required = false;
+        }
     });
 
     // Signature Listeners
@@ -4045,12 +4076,13 @@ function updateTechnicianModalUIForRole(role) {
     jefeMaquinasWrapper.classList.toggle('d-none', role !== 'Jefe de Area');
 
 
-    if (role === 'Operario') {
-        salaryWrapper.style.display = 'none';
-        salaryInput.removeAttribute('required');
+    const generaGasto = document.getElementById('technician-genera-gasto').checked;
+    if (role === 'Operario' || !generaGasto) {
+        salaryWrapper.classList.add('d-none');
+        salaryInput.required = false;
     } else {
-        salaryWrapper.style.display = 'block';
-        salaryInput.setAttribute('required', true);
+        salaryWrapper.classList.remove('d-none');
+        salaryInput.required = true;
     }
 }
 
@@ -4069,19 +4101,28 @@ function renderTechnicians() {
 
         let actionsHTML = '';
         if (state.currentUser?.role === 'Admin') {
-            actionsHTML += `<button class="btn btn-sm btn-outline-primary edit-tech" data-id="${tech.fb_id}"><i class="fas fa-edit"></i></button> `;
-            actionsHTML += `<button class="btn btn-sm btn-outline-danger delete-tech" data-id="${tech.fb_id}" ${isCurrentUser ? 'disabled' : ''}><i class="fas fa-trash"></i></button> `;
+            actionsHTML += `<button class="btn btn-sm btn-outline-primary edit-tech" data-id="${tech.fb_id}" title="Editar"><i class="fas fa-edit"></i></button> `;
+
+            if (tech.resetRequested) {
+                actionsHTML += `<button class="btn btn-sm btn-warning" onclick="generateTokenLink('${tech.fb_id}', 'reset')" title="Generar Link de Recuperación"><i class="fas fa-key"></i></button> `;
+            } else if (!tech.password) {
+                actionsHTML += `<button class="btn btn-sm btn-success" onclick="generateTokenLink('${tech.fb_id}', 'invitation')" title="Generar Link de Invitación"><i class="fas fa-envelope"></i></button> `;
+            }
+
+            actionsHTML += `<button class="btn btn-sm btn-outline-danger delete-tech" data-id="${tech.fb_id}" ${isCurrentUser ? 'disabled' : ''} title="Eliminar"><i class="fas fa-trash"></i></button> `;
         }
 
         if (tech.role === 'Técnico') {
-            actionsHTML += `<button class="btn btn-sm btn-outline-info view-profile-btn" data-id="${tech.fb_id}"><i class="fas fa-user-chart"></i></button> `;
-            actionsHTML += `<button class="btn btn-sm btn-outline-danger generate-single-tech-report-btn" data-username="${tech.username}"><i class="fas fa-file-pdf"></i></button>`;
+            actionsHTML += `<button class="btn btn-sm btn-outline-info view-profile-btn" data-id="${tech.fb_id}" title="Ver Perfil"><i class="fas fa-user-chart"></i></button> `;
+            actionsHTML += `<button class="btn btn-sm btn-outline-danger generate-single-tech-report-btn" data-username="${tech.username}" title="Reporte Desempeño"><i class="fas fa-file-pdf"></i></button>`;
         }
 
+        let resetBadge = tech.resetRequested ? '<span class="badge bg-warning text-dark ms-1">Reset solicitado</span>' : '';
+
         tr.innerHTML = `
-            <td>${tech.username}</td>
+            <td>${tech.username}${resetBadge}</td>
             <td>${tech.role}</td>
-            <td>${tech.salario ? new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' }).format(tech.salario) : 'N/A'}</td>
+            <td>${tech.generaGasto !== false && tech.salario ? new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' }).format(tech.salario) : 'N/A'}</td>
             <td class="text-center">${actionsHTML || '<span class="text-muted fst-italic">Sin acciones</span>'}</td>
         `;
         tbody.appendChild(tr);
@@ -4252,6 +4293,11 @@ function showTechnicianModal(techId = null) {
             userInput.value = tech.username;
             salaryInput.value = tech.salario || '';
             roleSelect.value = tech.role;
+            const generaGasto = tech.generaGasto !== false;
+            document.getElementById('technician-genera-gasto').checked = generaGasto;
+            document.getElementById('technician-salary-wrapper').classList.toggle('d-none', !generaGasto);
+            salaryInput.required = generaGasto;
+
             userInput.setAttribute('readonly', true);
             passInput.removeAttribute('required');
             passInput.placeholder = "Dejar en blanco para no cambiar";
@@ -4295,13 +4341,23 @@ function showTechnicianModal(techId = null) {
         document.getElementById('technician-modal-title').textContent = 'Añadir Usuario';
         document.getElementById('technician-id-hidden').value = '';
         userInput.removeAttribute('readonly');
-        passInput.setAttribute('required', true);
-        passInput.placeholder = "";
+        passInput.removeAttribute('required'); // Permitir opcional para invitación
+        passInput.placeholder = "Dejar en blanco para invitación";
+        document.getElementById('technician-genera-gasto').checked = true;
+        document.getElementById('technician-salary-wrapper').classList.remove('d-none');
+        salaryInput.required = true;
     }
 
     // Centralized call to update UI based on the selected role
     updateTechnicianModalUIForRole(roleSelect.value);
     
+    // Si generaGasto está apagado, forzar ocultar el salario (importante para el render inicial)
+    const generaGasto = document.getElementById('technician-genera-gasto').checked;
+    if (!generaGasto) {
+        document.getElementById('technician-salary-wrapper').classList.add('d-none');
+        document.getElementById('technician-salary').required = false;
+    }
+
     state.modals.technician.show();
 }
 
@@ -4310,10 +4366,12 @@ async function handleTechnicianSubmit(e) {
     const techId = document.getElementById('technician-id-hidden').value;
     const password = document.getElementById('technician-password').value;
     const role = document.getElementById('technician-role').value;
+    const generaGasto = document.getElementById('technician-genera-gasto').checked;
 
     const techData = {
         username: document.getElementById('technician-username').value,
-        salario: role === 'Operario' ? 0 : (parseFloat(document.getElementById('technician-salary').value) || 0),
+        generaGasto: generaGasto,
+        salario: (role === 'Operario' || !generaGasto) ? 0 : (parseFloat(document.getElementById('technician-salary').value) || 0),
         role: role,
         permissions: [],
         managedMachineIds: [],
@@ -4358,6 +4416,10 @@ async function handleTechnicianSubmit(e) {
     if (password) {
         techData.password = await hashPassword(password);
         techData.passwordIsHashed = true;
+        // Si se define contraseña, limpiar cualquier token de invitación previo
+        techData.invitationToken = deleteField();
+        techData.tokenExpiry = deleteField();
+        techData.resetRequested = deleteField();
     }
 
     // Capture Signature
@@ -10283,7 +10345,7 @@ function calculateTotalCost(order, returnParts = false) {
     if (techniciansOnOrder.length > 0 && hoursWorked > 0) {
         laborCost = techniciansOnOrder.reduce((sum, techUsername) => {
             const technician = state.technicians.find(t => t.username === techUsername);
-            if (technician && technician.salario) {
+            if (technician && technician.generaGasto !== false && technician.salario) {
                 const hourlyRate = technician.salario / 160;
                 return sum + (hoursWorked * hourlyRate);
             }
@@ -10319,7 +10381,7 @@ function calculateTotalCostForMultiple(orders) {
         if (techniciansOnOrder.length > 0 && hoursWorked > 0) {
             laborCost = techniciansOnOrder.reduce((sum, techUsername) => {
                 const technician = techMap.get(techUsername);
-                if (technician && technician.salario) {
+                if (technician && technician.generaGasto !== false && technician.salario) {
                     const hourlyRate = technician.salario / 160;
                     return sum + (hoursWorked * hourlyRate);
                 }
@@ -11228,6 +11290,143 @@ window.handleStartLinkedPlan = handleStartLinkedPlan;
 window.handlePausePlanExecution = handlePausePlanExecution;
 window.handleResumePlanExecution = handleResumePlanExecution;
 window.handleFinishPlanExecution = handleFinishPlanExecution;
+window.showTechnicianModal = showTechnicianModal;
+
+async function generateTokenLink(fbId, type) {
+    const tech = state.technicians.find(t => t.fb_id === fbId);
+    if (!tech) return;
+
+    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const expiry = new Date();
+    expiry.setHours(expiry.getHours() + 24);
+
+    try {
+        await updateDoc(doc(state.collections.technicians, fbId), {
+            invitationToken: token,
+            tokenExpiry: expiry.toISOString(),
+            resetRequested: false
+        });
+
+        const baseUrl = window.location.origin + window.location.pathname;
+        const link = `${baseUrl}?token=${token}`;
+
+        document.getElementById('generated-link-input').value = link;
+        document.getElementById('link-modal-desc').textContent = type === 'reset'
+            ? 'Copie este link de recuperación y envíelo al usuario. Es válido por 24 horas.'
+            : 'Copie este link de invitación y envíelo al usuario. Es válido por 24 horas.';
+
+        state.modals.invitationLink.show();
+    } catch (error) {
+        console.error("Error generating token link:", error);
+        showToast('Error al generar el link', 'error');
+    }
+}
+window.generateTokenLink = generateTokenLink;
+
+async function handleInvitationToken(token) {
+    // Esperar a que los técnicos se carguen (si es necesario)
+    if (state.technicians.length === 0) {
+        const snapshot = await getDocs(state.collections.technicians);
+        state.technicians = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+    }
+
+    const tech = state.technicians.find(t => t.invitationToken === token);
+    if (!tech) {
+        showToast('Link inválido o ya utilizado.', 'error');
+        return;
+    }
+
+    const now = new Date();
+    const expiry = tech.tokenExpiry ? new Date(tech.tokenExpiry) : null;
+
+    if (!expiry || now > expiry) {
+        showToast('Este link ha expirado (validez de 24h).', 'error');
+        return;
+    }
+
+    // Mostrar UI de set password
+    document.getElementById('login-overlay').classList.add('d-none');
+    document.getElementById('set-password-overlay').classList.remove('d-none');
+    document.getElementById('set-password-token').value = token;
+    document.getElementById('set-password-message').textContent = `Hola ${tech.username}, establezca su nueva contraseña.`;
+}
+
+async function handleSetPasswordSubmit(e) {
+    e.preventDefault();
+    const token = document.getElementById('set-password-token').value;
+    const newPass = document.getElementById('new-password').value;
+    const confirmPass = document.getElementById('confirm-new-password').value;
+
+    if (newPass !== confirmPass) {
+        showToast('Las contraseñas no coinciden.', 'warning');
+        return;
+    }
+
+    if (newPass.length < 4) {
+        showToast('La contraseña debe tener al menos 4 caracteres.', 'warning');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const tech = state.technicians.find(t => t.invitationToken === token);
+        if (!tech) throw new Error('Usuario no encontrado');
+
+        const hashedPassword = await hashPassword(newPass);
+        await updateDoc(doc(state.collections.technicians, tech.fb_id), {
+            password: hashedPassword,
+            passwordIsHashed: true,
+            invitationToken: deleteField(),
+            tokenExpiry: deleteField(),
+            resetRequested: false
+        });
+
+        showToast('Contraseña actualizada. Ya puede iniciar sesión.', 'success');
+
+        // Limpiar URL
+        const url = new URL(window.location);
+        url.searchParams.delete('token');
+        window.history.replaceState({}, '', url);
+
+        // Volver al login
+        document.getElementById('set-password-overlay').classList.add('d-none');
+        document.getElementById('login-overlay').classList.remove('d-none');
+        document.getElementById('username').value = tech.username;
+        document.getElementById('password').focus();
+
+    } catch (error) {
+        console.error("Error setting password:", error);
+        showToast('Error al guardar la contraseña.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function handleForgotPasswordRequest() {
+    const username = document.getElementById('forgot-username').value.trim();
+    if (!username) {
+        showToast('Ingrese su nombre de usuario', 'warning');
+        return;
+    }
+
+    const tech = state.technicians.find(t => t.username === username);
+    if (!tech) {
+        showToast('Usuario no encontrado', 'error');
+        return;
+    }
+
+    try {
+        await updateDoc(doc(state.collections.technicians, tech.fb_id), {
+            resetRequested: true
+        });
+        showToast('Solicitud enviada. El administrador le enviará un link de recuperación.', 'success');
+        state.modals.forgotPassword.hide();
+    } catch (error) {
+        console.error("Error requesting password reset:", error);
+        showToast('Error al procesar la solicitud', 'error');
+    }
+}
+
 async function loadAuditLogs() {
     const list = document.getElementById('audit-log-list');
     if (list) {

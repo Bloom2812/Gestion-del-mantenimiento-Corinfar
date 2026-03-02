@@ -30,12 +30,15 @@
 <input class="form-control" disabled="" id="username" placeholder="Usuario" required="" type="text" autocomplete="username"/>
 <label for="username"><i class="fas fa-user me-2"></i>Usuario</label>
 </div>
-<div class="form-floating mb-4 position-relative">
+<div class="form-floating mb-3 position-relative">
 <input class="form-control" disabled="" id="password" placeholder="Contraseña" required="" type="password" autocomplete="current-password"/>
 <label for="password"><i class="fas fa-lock me-2"></i>Contraseña</label>
 <button class="password-toggle" id="password-toggle" type="button">
 <i class="fas fa-eye"></i>
 </button>
+</div>
+<div class="mb-4 text-end">
+<a href="#" id="forgot-password-link" class="small text-decoration-none">¿Olvidó su contraseña?</a>
 </div>
 <button class="btn btn-login w-100 py-2" disabled="" type="submit">
 <span id="login-text">Ingresar</span>
@@ -53,6 +56,76 @@
 </div>
 </div>
 </div>
+
+<div class="d-none" id="set-password-overlay">
+<div class="login-container">
+<div class="login-header">
+<h2><i class="fas fa-key me-2"></i>Definir Contraseña</h2>
+<p id="set-password-message">Establezca su nueva contraseña de seguridad.</p>
+</div>
+<div class="login-body">
+<form id="set-password-form">
+<input type="hidden" id="set-password-token"/>
+<div class="form-floating mb-3 position-relative">
+<input class="form-control" id="new-password" placeholder="Nueva Contraseña" required="" type="password" autocomplete="new-password"/>
+<label for="new-password"><i class="fas fa-lock me-2"></i>Nueva Contraseña</label>
+</div>
+<div class="form-floating mb-4 position-relative">
+<input class="form-control" id="confirm-new-password" placeholder="Confirmar Contraseña" required="" type="password" autocomplete="new-password"/>
+<label for="confirm-new-password"><i class="fas fa-check-double me-2"></i>Confirmar Contraseña</label>
+</div>
+<button class="btn btn-login w-100 py-2" type="submit">
+<span id="set-password-text">Guardar Contraseña</span>
+</button>
+</form>
+</div>
+<div class="login-footer">
+<small class="text-muted">CORINFAR CMMS Security</small>
+</div>
+</div>
+</div>
+
+<div class="modal fade" id="forgot-password-modal" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white border-bottom-0">
+                <h5 class="modal-title fw-bold">Recuperar Contraseña</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="small text-muted mb-4">Ingrese su nombre de usuario. El administrador será notificado para enviarle un link de recuperación.</p>
+                <div class="mb-0">
+                    <label for="forgot-username" class="form-label small fw-bold text-muted text-uppercase mb-1">Usuario</label>
+                    <input type="text" class="form-control border-0 bg-light" id="forgot-username" placeholder="Ej: jperales">
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 p-4 pt-0">
+                <button type="button" class="btn btn-primary w-100 fw-bold" id="submit-forgot-password">Notificar al Administrador</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="invitation-link-modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold">Link Generado</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="small text-muted mb-3" id="link-modal-desc">Copie este link y envíelo al usuario. Es válido por 24 horas.</p>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="generated-link-input" readonly>
+                    <button class="btn btn-outline-secondary" type="button" id="copy-link-btn">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="toast-container"></div>
 <div class="loading-overlay d-none" id="global-loading">
 <div class="spinner-border" role="status">
@@ -1617,6 +1690,13 @@
 <div class="mb-3">
 <label class="form-label" for="technician-password">Contraseña</label>
 <input class="form-control" id="technician-password" required="" type="password" autocomplete="new-password"/>
+<small class="text-muted" id="password-help">Deje en blanco para enviar invitación por link.</small>
+</div>
+<div class="mb-3">
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="technician-genera-gasto" checked>
+        <label class="form-check-label fw-bold" for="technician-genera-gasto">¿Genera Gasto de Salario?</label>
+    </div>
 </div>
 <div class="mb-3" id="technician-salary-wrapper">
 <label class="form-label" for="technician-salary">Salario Mensual (HNL)</label>
