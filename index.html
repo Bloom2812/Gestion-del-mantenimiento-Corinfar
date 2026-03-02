@@ -27,11 +27,11 @@
 <div class="login-body">
 <form id="login-form">
 <div class="form-floating mb-3 position-relative">
-<input class="form-control" disabled="" id="username" placeholder="Usuario" required="" type="text"/>
+<input class="form-control" disabled="" id="username" placeholder="Usuario" required="" type="text" autocomplete="username"/>
 <label for="username"><i class="fas fa-user me-2"></i>Usuario</label>
 </div>
 <div class="form-floating mb-4 position-relative">
-<input class="form-control" disabled="" id="password" placeholder="Contraseña" required="" type="password"/>
+<input class="form-control" disabled="" id="password" placeholder="Contraseña" required="" type="password" autocomplete="current-password"/>
 <label for="password"><i class="fas fa-lock me-2"></i>Contraseña</label>
 <button class="password-toggle" id="password-toggle" type="button">
 <i class="fas fa-eye"></i>
@@ -1075,7 +1075,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold" for="odoo-apikey">API Key</label>
-                            <input type="password" class="form-control" id="odoo-apikey" placeholder="Tu API Key generada en Odoo" required>
+                            <input type="password" class="form-control" id="odoo-apikey" placeholder="Tu API Key generada en Odoo" required autocomplete="off">
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold" for="odoo-proxy">URL del Proxy (Firebase Cloud Function)</label>
@@ -1126,22 +1126,24 @@
 <div class="modal fade" id="passwordConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content shadow-lg border-primary">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirmar Firma Electrónica</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="small text-muted">Para cumplir con 21 CFR Part 11, re-ingrese su contraseña para vincular su firma a este registro.</p>
-                <div class="mb-3">
-                    <label class="form-label small">Usuario: <strong id="confirm-password-username"></strong></label>
-                    <input type="password" id="confirm-password-input" class="form-control" placeholder="Ingrese su contraseña">
+            <form id="password-confirm-form">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmar Firma Electrónica</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div id="confirm-password-error" class="text-danger small d-none">Contraseña incorrecta.</div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary btn-sm" id="btn-confirm-password-submit">Confirmar y Firmar</button>
-            </div>
+                <div class="modal-body">
+                    <p class="small text-muted">Para cumplir con 21 CFR Part 11, re-ingrese su contraseña para vincular su firma a este registro.</p>
+                    <div class="mb-3">
+                        <label class="form-label small">Usuario: <strong id="confirm-password-username"></strong></label>
+                        <input type="password" id="confirm-password-input" class="form-control" placeholder="Ingrese su contraseña" required autocomplete="current-password">
+                    </div>
+                    <div id="confirm-password-error" class="text-danger small d-none">Contraseña incorrecta.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm" id="btn-confirm-password-submit">Confirmar y Firmar</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -1610,11 +1612,11 @@
 <input id="technician-id-hidden" type="hidden"/>
 <div class="mb-3">
 <label class="form-label" for="technician-username">Usuario</label>
-<input class="form-control" id="technician-username" required="" type="text"/>
+<input class="form-control" id="technician-username" required="" type="text" autocomplete="username"/>
 </div>
 <div class="mb-3">
 <label class="form-label" for="technician-password">Contraseña</label>
-<input class="form-control" id="technician-password" required="" type="password"/>
+<input class="form-control" id="technician-password" required="" type="password" autocomplete="new-password"/>
 </div>
 <div class="mb-3" id="technician-salary-wrapper">
 <label class="form-label" for="technician-salary">Salario Mensual (HNL)</label>

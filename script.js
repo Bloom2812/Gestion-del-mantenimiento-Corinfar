@@ -3,9 +3,9 @@ const GLOBAL_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAABlCAYAA
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { 
-    getFirestore, collection, doc, onSnapshot, 
+    initializeFirestore, persistentLocalCache, collection, doc, onSnapshot,
     addDoc, setDoc, deleteDoc, getDocs, query, updateDoc, getDoc, where, deleteField,
-    enableIndexedDbPersistence, writeBatch, orderBy, limit
+    writeBatch, orderBy, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
@@ -21,21 +21,14 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-cmms-app';
 console.log("🚀 CORINFAR CMMS - Versión Odoo Integration 2.0 cargada.");
 // --- Firebase Initialization ---
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = initializeFirestore(app, {
+    localCache: persistentLocalCache()
+});
 const storage = getStorage(app);
 
 // Export for verification
 window.state = null;
 const auth = getAuth(app);
-
-// Enable Offline Persistence
-enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code == 'failed-precondition') {
-        console.warn("La persistencia falló: Múltiples pestañas abiertas.");
-    } else if (err.code == 'unimplemented') {
-        console.warn("La persistencia no es compatible con este navegador.");
-    }
-});
 
 // --- App State ---
 const state = {
@@ -597,6 +590,13 @@ async function initializeSampleData() {
 // --- Realtime Listeners ---
 function setupRealtimeListeners() {
     // OPTIMIZED: Use docChanges for efficient DOM updates on simple list views
+    const debouncedMachinesUpdate = debounce((requiresKpiUpdate) => {
+        renderMachines();
+        populateDynamicSelectors();
+        updateMachineCriticidadChart();
+        if (requiresKpiUpdate) updateDashboardData();
+    }, 300);
+
     onSnapshot(query(state.collections.machines), snapshot => {
         let requiresKpiUpdate = false;
         let dataChanged = false;
@@ -618,15 +618,15 @@ function setupRealtimeListeners() {
         });
 
         if (dataChanged) {
-            renderMachines();
-            populateDynamicSelectors();
-            
-            updateMachineCriticidadChart();
-            
-            if (requiresKpiUpdate) updateDashboardData();
+            debouncedMachinesUpdate(requiresKpiUpdate);
         }
     });
     
+    const debouncedPartsUpdate = debounce((requiresCostUpdate) => {
+        renderParts();
+        if (requiresCostUpdate) updateDashboardData();
+    }, 300);
+
     onSnapshot(query(state.collections.parts), snapshot => {
         let requiresCostUpdate = false;
         let dataChanged = false;
@@ -653,8 +653,7 @@ function setupRealtimeListeners() {
         });
 
         if (dataChanged) {
-            renderParts();
-            if (requiresCostUpdate) updateDashboardData();
+            debouncedPartsUpdate(requiresCostUpdate);
         }
     });
 
@@ -709,6 +708,17 @@ function setupRealtimeListeners() {
     
     // For complex views like dashboard, calendar, kanban, a full re-render on data change is more robust and acceptable.
     let firstWoLoad = true;
+    const debouncedWorkOrdersUpdate = debounce(() => {
+        populateWorkOrderSelectors();
+        renderCalendar();
+        if (state.currentTab === 'maquinaria') renderMachines();
+        if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
+        if (state.currentTab === 'trabajo-activo') renderActiveWorkView();
+        if (state.currentTab === 'ordenes-asignadas') renderAssignedOrders();
+        if (state.currentTab === 'solicitudes') renderSolicitudes();
+        updateDashboardData();
+    }, 300);
+
     onSnapshot(query(state.collections.workOrders), snapshot => {
         state.workOrders = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
 
@@ -717,46 +727,55 @@ function setupRealtimeListeners() {
             firstWoLoad = false;
         }
 
-        populateWorkOrderSelectors();
-        renderCalendar();
-        if (state.currentTab === 'maquinaria') renderMachines();
-        if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
-        if (state.currentTab === 'trabajo-activo') renderActiveWorkView();
-        if (state.currentTab === 'ordenes-asignadas') renderAssignedOrders();
-        if (state.currentTab === 'solicitudes') renderSolicitudes(); // Re-render solicitudes as WO status affects them
-        updateDashboardData();
+        debouncedWorkOrdersUpdate();
     });
 
-    onSnapshot(query(state.collections.workPlans), snapshot => {
-        state.workPlans = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+    const debouncedWorkPlansUpdate = debounce(() => {
         if (state.currentTab === 'maquinaria') renderMachines();
         if (state.currentTab === 'planes-trabajo') {
             renderWorkPlans();
         }
         populateExecutionReportSelector();
         updatePlanNotifications();
+    }, 300);
+
+    onSnapshot(query(state.collections.workPlans), snapshot => {
+        state.workPlans = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+        debouncedWorkPlansUpdate();
     });
 
-    onSnapshot(query(state.collections.workPlanExecutions), snapshot => {
-        state.workPlanExecutions = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+    const debouncedPlanExecutionsUpdate = debounce(() => {
         if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
         updateDashboardData();
         populateExecutionReportSelector();
+    }, 300);
+
+    onSnapshot(query(state.collections.workPlanExecutions), snapshot => {
+        state.workPlanExecutions = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+        debouncedPlanExecutionsUpdate();
     });
+
+    const debouncedMonitoringConfigsUpdate = debounce(() => {
+        if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
+    }, 300);
 
     onSnapshot(query(state.collections.monitoringConfigs), snapshot => {
         state.monitoringConfigs = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
-        if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
+        debouncedMonitoringConfigsUpdate();
     });
 
     if (state.currentUser) {
         const solicitudesQuery = query(state.collections.solicitudes);
 
-        onSnapshot(solicitudesQuery, snapshot => {
-            state.solicitudes = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+        const debouncedSolicitudesUpdate = debounce(() => {
             if (state.currentTab === 'solicitudes') renderSolicitudes();
             if (state.currentTab === 'trabajo-activo') renderActiveWorkView();
-            updateDashboardData(); // Update pending requests stat
+            updateDashboardData();
+        }, 300);
+
+        onSnapshot(solicitudesQuery, snapshot => {
+            state.solicitudes = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+            debouncedSolicitudesUpdate();
         });
     }
 
@@ -10046,17 +10065,20 @@ function updateDashboardData() {
 
     if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado))) {
         const relevantMachineIds = new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado);
-        ordersForDashboard = state.workOrders.filter(wo => relevantMachineIds.has(wo.machineId));
+    ordersForDashboard = state.workOrders.filter(wo => wo.machineId && relevantMachineIds.has(wo.machineId));
     }
+
+    const startIso = startDate.toISOString().split('T')[0];
+    const endIso = endDate.toISOString().split('T')[0];
 
     const ordersThisPeriod = ordersForDashboard.filter(o => {
         if (!o.date) return false;
-        const orderDate = new Date(o.date + 'T12:00:00Z');
-        return orderDate >= startDate && orderDate <= endDate;
+        return o.date >= startIso && o.date <= endIso;
     });
 
-    updateStats(ordersThisPeriod);
-    updateKpis(ordersThisPeriod, startDate, endDate);
+    const kpis = calculateKpisForPeriod(ordersThisPeriod, startDate, endDate);
+    updateStats(ordersThisPeriod, kpis);
+    updateKpis(ordersThisPeriod, startDate, endDate, kpis);
     updateCharts(ordersThisPeriod);
     updatePlanNotifications();
 }
@@ -10351,23 +10373,25 @@ function updateMachineCriticidadChart() {
     if (statMaquinas) statMaquinas.textContent = machinesToCount.length;
 }
 
-function updateStats(ordersThisPeriod) {
+function updateStats(ordersThisPeriod, kpis) {
     updateMachineCriticidadChart();
     document.getElementById('stat-solicitudes').textContent = state.solicitudes.filter(s => s.status === 'Pendiente').length;
     
-    document.getElementById('stat-preventivos').textContent = ordersThisPeriod.filter(o => ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(o.type)).length;
-    document.getElementById('stat-correctivos').textContent = ordersThisPeriod.filter(o => ['Correctivo', 'Emergencia'].includes(o.type)).length;
+    let preventiveCount = 0;
+    let correctiveCount = 0;
+
+    ordersThisPeriod.forEach(o => {
+        if (['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(o.type)) preventiveCount++;
+        else if (['Correctivo', 'Emergencia'].includes(o.type)) correctiveCount++;
+    });
+
+    document.getElementById('stat-preventivos').textContent = preventiveCount;
+    document.getElementById('stat-correctivos').textContent = correctiveCount;
     
     const f = new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' });
 
-    // Gasto Ejecutado (Completed orders in period)
-    const completedOrders = ordersThisPeriod.filter(o => o.status === 'Completado');
-    const { totalCost: executedCost } = calculateTotalCostForMultiple(completedOrders);
-    document.getElementById('stat-gasto-ejecutado').textContent = f.format(executedCost);
-    
-    // Gasto Planificado (All orders in period, including cancelled/expired)
-    const { totalCost: plannedCost } = calculateTotalCostForMultiple(ordersThisPeriod);
-    document.getElementById('stat-gasto-planificado').textContent = f.format(plannedCost);
+    document.getElementById('stat-gasto-ejecutado').textContent = f.format(kpis.totalExecutedCost || 0);
+    document.getElementById('stat-gasto-planificado').textContent = f.format(kpis.totalPlannedCost || 0);
 }
 
 function calculateKpisForPeriod(ordersInPeriod, startDate, endDate, machineId = 'all') {
@@ -10437,7 +10461,13 @@ function calculateKpisForPeriod(ordersInPeriod, startDate, endDate, machineId = 
     if (completedOrdersInPeriod.length > 0) {
         const { totalCost } = calculateTotalCostForMultiple(completedOrdersInPeriod);
         kpis.avgCost = totalCost / completedOrdersInPeriod.length;
+        kpis.totalExecutedCost = totalCost;
+    } else {
+        kpis.totalExecutedCost = 0;
     }
+
+    const { totalCost: totalPlannedCost } = calculateTotalCostForMultiple(plannedOrdersInPeriod);
+    kpis.totalPlannedCost = totalPlannedCost;
 
     return kpis;
 }
@@ -10449,10 +10479,12 @@ function getPreviousPeriod(startDate, endDate) {
     return { prevStartDate, prevEndDate };
 }
 
-function updateKpis(ordersInPeriod, startDate, endDate) {
+function updateKpis(ordersInPeriod, startDate, endDate, allMachineKpis = null) {
     const machineId = document.getElementById('kpi-machine-select').value;
 
-    const currentKpis = calculateKpisForPeriod(ordersInPeriod, startDate, endDate, machineId);
+    const currentKpis = (machineId === 'all' && allMachineKpis)
+        ? allMachineKpis
+        : calculateKpisForPeriod(ordersInPeriod, startDate, endDate, machineId);
 
     // Get previous period data
     const { prevStartDate, prevEndDate } = getPreviousPeriod(startDate, endDate);
@@ -10512,28 +10544,30 @@ function updateComparison(kpiName, current, previous, higherIsBetter) {
 function updateCharts(ordersForPeriod) {
     if (!state.charts.maintenance) return;
 
-    const preventiveCount = ordersForPeriod.filter(o => ['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)).length;
-    const correctiveCount = ordersForPeriod.filter(o => ['Correctivo', 'Emergencia'].includes(o.type)).length;
+    let preventiveCount = 0;
+    let correctiveCount = 0;
+    const failureCounts = { 'Mecánica': 0, 'Eléctrica': 0, 'Electrónica': 0, 'Falla de Operación': 0 };
+    const statusCounts = { 'Pendiente': 0, 'En Proceso': 0, 'Pausado': 0, 'Pendiente de Evaluación': 0, 'Completado': 0, 'Cancelado': 0 };
+
+    ordersForPeriod.forEach(o => {
+        if (['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)) preventiveCount++;
+        else if (['Correctivo', 'Emergencia'].includes(o.type)) correctiveCount++;
+
+        if (o.type === 'Calibración') failureCounts['Falla de Operación']++;
+        else if (failureCounts.hasOwnProperty(o.failureType)) failureCounts[o.failureType]++;
+
+        let statusKey = o.status;
+        if (statusKey === 'Pendiente de Aprobación') statusKey = 'Pendiente de Evaluación';
+        if (statusCounts.hasOwnProperty(statusKey)) statusCounts[statusKey]++;
+    });
+
     state.charts.maintenance.data.datasets[0].data = [preventiveCount, correctiveCount];
     state.charts.maintenance.update();
 
-    const failureCounts = {
-        'Mecánica': ordersForPeriod.filter(o => o.failureType === 'Mecánica').length,
-        'Eléctrica': ordersForPeriod.filter(o => o.failureType === 'Eléctrica').length,
-        'Electrónica': ordersForPeriod.filter(o => o.failureType === 'Electrónica').length,
-        'Falla de Operación': ordersForPeriod.filter(o => o.failureType === 'Falla de Operación' || o.type === 'Calibración').length,
-    };
     state.charts.failureType.data.datasets[0].data = Object.values(failureCounts);
     state.charts.failureType.update();
 
-    state.charts.taskStatus.data.datasets[0].data = [
-        ordersForPeriod.filter(o => o.status === 'Pendiente').length,
-        ordersForPeriod.filter(o => o.status === 'En Proceso').length,
-        ordersForPeriod.filter(o => o.status === 'Pausado').length,
-        ordersForPeriod.filter(o => o.status === 'Pendiente de Evaluación' || o.status === 'Pendiente de Aprobación').length,
-        ordersForPeriod.filter(o => o.status === 'Completado').length,
-        ordersForPeriod.filter(o => o.status === 'Cancelado').length
-    ];
+    state.charts.taskStatus.data.datasets[0].data = Object.values(statusCounts);
     state.charts.taskStatus.update();
 
     const trendLabels = [];
@@ -11418,13 +11452,20 @@ function requestSignature(onSuccess, onCancel) {
     // Asegurarse de quitar el overlay de carga para que el usuario pueda interactuar
     showLoading(false);
 
-    document.getElementById('confirm-password-username').textContent = state.currentUser.username;
-    const passwordInputEl = document.getElementById('confirm-password-input');
+    const modalEl = document.getElementById('passwordConfirmModal');
+    const form = document.getElementById('password-confirm-form');
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+
+    const usernameEl = newForm.querySelector('#confirm-password-username');
+    const passwordInputEl = newForm.querySelector('#confirm-password-input');
+    const errorEl = newForm.querySelector('#confirm-password-error');
+
+    usernameEl.textContent = state.currentUser.username;
     passwordInputEl.value = '';
-    document.getElementById('confirm-password-error').classList.add('d-none');
+    errorEl.classList.add('d-none');
 
     let successCalled = false;
-    const modalEl = document.getElementById('passwordConfirmModal');
 
     const onHidden = () => {
         modalEl.removeEventListener('hidden.bs.modal', onHidden);
@@ -11432,11 +11473,8 @@ function requestSignature(onSuccess, onCancel) {
     };
     modalEl.addEventListener('hidden.bs.modal', onHidden);
 
-    const oldBtn = document.getElementById('btn-confirm-password-submit');
-    const newBtn = oldBtn.cloneNode(true);
-    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
-
-    const handleConfirm = async () => {
+    const handleConfirm = async (e) => {
+        if (e) e.preventDefault();
         const passwordInput = passwordInputEl.value;
         const hashedPassword = await hashPassword(passwordInput);
 
@@ -11452,25 +11490,12 @@ function requestSignature(onSuccess, onCancel) {
             state.modals.passwordConfirm.hide();
             onSuccess();
         } else {
-            document.getElementById('confirm-password-error').classList.remove('d-none');
+            errorEl.classList.remove('d-none');
             passwordInputEl.focus();
         }
     };
 
-    newBtn.addEventListener('click', handleConfirm);
-
-    // Soporte para tecla Enter
-    const enterListener = (e) => {
-        if (e.key === 'Enter') {
-            handleConfirm();
-        }
-    };
-    passwordInputEl.addEventListener('keydown', enterListener);
-
-    // Limpiar listener al cerrar
-    modalEl.addEventListener('hidden.bs.modal', () => {
-        passwordInputEl.removeEventListener('keydown', enterListener);
-    }, { once: true });
+    newForm.addEventListener('submit', handleConfirm);
 
     state.modals.passwordConfirm.show();
 
