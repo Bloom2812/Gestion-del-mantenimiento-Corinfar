@@ -13,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+<script src="qrcode.min.js"></script>
 <!-- Inlined style.css -->
 
 <link href="style.css" rel="stylesheet"/></head>
@@ -138,6 +139,29 @@
 </button>
 </div>
 </header>
+<div class="tab-content d-none" id="public-machine-report">
+    <div class="container py-4">
+        <div class="text-center mb-4">
+            <h2 class="fw-bold text-primary"><i class="fas fa-tools me-2"></i>Reporte Rápido de Activo</h2>
+            <p class="text-muted">Información técnica y estado actual del equipo</p>
+        </div>
+
+        <div id="public-report-content">
+            <!-- Cargado por JS -->
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">Cargando información del activo...</p>
+            </div>
+        </div>
+
+        <div class="text-center mt-5">
+            <button class="btn btn-outline-primary btn-sm" onclick="window.location.href = window.location.pathname">
+                <i class="fas fa-sign-in-alt me-2"></i>Ir al Sistema Completo
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="tab-content d-none" id="monitoreo-inteligente">
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div class="dropdown" id="monitoring-filters-wrapper">

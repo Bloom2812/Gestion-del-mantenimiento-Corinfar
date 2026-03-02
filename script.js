@@ -511,10 +511,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load Odoo Settings
     await loadOdooSettings();
 
+    let listenersStarted = false;
     onAuthStateChanged(auth, async (user) => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const machineId = urlParams.get('machineId');
+
+        if (machineId) {
+            document.getElementById('login-overlay').classList.add('d-none');
+            document.getElementById('app-wrapper').classList.remove('d-none');
+            document.body.classList.add('public-view');
+        }
+
         if (user) {
-            await initializeSampleData();
-            setupRealtimeListeners();
+            if (!listenersStarted) {
+                await initializeSampleData();
+                setupRealtimeListeners();
+                listenersStarted = true;
+            }
+
+            if (machineId) {
+                // Optimización: Intentar cargar la máquina específica directamente si tarda mucho la colección completa
+                const tryLoadMachine = async () => {
+                    if (state.machines.length > 0) {
+                        renderPublicMachineReport(machineId);
+                        return true;
+                    }
+                    return false;
+                };
+
+                if (!await tryLoadMachine()) {
+                    let attempts = 0;
+                    const checkInterval = setInterval(async () => {
+                        attempts++;
+                        if (await tryLoadMachine()) {
+                            clearInterval(checkInterval);
+                        } else if (attempts > 20) {
+                            clearInterval(checkInterval);
+                            showToast('Tiempo de espera agotado cargando datos', 'warning');
+                        }
+                    }, 500);
+                }
+            }
         } else {
              try {
                  if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -2205,8 +2242,9 @@ function showMachineDetail(machineId) {
                             <h6 class="fw-bold mb-0">Acceso Rápido</h6>
                         </div>
                         <div class="p-4 text-center">
-                            <div class="d-inline-block p-3 border rounded-3 mb-3 shadow-sm">
-                                <i class="fas fa-qrcode fa-5x"></i>
+                            <div id="machine-detail-qr" class="d-inline-block p-3 border rounded-3 mb-3 shadow-sm bg-white">
+                                <!-- QR Code will be generated here -->
+                                <i class="fas fa-qrcode fa-5x text-muted opacity-25"></i>
                             </div>
                             <p class="small text-muted text-uppercase fw-bold mb-0" style="font-size: 0.65rem; letter-spacing: 1px;">Escanee para historial rápido</p>
                         </div>
@@ -2423,6 +2461,23 @@ function showMachineDetail(machineId) {
     });
 
     state.modals.machineDetail.show();
+
+    // Generate QR Code
+    const qrContainer = document.getElementById('machine-detail-qr');
+    if (qrContainer) {
+        qrContainer.innerHTML = ''; // Clear icon
+        const url = new URL(window.location.href);
+        url.searchParams.set('machineId', machineId);
+
+        new QRCode(qrContainer, {
+            text: url.toString(),
+            width: 128,
+            height: 128,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    }
 }
 
 async function showPartDetail(partId) {
@@ -12895,3 +12950,194 @@ function getKpiFormula(type) {
 
 window.generateExecutiveReportData = generateExecutiveReportData;
 window.switchTab = switchTab;
+window.renderPublicMachineReport = renderPublicMachineReport;
+
+async function renderPublicMachineReport(machineId) {
+    const machine = state.machines.find(m => m.id === machineId || m.fb_id === machineId);
+    if (!machine) {
+        showToast('Activo no encontrado', 'error');
+        return;
+    }
+
+    // Prepare UI
+    const loginOverlay = document.getElementById('login-overlay');
+    if (loginOverlay) loginOverlay.classList.add('d-none');
+
+    const appWrapper = document.getElementById('app-wrapper');
+    if (appWrapper) appWrapper.classList.remove('d-none');
+
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.classList.add('d-none');
+
+    const header = document.querySelector('.header');
+    if (header) header.classList.add('d-none');
+
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        mainContent.style.marginLeft = '0';
+        mainContent.style.paddingTop = '0';
+    }
+
+    // Direct tab switch logic without side effects
+    document.querySelectorAll('.main-content > .tab-content').forEach(tab => tab.classList.add('d-none'));
+    const publicTab = document.getElementById('public-machine-report');
+    if (publicTab) publicTab.classList.remove('d-none');
+    state.currentTab = 'public-machine-report';
+
+    const content = document.getElementById('public-report-content');
+
+    // Calculate KPIs (simplified version of generateMachineReport logic)
+    const machineWorkOrders = state.workOrders.filter(o => o.machineId === machine.id);
+    const correctiveOrders = machineWorkOrders.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type));
+
+    let mtbf = 'N/A';
+    let startDate = machine.createdAt ? new Date(machine.createdAt) : null;
+    if (startDate) {
+        const totalTimeMs = Math.max(0, new Date() - startDate);
+        const mtbfMs = totalTimeMs / (correctiveOrders.length + 1);
+        mtbf = `${(mtbfMs / (1000 * 60 * 60 * 24)).toFixed(1)}d`;
+    }
+
+    let mttr = '0h';
+    const completedCorrective = correctiveOrders.filter(o => o.status === 'Completado');
+    if (completedCorrective.length > 0) {
+        const totalRepairTimeMs = completedCorrective.reduce((sum, o) => sum + getTotalWorkDurationMs(o), 0);
+        mttr = `${(totalRepairTimeMs / (completedCorrective.length * 1000 * 60 * 60)).toFixed(1)}h`;
+    }
+
+    const recentOrders = machineWorkOrders
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+        .slice(0, 5);
+
+    const iqVal = machine.iqStatus ? 'Validado' : 'Pendiente';
+    const oqVal = machine.oqStatus ? 'Validado' : 'Pendiente';
+    const pqVal = machine.pqStatus ? 'Vigente' : 'Vencido';
+
+    content.innerHTML = `
+        <div class="row g-4">
+            <!-- Columna de Imagen e Info Básica -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm border-0 mb-4 overflow-hidden">
+                    <div class="p-3 bg-light border-bottom text-center">
+                        <h6 class="fw-bold mb-0">${machine.name}</h6>
+                    </div>
+                    <div class="p-4 text-center">
+                        ${machine.imageUrl ?
+                            `<img src="${machine.imageUrl}" class="img-fluid rounded shadow-sm mb-3" style="max-height: 200px;">` :
+                            `<div class="text-muted py-4"><i class="fas fa-image fa-4x mb-2"></i><br>Sin Imagen</div>`
+                        }
+                        <div class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill">ID: ${machine.id}</div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-info-circle me-2 text-primary"></i>Datos Técnicos</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2"><small class="text-muted d-block">Marca/Modelo</small> ${machine.brand || 'N/A'} - ${machine.model || 'N/A'}</li>
+                            <li class="mb-2"><small class="text-muted d-block">Serie</small> <span class="font-mono">${machine.serialNumber || 'N/A'}</span></li>
+                            <li class="mb-0"><small class="text-muted d-block">Ubicación</small> ${machine.location || 'N/A'}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna de Estado y KPIs -->
+            <div class="col-lg-8">
+                <!-- KPIs Row -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm text-center p-3 h-100">
+                            <div class="text-muted small mb-1">MTBF (Confiabilidad)</div>
+                            <h4 class="fw-bold text-success mb-0">${mtbf}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm text-center p-3 h-100">
+                            <div class="text-muted small mb-1">MTTR (Mantenibilidad)</div>
+                            <h4 class="fw-bold text-warning mb-0">${mttr}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm text-center p-3 h-100">
+                            <div class="text-muted small mb-1">Criticidad</div>
+                            <h4 class="fw-bold text-danger mb-0">${machine.criticidad || 'Baja'}</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Qualification Status -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-certificate me-2 text-primary"></i>Estado de Calificación</h6>
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <div class="p-2 border rounded text-center ${machine.iqStatus ? 'bg-success bg-opacity-10 border-success' : 'bg-light'}">
+                                    <small class="d-block text-muted">IQ</small>
+                                    <span class="fw-bold small ${machine.iqStatus ? 'text-success' : ''}">${iqVal}</span>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-2 border rounded text-center ${machine.oqStatus ? 'bg-success bg-opacity-10 border-success' : 'bg-light'}">
+                                    <small class="d-block text-muted">OQ</small>
+                                    <span class="fw-bold small ${machine.oqStatus ? 'text-success' : ''}">${oqVal}</span>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-2 border rounded text-center ${machine.pqStatus ? 'bg-primary bg-opacity-10 border-primary' : 'bg-light'}">
+                                    <small class="d-block text-muted">PQ</small>
+                                    <span class="fw-bold small ${machine.pqStatus ? 'text-primary' : ''}">${pqVal}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent History -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-history me-2 text-primary"></i>Últimos Mantenimientos</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Tipo</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${recentOrders.map(o => `
+                                        <tr>
+                                            <td class="small">${o.date || 'N/A'}</td>
+                                            <td><span class="badge ${['Preventivo', 'Predictivo'].includes(o.type) ? 'bg-info' : 'bg-danger'}" style="font-size: 0.6rem;">${o.type}</span></td>
+                                            <td><span class="badge ${o.status === 'Completado' ? 'bg-success' : 'bg-warning text-dark'}" style="font-size: 0.6rem;">${o.status}</span></td>
+                                        </tr>
+                                    `).join('')}
+                                    ${recentOrders.length === 0 ? '<tr><td colspan="3" class="text-center text-muted py-2">No hay registros</td></tr>' : ''}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documentation -->
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-book me-2 text-primary"></i>Manuales y Documentos</h6>
+                        <div class="d-flex gap-3">
+                            ${machine.userManualUrl ?
+                                `<a href="${machine.userManualUrl}" target="_blank" class="btn btn-outline-danger btn-sm flex-grow-1"><i class="fas fa-file-pdf me-2"></i>Manual Usuario</a>` :
+                                `<button class="btn btn-light btn-sm flex-grow-1 disabled"><i class="fas fa-file-pdf me-2"></i>No hay Manual</button>`
+                            }
+                            ${machine.techManualUrl ?
+                                `<a href="${machine.techManualUrl}" target="_blank" class="btn btn-outline-primary btn-sm flex-grow-1"><i class="fas fa-file-pdf me-2"></i>Manual Técnico</a>` :
+                                `<button class="btn btn-light btn-sm flex-grow-1 disabled"><i class="fas fa-file-pdf me-2"></i>No hay Técnico</button>`
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
