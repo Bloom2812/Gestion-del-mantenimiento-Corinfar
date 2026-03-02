@@ -11324,13 +11324,20 @@ async function generateTokenLink(fbId, type) {
 window.generateTokenLink = generateTokenLink;
 
 async function handleInvitationToken(token) {
-    // Esperar a que los técnicos se carguen (si es necesario)
-    if (state.technicians.length === 0) {
-        const snapshot = await getDocs(state.collections.technicians);
-        state.technicians = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+    showLoading(true);
+    let tech = null;
+    try {
+        const q = query(state.collections.technicians, where("invitationToken", "==", token));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            tech = { fb_id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        }
+    } catch (error) {
+        console.error("Error validating token:", error);
+    } finally {
+        showLoading(false);
     }
 
-    const tech = state.technicians.find(t => t.invitationToken === token);
     if (!tech) {
         showToast('Link inválido o ya utilizado.', 'error');
         return;
@@ -11381,18 +11388,23 @@ async function handleSetPasswordSubmit(e) {
             resetRequested: false
         });
 
-        showToast('Contraseña actualizada. Ya puede iniciar sesión.', 'success');
+        showToast('¡Contraseña establecida correctamente!', 'success');
 
         // Limpiar URL
         const url = new URL(window.location);
         url.searchParams.delete('token');
         window.history.replaceState({}, '', url);
 
-        // Volver al login
+        // Volver al login y resetear campos inmediatamente
+        document.getElementById('set-password-form').reset();
         document.getElementById('set-password-overlay').classList.add('d-none');
         document.getElementById('login-overlay').classList.remove('d-none');
+
         document.getElementById('username').value = tech.username;
-        document.getElementById('password').focus();
+        document.getElementById('password').value = '';
+        setTimeout(() => {
+            document.getElementById('password').focus();
+        }, 100);
 
     } catch (error) {
         console.error("Error setting password:", error);
