@@ -607,6 +607,7 @@ function setupRealtimeListeners() {
     onSnapshot(query(state.collections.machines), snapshot => {
         let requiresKpiUpdate = false;
         let dataChanged = false;
+        populateDynamicSelectors();
         snapshot.docChanges().forEach(change => {
             dataChanged = true;
             const machineData = { fb_id: change.doc.id, ...change.doc.data() };
@@ -637,6 +638,7 @@ function setupRealtimeListeners() {
     onSnapshot(query(state.collections.parts), snapshot => {
         let requiresCostUpdate = false;
         let dataChanged = false;
+        populateDynamicSelectors();
          snapshot.docChanges().forEach(change => {
             dataChanged = true;
             const partData = { fb_id: change.doc.id, ...change.doc.data() };
@@ -666,6 +668,7 @@ function setupRealtimeListeners() {
 
      onSnapshot(query(state.collections.proveedores), snapshot => {
         let dataChanged = false;
+        populateDynamicSelectors();
          snapshot.docChanges().forEach(change => {
             dataChanged = true;
             const provData = { fb_id: change.doc.id, ...change.doc.data() };
@@ -704,6 +707,7 @@ function setupRealtimeListeners() {
         });
 
         renderTechnicians(); // Full re-render is fine for this small/infrequent table
+        populateDynamicSelectors();
 
         if (wasEmpty && state.technicians.length > 0) {
             document.getElementById('login-status-text').textContent = 'Ingrese sus credenciales';
@@ -1468,6 +1472,11 @@ function applyUserPermissions() {
     if (woHistoryReportItem) woHistoryReportItem.classList.toggle('d-none', isTecnico);
     if (globalReportItem) globalReportItem.classList.toggle('d-none', isTecnico);
 
+    // Refresh dynamic selectors after permissions are applied to ensure role-based filtering is active
+    populateDynamicSelectors();
+    populateWorkOrderSelectors();
+    populateExecutionReportSelector();
+
     updateMachineCriticidadChart();
     renderMachines();
     renderParts();
@@ -1490,6 +1499,12 @@ async function switchTab(tabName) {
 
     document.getElementById('dashboard-date-filter').classList.toggle('d-none', tabName !== 'dashboard');
 
+    // Refresh dynamic selectors when entering key tabs
+    if (tabName === 'dashboard' || tabName === 'reportes') {
+        populateDynamicSelectors();
+        populateWorkOrderSelectors();
+        populateExecutionReportSelector();
+    }
 
     if (tabName === 'maquinaria') renderMachines();
     if (tabName === 'monitoreo-inteligente') renderSmartMonitoring();
@@ -11251,24 +11266,29 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
                 selector.innerHTML = isKpiSelector ? '<option value="all">Todas las Máquinas</option>' : '<option value="">Seleccione una máquina...</option>';
 
                 let machinesToPopulate = state.machines;
-                if (state.currentUser?.role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
-                    const managedIds = new Set(state.currentUser.managedMachineIds);
-                    machinesToPopulate = state.machines.filter(m => managedIds.has(m.id));
-                } else if (state.currentUser?.role === 'Técnico' && (selector.id === 'report-machine-select' || selector.id === 'report-machine-parts-select')) {
-                    // Filter machines for specific reports if role is Técnico
-                    const assignedIds = new Set(state.currentUser.equipoAsignado || []);
-                    machinesToPopulate = state.machines.filter(m => assignedIds.has(m.id));
+                const role = state.currentUser?.role;
+
+                if (role !== 'Admin' && role !== 'Planificador' && role !== 'Invitado') {
+                    if (role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
+                        const managedIds = new Set(state.currentUser.managedMachineIds);
+                        machinesToPopulate = state.machines.filter(m => m.id && managedIds.has(m.id));
+                    } else if (role === 'Técnico' && (selector.id === 'report-machine-select' || selector.id === 'report-machine-parts-select')) {
+                        const assignedIds = new Set(state.currentUser.equipoAsignado || []);
+                        machinesToPopulate = state.machines.filter(m => m.id && assignedIds.has(m.id));
+                    }
                 }
 
                 if (lowerSearch) {
                     machinesToPopulate = machinesToPopulate.filter(m =>
-                        m.id.toLowerCase().includes(lowerSearch) ||
-                        m.name.toLowerCase().includes(lowerSearch)
+                        (m.id && m.id.toLowerCase().includes(lowerSearch)) ||
+                        (m.name && m.name.toLowerCase().includes(lowerSearch))
                     );
                 }
 
                 machinesToPopulate.forEach(machine => {
-                    selector.innerHTML += `<option value="${machine.id}">${machine.id} - ${machine.name}</option>`;
+                    if (machine.id && machine.name) {
+                        selector.innerHTML += `<option value="${machine.id}">${machine.id} - ${machine.name}</option>`;
+                    }
                 });
             }
             if (currentVal) {
