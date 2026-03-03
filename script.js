@@ -495,6 +495,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.modals.invitationLink = new bootstrap.Modal(document.getElementById('invitation-link-modal'));
     
     setupEventListeners();
+
+    // Initialize Sortable for main task groups in work plan modal
+    const taskGroupsContainer = document.getElementById('task-groups-container');
+    if (taskGroupsContainer) {
+        new Sortable(taskGroupsContainer, {
+            animation: 150,
+            handle: '.task-group-handle',
+            ghostClass: 'sortable-ghost'
+        });
+    }
+
     updateCurrentDate();
     populateDateSelectors();
     initCharts();
@@ -5718,6 +5729,7 @@ function addTaskGroup(name = '', layout = 'table', tasks = []) {
     groupEl.className = 'card mb-3 task-group';
     groupEl.innerHTML = `
         <div class="card-header p-2 bg-light d-flex align-items-center gap-2">
+            <div class="task-group-handle"><i class="fas fa-grip-vertical"></i></div>
             <input type="text" class="form-control form-control-sm task-group-name-input" placeholder="Nombre de la Sección (ej: Reductor)" value="${name}">
             <select class="form-select form-select-sm task-group-layout-select" style="width: auto;">
                 <option value="table" ${layout === 'table' ? 'selected' : ''}>Vista Tabla</option>
@@ -5735,17 +5747,26 @@ function addTaskGroup(name = '', layout = 'table', tasks = []) {
 
     const tasksList = groupEl.querySelector('.tasks-list');
 
+    // Initialize Sortable for individual tasks within this group
+    new Sortable(tasksList, {
+        animation: 150,
+        handle: '.task-handle',
+        ghostClass: 'sortable-ghost'
+    });
+
     const addTaskItem = (task = null) => {
         const taskEl = document.createElement('div');
-        taskEl.className = 'border rounded p-2 mb-2 bg-white shadow-sm task-item';
+        taskEl.className = 'border rounded p-2 mb-2 bg-white shadow-sm task-item d-flex align-items-start';
         taskEl.innerHTML = `
-            <div class="d-flex justify-content-between align-items-start mb-2">
-                <div class="flex-grow-1 me-2">
-                    <input type="text" class="form-control form-control-sm fw-bold task-description-input mb-1" placeholder="Título de la tarea (ej: Nivel de aceite)" value="${task?.description || ''}">
-                    <input type="text" class="form-control form-control-sm task-helper-input" placeholder="Instrucción corta (ej: Verificar visor frontal)" value="${task?.helperText || ''}">
+            <div class="task-handle py-2"><i class="fas fa-grip-vertical"></i></div>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="flex-grow-1 me-2">
+                        <input type="text" class="form-control form-control-sm fw-bold task-description-input mb-1" placeholder="Título de la tarea (ej: Nivel de aceite)" value="${task?.description || ''}">
+                        <input type="text" class="form-control form-control-sm task-helper-input" placeholder="Instrucción corta (ej: Verificar visor frontal)" value="${task?.helperText || ''}">
+                    </div>
+                    <button class="btn btn-link text-danger p-0" type="button" onclick="this.closest('.task-item').remove()"><i class="fas fa-trash"></i></button>
                 </div>
-                <button class="btn btn-link text-danger p-0" type="button" onclick="this.closest('.task-item').remove()"><i class="fas fa-trash"></i></button>
-            </div>
             <div class="row g-2 align-items-center">
                 <div class="col-md-4">
                     <label class="x-small fw-bold mb-1 d-block">Tipo de Campo</label>
@@ -5774,6 +5795,7 @@ function addTaskGroup(name = '', layout = 'table', tasks = []) {
             <div class="multi-fields-container mt-2 ${task?.type === 'multi_numeric' ? '' : 'd-none'}">
                 <label class="x-small fw-bold mb-1 d-block">Sub-campos (ej: Fase L1, Fase L2)</label>
                 <input type="text" class="form-control form-control-sm task-multi-fields-input" placeholder="Separados por coma" value="${task?.fields ? task.fields.join(', ') : ''}">
+            </div>
             </div>
         `;
 
