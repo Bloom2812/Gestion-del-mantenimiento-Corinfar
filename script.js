@@ -1559,11 +1559,16 @@ async function switchTab(tabName) {
     document.querySelectorAll('.main-content > .tab-content').forEach(tab => tab.classList.add('d-none'));
     document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
     
-    document.getElementById(tabName).classList.remove('d-none');
+    const targetContent = document.getElementById(tabName);
+    if (targetContent) targetContent.classList.remove('d-none');
+
     const activeTab = document.querySelector(`[data-tab="${tabName}"]`);
-    activeTab.classList.add('active');
+    if (activeTab) {
+        activeTab.classList.add('active');
+        const pageTitle = document.getElementById('page-title');
+        if (pageTitle) pageTitle.textContent = activeTab.innerText.trim();
+    }
     
-    document.getElementById('page-title').textContent = activeTab.innerText.trim();
     state.currentTab = tabName;
 
     document.getElementById('dashboard-date-filter').classList.toggle('d-none', tabName !== 'dashboard');
@@ -2065,10 +2070,10 @@ function createProveedorRowHTML(proveedor) {
 // --- CRUD Machine Functions ---
 function renderMachines() {
     if (state.currentTab !== 'maquinaria') return;
+    requestAnimationFrame(() => {
     const container = document.getElementById('machine-distribution-container');
     if (!container) return;
     const searchTerm = document.getElementById('search-machine-input').value.toLowerCase();
-    container.innerHTML = '';
 
     // Optimization: Group data once to avoid repeated filtering inside loops
     const ordersByMachine = new Map();
@@ -2183,6 +2188,7 @@ function renderMachines() {
     const criticalityOrder = { 'Alta': 0, 'Media': 1, 'Baja': 2 };
 
     // 5. Render groups and cards
+    let finalHTML = '';
     Object.entries(machinesByLocation).forEach(([location, machines], index) => {
         // Sort machines by criticality (Higher first)
         machines.sort((a, b) => (criticalityOrder[a.criticidad || 'Baja'] || 2) - (criticalityOrder[b.criticidad || 'Baja'] || 2));
@@ -2192,8 +2198,6 @@ function renderMachines() {
         const groupBaja = machines.filter(m => m.criticidad === 'Baja').length;
 
         const collapseId = `collapse-machine-loc-${index}`;
-        const groupEl = document.createElement('div');
-        groupEl.className = 'machine-zone mb-4';
 
         let cardsHTML = machines.map(m => {
             const status = machineStatusMap.get(m.id);
@@ -2259,7 +2263,8 @@ function renderMachines() {
             `;
         }).join('');
 
-        groupEl.innerHTML = `
+        finalHTML += `
+            <div class="machine-zone mb-4">
             <div class="zone-header collapsed" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="false" role="button">
                 <div class="d-flex align-items-center gap-3">
                     <span><i class="fas fa-map-marker-alt me-2"></i>${location.toUpperCase()}</span>
@@ -2279,9 +2284,10 @@ function renderMachines() {
                     </div>
                 </div>
             </div>
-        `;
-        container.appendChild(groupEl);
+        </div>`;
     });
+
+    container.innerHTML = finalHTML;
 
     // 6. Re-attach listeners
     container.querySelectorAll('.view-machine-detail, .clickable-detail').forEach(btn => btn.addEventListener('click', (e) => {
@@ -2300,6 +2306,7 @@ function renderMachines() {
     container.querySelectorAll('.show-history').forEach(pill => pill.addEventListener('click', () => {
         showMachineHistory(pill.dataset.machineId, pill.dataset.type);
     }));
+    });
 }
 
 function showMachineDetail(machineId) {
@@ -3366,6 +3373,7 @@ function deleteMachine(machineId) {
 // --- CRUD Part Functions ---
 function renderParts() {
     if (state.currentTab !== 'repuestos') return;
+    requestAnimationFrame(() => {
     const criticalList = document.getElementById('parts-list-critical');
     const attentionList = document.getElementById('parts-list-attention');
     const operativeList = document.getElementById('parts-list-operative');
@@ -10307,6 +10315,7 @@ function getDashboardDataHash(orders, startDate, endDate) {
 
 async function updateDashboardData() {
     if (state.currentTab !== 'dashboard') return;
+    requestAnimationFrame(async () => {
 
     const { startDate, endDate, periodLabel } = getDashboardPeriod();
 
@@ -10347,6 +10356,7 @@ async function updateDashboardData() {
     updateKpis(ordersThisPeriod, startDate, endDate, kpis);
     updateCharts(ordersThisPeriod);
     updatePlanNotifications();
+    });
 }
 
 function updatePlanNotifications() {
@@ -12054,6 +12064,7 @@ window.updatePlanNotifications = updatePlanNotifications;
 // --- Smart Monitoring Functions ---
 function renderSmartMonitoring() {
     if (state.currentTab !== 'monitoreo-inteligente') return;
+    requestAnimationFrame(() => {
     const container = document.getElementById('smart-monitoring-container');
     if (!container) return;
     container.innerHTML = '';
@@ -12259,6 +12270,7 @@ function renderSmartMonitoring() {
             </div>
         `;
         container.appendChild(cardCol);
+    });
     });
 }
 
@@ -13456,7 +13468,6 @@ function getKpiFormula(type) {
 }
 
 window.generateExecutiveReportData = generateExecutiveReportData;
-window.switchTab = switchTab;
 window.renderPublicMachineReport = renderPublicMachineReport;
 
 async function renderPublicMachineReport(machineId) {
