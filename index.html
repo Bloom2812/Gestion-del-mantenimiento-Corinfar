@@ -65,6 +65,8 @@
 </div>
 <div class="login-body">
 <form id="set-password-form">
+<!-- Hidden username field for accessibility/password manager compliance -->
+<input type="text" name="username" style="display:none;" autocomplete="username">
 <input type="hidden" id="set-password-token"/>
 <div class="form-floating mb-3 position-relative">
 <input class="form-control" id="new-password" placeholder="Nueva Contraseña" required="" type="password" autocomplete="new-password"/>
@@ -1199,7 +1201,7 @@
 </div>
 
 <!-- Password Confirmation Modal (21 CFR Part 11) -->
-<div class="modal fade" id="passwordConfirmModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="passwordConfirmModal" tabindex="-1">
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content shadow-lg border-primary">
             <form id="password-confirm-form">
@@ -1211,6 +1213,8 @@
                     <p class="small text-muted">Para cumplir con 21 CFR Part 11, re-ingrese su contraseña para vincular su firma a este registro.</p>
                     <div class="mb-3">
                         <label class="form-label small">Usuario: <strong id="confirm-password-username"></strong></label>
+                        <!-- Hidden username field for accessibility/password manager compliance -->
+                        <input type="text" name="username" id="confirm-password-username-hidden" style="display:none;" autocomplete="username">
                         <input type="password" id="confirm-password-input" class="form-control" placeholder="Ingrese su contraseña" required autocomplete="current-password">
                     </div>
                     <div id="confirm-password-error" class="text-danger small d-none">Contraseña incorrecta.</div>
@@ -1225,7 +1229,7 @@
 </div>
 
 <!-- Audit Detail Modal -->
-<div class="modal fade" id="auditDetailModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="auditDetailModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">

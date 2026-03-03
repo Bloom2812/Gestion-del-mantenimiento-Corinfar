@@ -1280,7 +1280,9 @@ async function loadOdooSettings() {
             // Intentar detectar la versión de Odoo en segundo plano
             state.odoo.version().then(v => {
                 if (v && v.server_version) {
-                    state.odooVersion = parseInt(v.server_version);
+                    // Extract only digits from version string (e.g., "saas~19.1+e" -> 19)
+                    const match = v.server_version.match(/\d+/);
+                    state.odooVersion = match ? parseInt(match[0]) : null;
                     console.log(`[Odoo Sync] Versión de servidor detectada: ${v.server_version} (Major: ${state.odooVersion})`);
                 }
             }).catch(err => console.warn("[Odoo Sync] No se pudo obtener la versión de Odoo:", err));
@@ -1345,8 +1347,9 @@ async function testOdooConnection() {
             // Detectar versión
             const v = await tempConnector.version();
             if (v && v.server_version) {
-                state.odooVersion = parseInt(v.server_version);
-                console.log(`[Odoo Sync Test] Versión detectada: ${v.server_version}`);
+                const match = v.server_version.match(/\d+/);
+                state.odooVersion = match ? parseInt(match[0]) : null;
+                console.log(`[Odoo Sync Test] Versión detectada: ${v.server_version} (Major: ${state.odooVersion})`);
             }
 
             // Prueba adicional: verificar permisos de mantenimiento
@@ -2646,11 +2649,15 @@ async function showPartDetail(partId) {
     // Fetch last 5 movements
     let movements = [];
     try {
-        const q = query(state.collections.partMovements, where('partId', '==', partId), orderBy('date', 'desc'), limit(5));
+        // REMOVED orderBy to avoid requiring composite index in Firebase
+        const q = query(state.collections.partMovements, where('partId', '==', partId), limit(50));
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach(docSnap => {
             movements.push({ fb_id: docSnap.id, ...docSnap.data() });
         });
+        // Sort in memory instead
+        movements.sort((a, b) => new Date(b.date) - new Date(a.date));
+        movements = movements.slice(0, 5);
     } catch (error) {
         console.error("Error fetching movements for detail:", error);
     }
@@ -3450,7 +3457,8 @@ function renderParts() {
     });
 
     // Manejar estado vacío global
-    if (filteredParts.length === 0) {
+    const totalDisplayed = countCritical + countAttention + countOperative;
+    if (totalDisplayed === 0) {
         operativeList.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No se encontraron repuestos o insumos</td></tr>';
         document.getElementById('zone-operative').style.display = 'block';
     }
@@ -3759,30 +3767,24 @@ async function loadPartMovements(partId = null) {
     try {
         let q;
         if (partId) {
-            // Using partId as stored in movements (the human-readable ID)
-            q = query(state.collections.partMovements, where("partId", "==", partId), orderBy("date", "desc"), limit(200));
+            // REMOVED orderBy to avoid requiring composite index in Firebase
+            q = query(state.collections.partMovements, where("partId", "==", partId), limit(300));
         } else {
-            q = query(state.collections.partMovements, orderBy("date", "desc"), limit(200));
+            q = query(state.collections.partMovements, orderBy("date", "desc"), limit(300));
         }
         const snapshot = await getDocs(q);
-        state.partMovements = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+        let movements = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+
+        // Sort in memory for part-specific query
+        if (partId) {
+            movements.sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+
+        state.partMovements = movements;
         renderPartHistory();
     } catch (error) {
         console.error("Error loading part movements:", error);
-        // Fallback if index is missing (common in Firestore when adding orderby + where)
-        try {
-             let q2;
-             if (partId) {
-                q2 = query(state.collections.partMovements, where("partId", "==", partId), limit(200));
-             } else {
-                q2 = query(state.collections.partMovements, limit(200));
-             }
-             const snapshot = await getDocs(q2);
-             state.partMovements = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
-             renderPartHistory();
-        } catch (e2) {
-            showToast("Error al cargar historial de movimientos", "error");
-        }
+        showToast("Error al cargar historial de movimientos", "error");
     }
 }
 
@@ -7331,11 +7333,20 @@ function showManagePartsModal(orderId) {
 
     const partSelect = document.getElementById('manage-part-select');
     let pHtml = '<option value="">Seleccione un repuesto...</option>';
-    const relevantParts = state.parts.filter(p => 
-        (p.machineIds && p.machineIds.includes(order.machineId)) || 
-        (p.machineId === order.machineId)
-    );
-    relevantParts.forEach(p => {
+
+    // Robust filtering: convert IDs to strings and handle both arrays and single IDs
+    const targetMachineId = String(order.machineId);
+
+    const relevantParts = state.parts.filter(p => {
+        const mIds = Array.isArray(p.machineIds) ? p.machineIds.map(String) : [];
+        const mId = p.machineId ? String(p.machineId) : null;
+        return mIds.includes(targetMachineId) || mId === targetMachineId;
+    });
+
+    // If no relevant parts for this machine, show all as fallback
+    const partsToDisplay = relevantParts.length > 0 ? relevantParts : state.parts;
+
+    partsToDisplay.sort((a, b) => a.description.localeCompare(b.description)).forEach(p => {
         pHtml += `<option value="${p.id}">${p.description} (Stock: ${p.stock})</option>`;
     });
     partSelect.innerHTML = pHtml;
@@ -11511,6 +11522,7 @@ window.handlePausePlanExecution = handlePausePlanExecution;
 window.handleResumePlanExecution = handleResumePlanExecution;
 window.handleFinishPlanExecution = handleFinishPlanExecution;
 window.showTechnicianModal = showTechnicianModal;
+window.showManagePartsModal = showManagePartsModal;
 
 async function generateTokenLink(fbId, type) {
     const tech = state.technicians.find(t => t.fb_id === fbId);
@@ -11574,6 +11586,11 @@ async function handleInvitationToken(token) {
     // Mostrar UI de set password
     document.getElementById('login-overlay').classList.add('d-none');
     document.getElementById('set-password-overlay').classList.remove('d-none');
+    const setPasswordForm = document.getElementById('set-password-form');
+    if (setPasswordForm) {
+        const usernameField = setPasswordForm.querySelector('input[name="username"]');
+        if (usernameField) usernameField.value = tech.username;
+    }
     document.getElementById('set-password-token').value = token;
     document.getElementById('set-password-message').textContent = `Hola ${tech.username}, establezca su nueva contraseña.`;
 }
@@ -11893,6 +11910,8 @@ function requestSignature(onSuccess, onCancel) {
     const errorEl = newForm.querySelector('#confirm-password-error');
 
     usernameEl.textContent = state.currentUser.username;
+    const usernameHiddenEl = newForm.querySelector('#confirm-password-username-hidden');
+    if (usernameHiddenEl) usernameHiddenEl.value = state.currentUser.username;
     passwordInputEl.value = '';
     errorEl.classList.add('d-none');
 
