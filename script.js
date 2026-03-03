@@ -5,7 +5,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken }
 import { 
     initializeFirestore, persistentLocalCache, collection, doc, onSnapshot,
     addDoc, setDoc, deleteDoc, getDocs, query, updateDoc, getDoc, where, deleteField,
-    writeBatch, orderBy, limit
+    writeBatch, orderBy, limit, startAfter
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
@@ -80,7 +80,14 @@ const state = {
     charts: {},
     searchTimeouts: {},
     signaturePad: null,
-    currentTheme: 'light'
+    currentTheme: 'light',
+    unsubWorkOrders: null,
+    dashboardCache: {
+        lastUpdate: 0,
+        lastDataHash: '',
+        lastPeriod: ''
+    },
+    lastVisibleAuditLog: null
 };
 window.state = state;
 let currentPartDocs = [];
@@ -720,18 +727,39 @@ function setupRealtimeListeners() {
     // For complex views like dashboard, calendar, kanban, a full re-render on data change is more robust and acceptable.
     let firstWoLoad = true;
     const debouncedWorkOrdersUpdate = debounce(() => {
-        populateWorkOrderSelectors();
-        renderCalendar();
+        if (state.currentTab === 'reportes') populateWorkOrderSelectors();
+        if (state.currentTab === 'planificador') renderCalendar();
         if (state.currentTab === 'maquinaria') renderMachines();
         if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
         if (state.currentTab === 'trabajo-activo') renderActiveWorkView();
         if (state.currentTab === 'ordenes-asignadas') renderAssignedOrders();
         if (state.currentTab === 'solicitudes') renderSolicitudes();
-        updateDashboardData();
+        if (state.currentTab === 'dashboard') updateDashboardData();
     }, 300);
 
-    onSnapshot(query(state.collections.workOrders), snapshot => {
-        state.workOrders = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+    if (state.unsubWorkOrders) {
+        state.unsubWorkOrders();
+        state.unsubWorkOrders = null;
+    }
+
+    // Load last 3 months of Work Orders by default to improve performance
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const dateLimit = threeMonthsAgo.toISOString().split('T')[0];
+
+    state.unsubWorkOrders = onSnapshot(query(state.collections.workOrders, where("date", ">=", dateLimit)), snapshot => {
+        snapshot.docChanges().forEach(change => {
+            const woData = { fb_id: change.doc.id, ...change.doc.data() };
+            const index = state.workOrders.findIndex(wo => wo.fb_id === change.doc.id);
+
+            if (change.type === "added") {
+                if (index === -1) state.workOrders.push(woData);
+            } else if (change.type === "modified") {
+                if (index > -1) state.workOrders[index] = woData;
+            } else if (change.type === "removed") {
+                if (index > -1) state.workOrders.splice(index, 1);
+            }
+        });
 
         if (firstWoLoad && state.workOrders.length > 0) {
             handleExpiredWorkOrders();
@@ -853,6 +881,7 @@ function setupEventListeners() {
     
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
     document.getElementById('btn-filter-audit').addEventListener('click', renderAuditLogs);
+    document.getElementById('btn-load-more-audit').addEventListener('click', () => loadAuditLogs(true));
     document.getElementById('generate-audit-report-btn').addEventListener('click', generateAuditReport);
     
     document.querySelectorAll('.nav-tab').forEach(tab => {
@@ -2945,21 +2974,42 @@ async function generateFichaMaestra(machineId) {
     }, 1000);
 }
 
-function showMachineHistory(machineId, type) {
+async function showMachineHistory(machineId, type) {
     const historyList = document.getElementById('machine-history-list');
     const title = document.getElementById('machine-history-modal-title');
     const machine = state.machines.find(m => m.id === machineId) || { name: machineId };
 
     title.textContent = `Historial: ${machine.name} (${type})`;
-    historyList.innerHTML = '';
+    historyList.innerHTML = '<tr><td colspan="5" class="text-center text-muted"><i class="fas fa-spinner fa-spin"></i> Cargando historial...</td></tr>';
+
+    state.modals.machineHistory.show();
+
+    // Optimization: Ensure we have all orders for this machine
+    try {
+        const q = type === 'all'
+            ? query(state.collections.workOrders, where("machineId", "==", machineId))
+            : query(state.collections.workOrders, where("machineId", "==", machineId), where("type", "==", type));
+
+        const snapshot = await getDocs(q);
+        const machineOrders = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+
+        // Update global state without duplicates
+        const existingIds = new Set(state.workOrders.map(wo => wo.fb_id));
+        const newOrders = machineOrders.filter(wo => !existingIds.has(wo.fb_id));
+        state.workOrders = [...state.workOrders, ...newOrders];
+
+    } catch (error) {
+        console.error("Error fetching machine history:", error);
+    }
 
     const orders = state.workOrders
-        .filter(wo => wo.machineId === machineId && wo.type === type)
+        .filter(wo => wo.machineId === machineId && (type === 'all' || wo.type === type))
         .sort((a, b) => new Date((b.date || '1970-01-01') + 'T12:00:00Z') - new Date((a.date || '1970-01-01') + 'T12:00:00Z'));
 
     if (orders.length === 0) {
         historyList.innerHTML = '<tr><td colspan="5" class="text-center">No hay registros para este tipo.</td></tr>';
     } else {
+        historyList.innerHTML = '';
         orders.forEach(order => {
             const tr = document.createElement('tr');
 
@@ -10128,8 +10178,41 @@ function getDashboardPeriod() {
     return { startDate, endDate, periodLabel };
 }
 
-function updateDashboardData() {
+async function updateDashboardData() {
+    if (state.currentTab !== 'dashboard') return;
+
     const { startDate, endDate, periodLabel } = getDashboardPeriod();
+    const currentPeriodHash = `${startDate.getTime()}-${endDate.getTime()}-${document.getElementById('kpi-machine-select')?.value}`;
+
+    // Optimization: Check cache to avoid redundant calculations
+    const dataHash = `${state.workOrders.length}-${state.machines.length}-${state.solicitudes.length}`;
+    if (state.dashboardCache.lastDataHash === dataHash && state.dashboardCache.lastPeriod === currentPeriodHash) {
+        // Only skip if updated in the last 2 seconds (allow manual refresh to feel responsive)
+        if (Date.now() - state.dashboardCache.lastUpdate < 2000) {
+            return;
+        }
+    }
+
+    // Check if we need to fetch historical data
+    const startIso = startDate.toISOString().split('T')[0];
+    const loadedMinDate = state.workOrders.reduce((min, wo) => (wo.date < min ? wo.date : min), "9999-99-99");
+
+    if (startIso < loadedMinDate) {
+        console.log(`Fetching historical work orders from ${startIso} to ${loadedMinDate}...`);
+        const q = query(state.collections.workOrders, where("date", ">=", startIso), where("date", "<", loadedMinDate));
+        try {
+            const snapshot = await getDocs(q);
+            const historicalOrders = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+            if (historicalOrders.length > 0) {
+                // Add to state and remove duplicates
+                const existingIds = new Set(state.workOrders.map(wo => wo.fb_id));
+                const uniqueHistorical = historicalOrders.filter(wo => !existingIds.has(wo.fb_id));
+                state.workOrders = [...state.workOrders, ...uniqueHistorical];
+            }
+        } catch (error) {
+            console.error("Error fetching historical work orders:", error);
+        }
+    }
 
     document.querySelectorAll('.period-label').forEach(el => {
         el.textContent = `(${periodLabel})`;
@@ -10145,7 +10228,6 @@ function updateDashboardData() {
     ordersForDashboard = state.workOrders.filter(wo => wo.machineId && relevantMachineIds.has(wo.machineId));
     }
 
-    const startIso = startDate.toISOString().split('T')[0];
     const endIso = endDate.toISOString().split('T')[0];
 
     const ordersThisPeriod = ordersForDashboard.filter(o => {
@@ -10158,6 +10240,11 @@ function updateDashboardData() {
     updateKpis(ordersThisPeriod, startDate, endDate, kpis);
     updateCharts(ordersThisPeriod);
     updatePlanNotifications();
+
+    // Save to cache
+    state.dashboardCache.lastDataHash = dataHash;
+    state.dashboardCache.lastPeriod = currentPeriodHash;
+    state.dashboardCache.lastUpdate = Date.now();
 }
 
 function updatePlanNotifications() {
@@ -11477,20 +11564,49 @@ async function handleForgotPasswordRequest() {
     }
 }
 
-async function loadAuditLogs() {
+async function loadAuditLogs(loadMore = false) {
     const list = document.getElementById('audit-log-list');
-    if (list) {
-        list.innerHTML = '<tr><td colspan="6" class="text-center text-muted"><i class="fas fa-spinner fa-spin"></i> Cargando registros...</td></tr>';
+    const loadMoreBtn = document.getElementById('btn-load-more-audit');
+    const loadMoreContainer = document.getElementById('audit-load-more-container');
+
+    if (!loadMore) {
+        state.auditLogs = [];
+        state.lastVisibleAuditLog = null;
+        if (list) {
+            list.innerHTML = '<tr><td colspan="6" class="text-center text-muted"><i class="fas fa-spinner fa-spin"></i> Cargando registros...</td></tr>';
+        }
+    } else if (loadMoreBtn) {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
     }
 
     try {
-        const q = query(state.collections.auditLogs, orderBy("timestamp", "desc"), limit(500));
+        let q;
+        if (loadMore && state.lastVisibleAuditLog) {
+            q = query(state.collections.auditLogs, orderBy("timestamp", "desc"), startAfter(state.lastVisibleAuditLog), limit(50));
+        } else {
+            q = query(state.collections.auditLogs, orderBy("timestamp", "desc"), limit(50));
+        }
+
         const snapshot = await getDocs(q);
-        state.auditLogs = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+        const newLogs = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+
+        state.auditLogs = [...state.auditLogs, ...newLogs];
+        state.lastVisibleAuditLog = snapshot.docs[snapshot.docs.length - 1];
+
+        if (loadMoreContainer) {
+            loadMoreContainer.classList.toggle('d-none', snapshot.docs.length < 50);
+        }
+
         renderAuditLogs();
     } catch (error) {
         console.error("Error loading audit logs:", error);
         showToast("Error al cargar registros de auditoría", "error");
+    } finally {
+        if (loadMoreBtn) {
+            loadMoreBtn.disabled = false;
+            loadMoreBtn.innerHTML = '<i class="fas fa-plus me-1"></i> Cargar más registros antiguos';
+        }
     }
 }
 
