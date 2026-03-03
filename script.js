@@ -4747,7 +4747,9 @@ function showSolicitudModal(prefillData = null) {
         }
     }
 
-    machinesToDisplay.forEach(m => machineSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`);
+    let html = '<option value="">Seleccione una máquina...</option>';
+    machinesToDisplay.forEach(m => html += `<option value="${m.id}">${m.name}</option>`);
+    machineSelect.innerHTML = html;
 
     if (prefillData) {
         if (prefillData.machineId) {
@@ -5551,12 +5553,14 @@ function showWorkPlanModal(planId = null) {
     document.getElementById('task-groups-container').innerHTML = '';
 
     const machineSelect = document.getElementById('work-plan-machine');
-    machineSelect.innerHTML = '<option value="">Seleccione una máquina...</option>';
-    state.machines.forEach(m => machineSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`);
+    let mHtml = '<option value="">Seleccione una máquina...</option>';
+    state.machines.forEach(m => mHtml += `<option value="${m.id}">${m.name}</option>`);
+    machineSelect.innerHTML = mHtml;
 
     const techSelect = document.getElementById('work-plan-responsible');
-    techSelect.innerHTML = '<option value="">Seleccione un técnico...</option>';
-    state.technicians.filter(t => t.role === 'Técnico').forEach(t => techSelect.innerHTML += `<option value="${t.username}">${t.username}</option>`);
+    let tHtml = '<option value="">Seleccione un técnico...</option>';
+    state.technicians.filter(t => t.role === 'Técnico').forEach(t => tHtml += `<option value="${t.username}">${t.username}</option>`);
+    techSelect.innerHTML = tHtml;
 
     if (planId) {
         document.getElementById('work-plan-modal-title').textContent = 'Editar Plan de Trabajo';
@@ -7326,14 +7330,15 @@ function showManagePartsModal(orderId) {
     }
 
     const partSelect = document.getElementById('manage-part-select');
-    partSelect.innerHTML = '<option value="">Seleccione un repuesto...</option>';
+    let pHtml = '<option value="">Seleccione un repuesto...</option>';
     const relevantParts = state.parts.filter(p => 
         (p.machineIds && p.machineIds.includes(order.machineId)) || 
         (p.machineId === order.machineId)
     );
     relevantParts.forEach(p => {
-        partSelect.innerHTML += `<option value="${p.id}">${p.description} (Stock: ${p.stock})</option>`;
+        pHtml += `<option value="${p.id}">${p.description} (Stock: ${p.stock})</option>`;
     });
+    partSelect.innerHTML = pHtml;
 
     state.modals.manageParts.show();
 }
@@ -7525,9 +7530,11 @@ function renderCalendar() {
         });
     }
 
+    let calendarHtml = '';
     for (let i = 0; i < firstDay; i++) {
-        grid.innerHTML += '<div class="calendar-day not-month"></div>';
+        calendarHtml += '<div class="calendar-day not-month"></div>';
     }
+    grid.innerHTML = calendarHtml;
 
     for (let day = 1; day <= daysInMonth; day++) {
         const dayEl = document.createElement('div');
@@ -8503,18 +8510,21 @@ async function showWorkOrderModal(identifier = null, type = 'Preventivo', source
     
     const leadTechSelect = document.getElementById('wo-lead-technician-select');
     const supportTechSelect = document.getElementById('wo-support-technician-select');
-    leadTechSelect.innerHTML = '<option value="">Seleccione responsable...</option>';
-    supportTechSelect.innerHTML = '<option value="">Seleccione apoyo...</option>';
+    let leadHtml = '<option value="">Seleccione responsable...</option>';
+    let supportHtml = '<option value="">Seleccione apoyo...</option>';
     state.technicians.forEach(t => {
         if(t.role === 'Técnico') {
-            leadTechSelect.innerHTML += `<option value="${t.username}">${t.username}</option>`;
-            supportTechSelect.innerHTML += `<option value="${t.username}">${t.username}</option>`;
+            leadHtml += `<option value="${t.username}">${t.username}</option>`;
+            supportHtml += `<option value="${t.username}">${t.username}</option>`;
         }
     });
+    leadTechSelect.innerHTML = leadHtml;
+    supportTechSelect.innerHTML = supportHtml;
 
     const partSelect = document.getElementById('wo-part-select');
-    partSelect.innerHTML = '<option value="">Seleccione repuesto...</option>';
-    state.parts.forEach(p => partSelect.innerHTML += `<option value="${p.id}">${p.description} (Stock: ${p.stock})</option>`);
+    let partHtml = '<option value="">Seleccione repuesto...</option>';
+    state.parts.forEach(p => partHtml += `<option value="${p.id}">${p.description} (Stock: ${p.stock})</option>`);
+    partSelect.innerHTML = partHtml;
     
     const statusSelect = document.getElementById('wo-status');
     statusSelect.innerHTML = ['Pendiente', 'En Proceso', 'Pausado', 'Pendiente de Aprobación', 'Pendiente de Evaluación', 'Completado', 'Cancelado'].map(s => `<option>${s}</option>`).join('');
@@ -10247,7 +10257,16 @@ function getDashboardPeriod() {
     return { startDate, endDate, periodLabel };
 }
 
-function updateDashboardData() {
+const dashboardCache = {
+    lastDataHash: null,
+    lastPeriod: null
+};
+
+function getDashboardDataHash(orders, startDate, endDate) {
+    return `${orders.length}-${startDate.getTime()}-${endDate.getTime()}`;
+}
+
+async function updateDashboardData() {
     if (state.currentTab !== 'dashboard') return;
 
     const { startDate, endDate, periodLabel } = getDashboardPeriod();
@@ -10271,6 +10290,18 @@ function updateDashboardData() {
         if (relevantMachineIds && (!o.machineId || !relevantMachineIds.has(o.machineId))) return false;
         return o.date >= startIso && o.date <= endIso;
     });
+
+    const dataHash = getDashboardDataHash(ordersThisPeriod, startDate, endDate);
+    const selectedMachine = document.getElementById('kpi-machine-select')?.value || 'all';
+    const fullHash = `${dataHash}-${selectedMachine}`;
+
+    if (dashboardCache.lastDataHash === fullHash && dashboardCache.lastPeriod === periodLabel) {
+        updatePlanNotifications();
+        return;
+    }
+
+    dashboardCache.lastDataHash = fullHash;
+    dashboardCache.lastPeriod = periodLabel;
 
     const kpis = calculateKpisForPeriod(ordersThisPeriod, startDate, endDate);
     updateStats(ordersThisPeriod, kpis);
@@ -10461,13 +10492,13 @@ function calculateScheduledUptimeMs(machines, startDate, endDate) {
     return totalScheduledMs;
 }
 
-function calculateTotalCost(order, returnParts = false) {
+function calculateTotalCost(order, returnParts = false, partsMap = null, techMap = null) {
     let partsCost = 0;
     if (order.partsUsed && order.partsUsed.length > 0) {
         partsCost = order.partsUsed.reduce((sum, partUsage) => {
             if (partUsage.delivered === false) return sum;
-            const part = state.parts.find(p => p.id === partUsage.partId);
-            return sum + (part ? part.cost * partUsage.quantity : 0);
+            const part = partsMap ? partsMap.get(partUsage.partId) : state.parts.find(p => p.id === partUsage.partId);
+            return sum + (part ? (part.cost || 0) * partUsage.quantity : 0);
         }, 0);
     }
 
@@ -10478,7 +10509,7 @@ function calculateTotalCost(order, returnParts = false) {
     const techniciansOnOrder = order.technicians || [];
     if (techniciansOnOrder.length > 0 && hoursWorked > 0) {
         laborCost = techniciansOnOrder.reduce((sum, techUsername) => {
-            const technician = state.technicians.find(t => t.username === techUsername);
+            const technician = techMap ? techMap.get(techUsername) : state.technicians.find(t => t.username === techUsername);
             if (technician && technician.generaGasto !== false && technician.salario) {
                 const hourlyRate = technician.salario / 160;
                 return sum + (hoursWorked * hourlyRate);
@@ -10487,7 +10518,7 @@ function calculateTotalCost(order, returnParts = false) {
         }, 0);
     }
 
-    const totalCost = partsCost + laborCost + (order.externalCost || order.additionalCost || 0);
+    const totalCost = partsCost + laborCost + (Number(order.externalCost) || 0);
     return returnParts ? { partsCost, laborCost, totalCost } : totalCost;
 }
 
@@ -10845,9 +10876,11 @@ function populateWorkOrderSelectors(searchTerm = '') {
 
         const sortedWOs = [...workOrdersToPopulate].sort((a, b) => b.id.localeCompare(a.id));
 
+        let html = '<option value="">Seleccione una Orden de Trabajo...</option>';
         sortedWOs.forEach(wo => {
-            selector.innerHTML += `<option value="${wo.id}">${wo.id} - ${wo.description.substring(0, 30)}...</option>`;
+            html += `<option value="${wo.id}">${wo.id} - ${wo.description.substring(0, 30)}...</option>`;
         });
+        selector.innerHTML = html;
         if (currentVal) {
             const exists = Array.from(selector.options).some(opt => opt.value === currentVal);
             if (exists) {
@@ -10880,6 +10913,7 @@ function populateExecutionReportSelector(searchTerm = '') {
     });
 
     const finalExecutions = [];
+    let html = '<option value="">Seleccione una Ejecución de Plan...</option>';
     sortedExecutions.forEach(execution => {
         const plan = state.workPlans.find(p => p.fb_id === execution.planId);
         if (plan) {
@@ -10890,10 +10924,11 @@ function populateExecutionReportSelector(searchTerm = '') {
                 return;
             }
 
-            selector.innerHTML += `<option value="${execution.fb_id}">${optionText}</option>`;
+            html += `<option value="${execution.fb_id}">${optionText}</option>`;
             finalExecutions.push(execution);
         }
     });
+    selector.innerHTML = html;
 
     // Check if the previously selected value still exists in the new list
     if (currentVal) {
@@ -10913,10 +10948,11 @@ function populateSupplierSelectors() {
     selectors.forEach(selector => {
         if (selector) {
             const currentVal = selector.value;
-            selector.innerHTML = '<option value="">Seleccione un proveedor...</option>';
+            let html = '<option value="">Seleccione un proveedor...</option>';
             state.proveedores.forEach(p => {
-                selector.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
+                html += `<option value="${p.id}">${p.nombre}</option>`;
             });
+            selector.innerHTML = html;
             selector.value = currentVal;
         }
     });
@@ -10932,7 +10968,7 @@ function populateWorkOrderMachineSelector(searchTerm = '') {
     // Default state: selector visible, message hidden.
     noResultsDiv.classList.add('d-none');
     selector.classList.remove('d-none');
-    selector.innerHTML = '<option value="">Seleccione una máquina...</option>';
+    let html = '<option value="">Seleccione una máquina...</option>';
 
     let machinesToPopulate = state.machines;
     if (state.currentUser?.role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
@@ -10957,9 +10993,10 @@ function populateWorkOrderMachineSelector(searchTerm = '') {
     } else {
         // If there are results, populate the selector.
         filteredMachines.forEach(machine => {
-            selector.innerHTML += `<option value="${machine.id}">${machine.id} - ${machine.name}</option>`;
+            html += `<option value="${machine.id}">${machine.id} - ${machine.name}</option>`;
         });
     }
+    selector.innerHTML = html;
 
     if (filteredMachines.some(m => m.id === currentVal)) {
         selector.value = currentVal;
@@ -11381,8 +11418,9 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
         const currentVal = selector.value || selector.dataset.lastValue || "";
         const lowerSearch = (specificId === selector.id) ? searchTerm.toLowerCase() : '';
 
+        let html = '';
         if (selector.id === 'report-technician-select') {
-                selector.innerHTML = '<option value="">Seleccione un técnico...</option>';
+                html = '<option value="">Seleccione un técnico...</option>';
                 let techniciansToPopulate = state.technicians.filter(t => t.role === 'Técnico');
 
                 // If current user is a technician, only show themselves
@@ -11391,23 +11429,23 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
                 }
 
                 techniciansToPopulate.forEach(tech => {
-                    selector.innerHTML += `<option value="${tech.username}">${tech.username}</option>`;
+                    html += `<option value="${tech.username}">${tech.username}</option>`;
                 });
             } else if (selector.id === 'report-executive-area') {
                 const areas = [...new Set(state.machines.map(m => m.location).filter(Boolean))].sort();
-                selector.innerHTML = '<option value="all">Todas las Áreas</option>';
+                html = '<option value="all">Todas las Áreas</option>';
                 areas.forEach(area => {
-                    selector.innerHTML += `<option value="${area}">${area}</option>`;
+                    html += `<option value="${area}">${area}</option>`;
                 });
             } else if (selector.id === 'report-executive-cost-center') {
                 const ccs = [...new Set(state.machines.map(m => m.centroCosto).filter(Boolean))].sort();
-                selector.innerHTML = '<option value="all">Todos los Centros de Costo</option>';
+                html = '<option value="all">Todos los Centros de Costo</option>';
                 ccs.forEach(cc => {
-                    selector.innerHTML += `<option value="${cc}">${cc}</option>`;
+                    html += `<option value="${cc}">${cc}</option>`;
                 });
             } else {
                 const isKpiSelector = selector.id === 'kpi-machine-select';
-                selector.innerHTML = isKpiSelector ? '<option value="all">Todas las Máquinas</option>' : '<option value="">Seleccione una máquina...</option>';
+                html = isKpiSelector ? '<option value="all">Todas las Máquinas</option>' : '<option value="">Seleccione una máquina...</option>';
 
                 let machinesToPopulate = state.machines;
                 const role = state.currentUser?.role;
@@ -11431,10 +11469,11 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
 
                 machinesToPopulate.forEach(machine => {
                     if (machine.id && machine.name) {
-                        selector.innerHTML += `<option value="${machine.id}">${machine.id} - ${machine.name}</option>`;
+                        html += `<option value="${machine.id}">${machine.id} - ${machine.name}</option>`;
                     }
                 });
             }
+            selector.innerHTML = html;
             if (currentVal) {
                 const exists = Array.from(selector.options).some(opt => opt.value === currentVal);
                 if (exists) {
@@ -12734,18 +12773,21 @@ async function calculateExecutiveMetrics(startDate, endDate) {
     }, {});
 
     // 2. Costos
-    const currentCosts = calculateTotalCostForMultiple(ordersInPeriod.filter(o => o.status === 'Completado'));
+    const completedCurrent = ordersInPeriod.filter(o => o.status === 'Completado');
+    const currentCosts = calculateTotalCostForMultiple(completedCurrent);
     const prevCosts = calculateTotalCostForMultiple(ordersPrevPeriod.filter(o => o.status === 'Completado'));
 
-    const costByMachine = ordersInPeriod.filter(o => o.status === 'Completado').reduce((acc, o) => {
-        acc[o.machineId] = (acc[o.machineId] || 0) + calculateTotalCost(o);
-        return acc;
-    }, {});
+    const costByMachine = {};
+    const costByType = {};
 
-    const costByType = ordersInPeriod.filter(o => o.status === 'Completado').reduce((acc, o) => {
-        acc[o.type] = (acc[o.type] || 0) + calculateTotalCost(o);
-        return acc;
-    }, {});
+    const partsMap = new Map(state.parts.map(p => [p.id, p]));
+    const techMap = new Map(state.technicians.map(t => [t.username, t]));
+
+    completedCurrent.forEach(o => {
+        const cost = calculateTotalCost(o, false, partsMap, techMap);
+        costByMachine[o.machineId] = (costByMachine[o.machineId] || 0) + cost;
+        costByType[o.type] = (costByType[o.type] || 0) + cost;
+    });
 
     // 3. KPIs
     const kpis = calculateKpisForPeriod(ordersInPeriod, startDate, endDate);
