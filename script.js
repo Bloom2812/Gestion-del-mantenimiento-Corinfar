@@ -5729,7 +5729,7 @@ function addTaskGroup(name = '', layout = 'table', tasks = []) {
     groupEl.className = 'card mb-3 task-group';
     groupEl.innerHTML = `
         <div class="card-header p-2 bg-light d-flex align-items-center gap-2">
-            <div class="task-group-handle"><i class="fas fa-grip-vertical"></i></div>
+            <div class="task-group-handle" title="Arrastrar para reordenar esta sección"><i class="fas fa-grip-vertical"></i></div>
             <input type="text" class="form-control form-control-sm task-group-name-input" placeholder="Nombre de la Sección (ej: Reductor)" value="${name}">
             <select class="form-select form-select-sm task-group-layout-select" style="width: auto;">
                 <option value="table" ${layout === 'table' ? 'selected' : ''}>Vista Tabla</option>
@@ -5748,17 +5748,19 @@ function addTaskGroup(name = '', layout = 'table', tasks = []) {
     const tasksList = groupEl.querySelector('.tasks-list');
 
     // Initialize Sortable for individual tasks within this group
+    // 'group' allows dragging tasks between different groups/sections
     new Sortable(tasksList, {
         animation: 150,
         handle: '.task-handle',
-        ghostClass: 'sortable-ghost'
+        ghostClass: 'sortable-ghost',
+        group: 'tasks'
     });
 
     const addTaskItem = (task = null) => {
         const taskEl = document.createElement('div');
         taskEl.className = 'border rounded p-2 mb-2 bg-white shadow-sm task-item d-flex align-items-start';
         taskEl.innerHTML = `
-            <div class="task-handle py-2"><i class="fas fa-grip-vertical"></i></div>
+            <div class="task-handle" title="Arrastrar para reordenar o mover a otra sección"><i class="fas fa-grip-vertical"></i></div>
             <div class="flex-grow-1">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div class="flex-grow-1 me-2">
@@ -11591,6 +11593,7 @@ window.handleResumePlanExecution = handleResumePlanExecution;
 window.handleFinishPlanExecution = handleFinishPlanExecution;
 window.showTechnicianModal = showTechnicianModal;
 window.showManagePartsModal = showManagePartsModal;
+window.addTaskGroup = addTaskGroup;
 
 async function generateTokenLink(fbId, type) {
     const tech = state.technicians.find(t => t.fb_id === fbId);
