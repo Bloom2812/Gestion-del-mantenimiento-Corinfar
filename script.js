@@ -27,7 +27,7 @@ const db = initializeFirestore(app, {
 const storage = getStorage(app);
 
 // Export for verification
-window.state = null;
+window.state = window.state || {};
 const auth = getAuth(app);
 
 // --- App State ---
@@ -731,14 +731,28 @@ function setupRealtimeListeners() {
     }, 300);
 
     onSnapshot(query(state.collections.workOrders), snapshot => {
-        state.workOrders = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+        let changed = false;
+        snapshot.docChanges().forEach(change => {
+            changed = true;
+            const data = { fb_id: change.doc.id, ...change.doc.data() };
+            const index = state.workOrders.findIndex(wo => wo.fb_id === change.doc.id);
 
-        if (firstWoLoad && state.workOrders.length > 0) {
-            handleExpiredWorkOrders();
-            firstWoLoad = false;
+            if (change.type === "added") {
+                if (index === -1) state.workOrders.push(data);
+            } else if (change.type === "modified") {
+                if (index > -1) state.workOrders[index] = data;
+            } else if (change.type === "removed") {
+                if (index > -1) state.workOrders.splice(index, 1);
+            }
+        });
+
+        if (changed) {
+            if (firstWoLoad && state.workOrders.length > 0) {
+                handleExpiredWorkOrders();
+                firstWoLoad = false;
+            }
+            debouncedWorkOrdersUpdate();
         }
-
-        debouncedWorkOrdersUpdate();
     });
 
     const debouncedWorkPlansUpdate = debounce(() => {
@@ -751,8 +765,16 @@ function setupRealtimeListeners() {
     }, 300);
 
     onSnapshot(query(state.collections.workPlans), snapshot => {
-        state.workPlans = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
-        debouncedWorkPlansUpdate();
+        let changed = false;
+        snapshot.docChanges().forEach(change => {
+            changed = true;
+            const data = { fb_id: change.doc.id, ...change.doc.data() };
+            const index = state.workPlans.findIndex(p => p.fb_id === change.doc.id);
+            if (change.type === "added") { if (index === -1) state.workPlans.push(data); }
+            else if (change.type === "modified") { if (index > -1) state.workPlans[index] = data; }
+            else if (change.type === "removed") { if (index > -1) state.workPlans.splice(index, 1); }
+        });
+        if (changed) debouncedWorkPlansUpdate();
     });
 
     const debouncedPlanExecutionsUpdate = debounce(() => {
@@ -762,8 +784,16 @@ function setupRealtimeListeners() {
     }, 300);
 
     onSnapshot(query(state.collections.workPlanExecutions), snapshot => {
-        state.workPlanExecutions = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
-        debouncedPlanExecutionsUpdate();
+        let changed = false;
+        snapshot.docChanges().forEach(change => {
+            changed = true;
+            const data = { fb_id: change.doc.id, ...change.doc.data() };
+            const index = state.workPlanExecutions.findIndex(e => e.fb_id === change.doc.id);
+            if (change.type === "added") { if (index === -1) state.workPlanExecutions.push(data); }
+            else if (change.type === "modified") { if (index > -1) state.workPlanExecutions[index] = data; }
+            else if (change.type === "removed") { if (index > -1) state.workPlanExecutions.splice(index, 1); }
+        });
+        if (changed) debouncedPlanExecutionsUpdate();
     });
 
     const debouncedMonitoringConfigsUpdate = debounce(() => {
@@ -771,8 +801,16 @@ function setupRealtimeListeners() {
     }, 300);
 
     onSnapshot(query(state.collections.monitoringConfigs), snapshot => {
-        state.monitoringConfigs = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
-        debouncedMonitoringConfigsUpdate();
+        let changed = false;
+        snapshot.docChanges().forEach(change => {
+            changed = true;
+            const data = { fb_id: change.doc.id, ...change.doc.data() };
+            const index = state.monitoringConfigs.findIndex(c => c.fb_id === change.doc.id);
+            if (change.type === "added") { if (index === -1) state.monitoringConfigs.push(data); }
+            else if (change.type === "modified") { if (index > -1) state.monitoringConfigs[index] = data; }
+            else if (change.type === "removed") { if (index > -1) state.monitoringConfigs.splice(index, 1); }
+        });
+        if (changed) debouncedMonitoringConfigsUpdate();
     });
 
     if (state.currentUser) {
@@ -785,26 +823,54 @@ function setupRealtimeListeners() {
         }, 300);
 
         onSnapshot(solicitudesQuery, snapshot => {
-            state.solicitudes = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
-            debouncedSolicitudesUpdate();
+            let changed = false;
+            snapshot.docChanges().forEach(change => {
+                changed = true;
+                const data = { fb_id: change.doc.id, ...change.doc.data() };
+                const index = state.solicitudes.findIndex(s => s.fb_id === change.doc.id);
+                if (change.type === "added") { if (index === -1) state.solicitudes.push(data); }
+                else if (change.type === "modified") { if (index > -1) state.solicitudes[index] = data; }
+                else if (change.type === "removed") { if (index > -1) state.solicitudes.splice(index, 1); }
+            });
+            if (changed) debouncedSolicitudesUpdate();
         });
     }
 
     onSnapshot(query(state.collections.evaluationCriteria), snapshot => {
-        state.evaluationCriteria = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
-        if (state.currentTab === 'evaluation-criteria') {
-            renderCriteria();
-        }
+        let changed = false;
+        snapshot.docChanges().forEach(change => {
+            changed = true;
+            const data = { fb_id: change.doc.id, ...change.doc.data() };
+            const index = state.evaluationCriteria.findIndex(c => c.fb_id === change.doc.id);
+            if (change.type === "added") { if (index === -1) state.evaluationCriteria.push(data); }
+            else if (change.type === "modified") { if (index > -1) state.evaluationCriteria[index] = data; }
+            else if (change.type === "removed") { if (index > -1) state.evaluationCriteria.splice(index, 1); }
+        });
+        if (changed && state.currentTab === 'evaluation-criteria') renderCriteria();
     });
 
     onSnapshot(query(state.collections.technicianEvaluations), snapshot => {
-        state.technicianEvaluations = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
+        snapshot.docChanges().forEach(change => {
+            const data = { fb_id: change.doc.id, ...change.doc.data() };
+            const index = state.technicianEvaluations.findIndex(e => e.fb_id === change.doc.id);
+            if (change.type === "added") { if (index === -1) state.technicianEvaluations.push(data); }
+            else if (change.type === "modified") { if (index > -1) state.technicianEvaluations[index] = data; }
+            else if (change.type === "removed") { if (index > -1) state.technicianEvaluations.splice(index, 1); }
+        });
     });
 
 
     onSnapshot(query(state.collections.partRequests), snapshot => {
-        state.partRequests = snapshot.docs.map(doc => ({ fb_id: doc.id, ...doc.data() }));
-        renderPartRequests();
+        let changed = false;
+        snapshot.docChanges().forEach(change => {
+            changed = true;
+            const data = { fb_id: change.doc.id, ...change.doc.data() };
+            const index = state.partRequests.findIndex(r => r.fb_id === change.doc.id);
+            if (change.type === "added") { if (index === -1) state.partRequests.push(data); }
+            else if (change.type === "modified") { if (index > -1) state.partRequests[index] = data; }
+            else if (change.type === "removed") { if (index > -1) state.partRequests.splice(index, 1); }
+        });
+        if (changed) renderPartRequests();
     });
 
 }
@@ -1994,52 +2060,85 @@ function createProveedorRowHTML(proveedor) {
 
 // --- CRUD Machine Functions ---
 function renderMachines() {
+    if (state.currentTab !== 'maquinaria') return;
     const container = document.getElementById('machine-distribution-container');
     if (!container) return;
     const searchTerm = document.getElementById('search-machine-input').value.toLowerCase();
     container.innerHTML = '';
 
+    // Optimization: Group data once to avoid repeated filtering inside loops
+    const ordersByMachine = new Map();
+    state.workOrders.forEach(wo => {
+        if (!wo.machineId) return;
+        if (!ordersByMachine.has(wo.machineId)) ordersByMachine.set(wo.machineId, []);
+        ordersByMachine.get(wo.machineId).push(wo);
+    });
+
+    const plansByMachine = new Map();
+    state.workPlans.forEach(p => {
+        if (!p.machineId) return;
+        if (!plansByMachine.has(p.machineId)) plansByMachine.set(p.machineId, []);
+        plansByMachine.get(p.machineId).push(p);
+    });
+
     // 1. Filter machines based on permissions and search term
-    let machinesToRender = state.machines;
-    if (state.currentUser?.role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
-        const managedIds = new Set(state.currentUser.managedMachineIds);
-        machinesToRender = state.machines.filter(m => managedIds.has(m.id));
-    } else if (state.currentUser?.role === 'Técnico' && Array.isArray(state.currentUser.equipoAsignado)) {
-        const assignedIds = new Set(state.currentUser.equipoAsignado);
-        machinesToRender = state.machines.filter(m => assignedIds.has(m.id));
-    }
+    const userRole = state.currentUser?.role;
+    const managedMachineIds = state.currentUser?.managedMachineIds;
+    const equipoAsignado = state.currentUser?.equipoAsignado;
+    const hasPermissionFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado));
+    const allowedMachineIds = hasPermissionFilter ? new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado) : null;
 
-    const filteredMachines = machinesToRender.filter(m =>
-        m.id.toLowerCase().includes(searchTerm) ||
-        m.name.toLowerCase().includes(searchTerm) ||
-        (m.location && m.location.toLowerCase().includes(searchTerm))
-    );
+    const filteredMachines = state.machines.filter(m => {
+        if (allowedMachineIds && !allowedMachineIds.has(m.id)) return false;
+        if (!searchTerm) return true;
+        return m.id.toLowerCase().includes(searchTerm) ||
+               m.name.toLowerCase().includes(searchTerm) ||
+               (m.location && m.location.toLowerCase().includes(searchTerm));
+    });
 
-    // 2. Summary stats for header pills
+    // 2. Pre-calculate machine statuses and stats
+    const machineStatusMap = new Map();
+    const machineWorkStatsMap = new Map();
+    const machineNextMaintMap = new Map();
+
     let maintAltaCount = 0;
     let maintMediaCount = 0;
     let maintBajaCount = 0;
 
-    const getMachineStatus = (machineId) => {
-        const activeOrders = state.workOrders.filter(wo =>
-            wo.machineId === machineId &&
-            ['En Proceso', 'Pausado'].includes(wo.status)
-        );
+    filteredMachines.forEach(m => {
+        // Status Logic
+        const mOrders = ordersByMachine.get(m.id) || [];
+        const activeOrders = mOrders.filter(wo => ['En Proceso', 'Pausado'].includes(wo.status));
         const hasCorrective = activeOrders.some(wo => ['Correctivo', 'Emergencia', 'Calibración'].includes(wo.type));
         const hasPreventive = activeOrders.some(wo => ['Preventivo', 'Predictivo', 'Mecanizado'].includes(wo.type));
+        const status = hasCorrective ? 'parada' : (hasPreventive ? 'mantenimiento' : 'operando');
+        machineStatusMap.set(m.id, status);
 
-        if (hasCorrective) return 'parada';
-        if (hasPreventive) return 'mantenimiento';
-        return 'operando';
-    };
-
-    filteredMachines.forEach(m => {
-        const status = getMachineStatus(m.id);
         if (status !== 'operando') {
             if (m.criticidad === 'Alta') maintAltaCount++;
             else if (m.criticidad === 'Media') maintMediaCount++;
             else if (m.criticidad === 'Baja') maintBajaCount++;
         }
+
+        // Work Stats Logic
+        const validOrders = mOrders.filter(wo => !['Cancelado', 'Rechazado'].includes(wo.status));
+        let corr = 0, prev = 0;
+        validOrders.forEach(wo => {
+            if (['Correctivo', 'Emergencia', 'Calibración'].includes(wo.type)) corr++;
+            else if (['Preventivo', 'Predictivo', 'Mecanizado'].includes(wo.type)) prev++;
+        });
+        machineWorkStatsMap.set(m.id, { correctivos: corr, preventivos: prev });
+
+        // Next Maint Logic
+        const mPlans = plansByMachine.get(m.id) || [];
+        let nextMaint = 'N/A';
+        if (mPlans.length > 0) {
+            const dates = mPlans.map(p => new Date(p.nextDueDate + 'T12:00:00').getTime()).filter(t => !isNaN(t));
+            if (dates.length > 0) {
+                nextMaint = new Date(Math.min(...dates)).toLocaleDateString('es-ES');
+            }
+        }
+        machineNextMaintMap.set(m.id, nextMaint);
     });
 
     const countAltaEl = document.getElementById('count-maint-alta');
@@ -2052,7 +2151,7 @@ function renderMachines() {
 
     // Actualizar resaltado de filtros activos
     document.querySelectorAll('.machine-summary-header .summary-pill').forEach(pill => {
-        const label = pill.querySelector('.label').textContent;
+        const label = pill.querySelector('.label').textContent.trim();
         pill.classList.toggle('active-filter', state.machineMaintFilter === label);
     });
 
@@ -2060,8 +2159,7 @@ function renderMachines() {
     let machinesToShow = filteredMachines;
     if (state.machineMaintFilter) {
         machinesToShow = filteredMachines.filter(m => {
-            const status = getMachineStatus(m.id);
-            return status !== 'operando' && m.criticidad === state.machineMaintFilter;
+            return machineStatusMap.get(m.id) !== 'operando' && m.criticidad === state.machineMaintFilter;
         });
     }
 
@@ -2069,25 +2167,6 @@ function renderMachines() {
         container.innerHTML = '<div class="alert alert-light text-center">No se encontraron máquinas con los criterios seleccionados.</div>';
         return;
     }
-
-    // 3. Helper functions for card details
-    const getNextMaint = (machineId) => {
-        const plans = state.workPlans.filter(p => p.machineId === machineId);
-        if (plans.length === 0) return 'N/A';
-        const dates = plans.map(p => new Date(p.nextDueDate + 'T12:00:00')).filter(d => !isNaN(d.getTime()));
-        if (dates.length === 0) return 'N/A';
-        const nearest = new Date(Math.min(...dates));
-        return nearest.toLocaleDateString('es-ES');
-    };
-
-    const getWorkStats = (machineId) => {
-        // Solo contar órdenes que no hayan sido canceladas o rechazadas
-        const machineOrders = state.workOrders.filter(wo => wo.machineId === machineId && !['Cancelado', 'Rechazado'].includes(wo.status));
-        return {
-            correctivos: machineOrders.filter(wo => ['Correctivo', 'Emergencia', 'Calibración'].includes(wo.type)).length,
-            preventivos: machineOrders.filter(wo => ['Preventivo', 'Predictivo', 'Mecanizado'].includes(wo.type)).length
-        };
-    };
 
     // 4. Group machines by location
     const machinesByLocation = machinesToShow.reduce((acc, machine) => {
@@ -2113,10 +2192,10 @@ function renderMachines() {
         groupEl.className = 'machine-zone mb-4';
 
         let cardsHTML = machines.map(m => {
-            const status = getMachineStatus(m.id);
+            const status = machineStatusMap.get(m.id);
             const statusLabels = { 'parada': 'Parada (Correctivo)', 'mantenimiento': 'En Mantenimiento', 'operando': 'Operando' };
-            const nextMaint = getNextMaint(m.id);
-            const stats = getWorkStats(m.id);
+            const nextMaint = machineNextMaintMap.get(m.id);
+            const stats = machineWorkStatsMap.get(m.id);
             const critClass = (m.criticidad || 'Baja').toLowerCase();
             const typeText = m.type === 'instalacion' ? 'Instalación' : 'Máquina';
 
@@ -3159,6 +3238,7 @@ async function handleMachineSubmit(e) {
     };
 
     const machineData = {
+        lastModified: new Date().toISOString(),
         id: document.getElementById('machine-id').value.trim(),
         name: document.getElementById('machine-name').value,
         type: document.getElementById('machine-type').value,
@@ -3250,6 +3330,7 @@ function deleteMachine(machineId) {
 
 // --- CRUD Part Functions ---
 function renderParts() {
+    if (state.currentTab !== 'repuestos') return;
     const criticalList = document.getElementById('parts-list-critical');
     const attentionList = document.getElementById('parts-list-attention');
     const operativeList = document.getElementById('parts-list-operative');
@@ -3258,34 +3339,35 @@ function renderParts() {
 
     const searchTerm = document.getElementById('search-part-input').value.toLowerCase();
 
-    criticalList.innerHTML = '';
-    attentionList.innerHTML = '';
-    operativeList.innerHTML = '';
-
     let countCritical = 0;
     let countAttention = 0;
     let countOperative = 0;
 
-    let partsToRender = state.parts;
     const userRole = state.currentUser?.role;
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
+    const hasPermissionFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado));
+    const allowedMachineIds = hasPermissionFilter ? new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado) : null;
 
-    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado))) {
-        const relevantMachineIds = new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado);
-        partsToRender = state.parts.filter(p => {
-            const machineIds = p.machineIds || (p.machineId ? [p.machineId] : []);
-            if (!machineIds || machineIds.length === 0) return false;
-            return machineIds.some(machineId => relevantMachineIds.has(machineId));
-        });
-    }
+    // Optimization: Build HTML as strings and update innerHTML once at the end
+    let criticalHTML = '';
+    let attentionHTML = '';
+    let operativeHTML = '';
 
-    const filteredParts = partsToRender.filter(p =>
-        (p.id || '').toLowerCase().includes(searchTerm) ||
-        (p.description || '').toLowerCase().includes(searchTerm)
-    );
+    state.parts.forEach(part => {
+        // 1. Permission filter
+        if (allowedMachineIds) {
+            const machineIds = part.machineIds || (part.machineId ? [part.machineId] : []);
+            if (!machineIds.some(mId => allowedMachineIds.has(mId))) return;
+        }
 
-    filteredParts.forEach(part => {
+        // 2. Search filter
+        if (searchTerm) {
+            const matches = (part.id || '').toLowerCase().includes(searchTerm) ||
+                          (part.description || '').toLowerCase().includes(searchTerm);
+            if (!matches) return;
+        }
+
         const currentStock = Number(part.stock) || 0;
         const minStock = Number(part.minStock) || 0;
 
@@ -3300,22 +3382,31 @@ function renderParts() {
             countOperative++;
         }
 
-        // Aplicar filtro si existe
+        // 3. Status filter
         if (state.partStockFilter && state.partStockFilter !== status) return;
 
-        let targetList = (status === 'critical') ? criticalList : (status === 'attention' ? attentionList : operativeList);
-        const tr = document.createElement('tr');
-        tr.id = `part-row-${part.fb_id}`;
-        tr.innerHTML = createPartRowHTML(part, status);
-        targetList.appendChild(tr);
+        const rowHTML = `<tr id="part-row-${part.fb_id}">${createPartRowHTML(part, status)}</tr>`;
+
+        if (status === 'critical') criticalHTML += rowHTML;
+        else if (status === 'attention') attentionHTML += rowHTML;
+        else operativeHTML += rowHTML;
     });
 
-    // Re-vincular event listeners para cada tabla
+    criticalList.innerHTML = criticalHTML || '<tr><td colspan="9" class="text-center text-muted">No hay repuestos en esta categoría</td></tr>';
+    attentionList.innerHTML = attentionHTML || '<tr><td colspan="9" class="text-center text-muted">No hay repuestos en esta categoría</td></tr>';
+    operativeList.innerHTML = operativeHTML || '<tr><td colspan="9" class="text-center text-muted">No hay repuestos en esta categoría</td></tr>';
+
+    // Re-vincular event listeners delegados (mejor rendimiento que iterar y vincular a cada uno)
     [criticalList, attentionList, operativeList].forEach(list => {
-        list.querySelectorAll('.view-part-detail').forEach(btn => btn.addEventListener('click', () => showPartDetail(btn.dataset.id)));
-        list.querySelectorAll('.view-part-history').forEach(btn => btn.addEventListener('click', () => showPartHistoryModal(btn.dataset.id)));
-        list.querySelectorAll('.edit-part').forEach(btn => btn.addEventListener('click', () => showPartModal(btn.dataset.id)));
-        list.querySelectorAll('.delete-part').forEach(btn => btn.addEventListener('click', () => deletePart(btn.dataset.id)));
+        list.onclick = (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+
+            if (btn.classList.contains('view-part-detail')) showPartDetail(btn.dataset.id);
+            else if (btn.classList.contains('view-part-history')) showPartHistoryModal(btn.dataset.id);
+            else if (btn.classList.contains('edit-part')) showPartModal(btn.dataset.id);
+            else if (btn.classList.contains('delete-part')) deletePart(btn.dataset.id);
+        };
     });
 
     // Actualizar contadores
@@ -3860,6 +3951,7 @@ async function handlePartSubmit(e) {
         }
 
         const partData = {
+            lastModified: new Date().toISOString(),
             id: partId,
             description: document.getElementById('part-description').value,
             classification: document.getElementById('part-classification').value,
@@ -7500,7 +7592,15 @@ async function syncAllMachinesToOdoo() {
         return;
     }
 
-    const confirmSync = confirm(`¿Desea sincronizar las ${state.machines.length} máquinas con Odoo? Se procesarán en paralelo para mayor velocidad.`);
+    // Optimization: Identify only machines that might need syncing (no odoo_id or modified since last sync)
+    const machinesToSync = state.machines.filter(m => !m.odoo_id || !m.lastOdooSync || (m.lastModified && m.lastModified > m.lastOdooSync));
+
+    if (machinesToSync.length === 0) {
+        showToast('Todos los equipos ya están sincronizados.', 'info');
+        return;
+    }
+
+    const confirmSync = confirm(`Se han detectado ${machinesToSync.length} máquinas con cambios pendientes. ¿Desea sincronizarlas ahora?`);
     if (!confirmSync) return;
 
     showLoading(true);
@@ -7509,10 +7609,9 @@ async function syncAllMachinesToOdoo() {
     let errorCount = 0;
 
     const batchSize = 5;
-    const machines = state.machines;
 
-    for (let i = 0; i < machines.length; i += batchSize) {
-        const batch = machines.slice(i, i + batchSize);
+    for (let i = 0; i < machinesToSync.length; i += batchSize) {
+        const batch = machinesToSync.slice(i, i + batchSize);
         await Promise.all(batch.map(async (machine) => {
             try {
                 await syncMachineToOdoo(machine);
@@ -7538,7 +7637,15 @@ async function syncAllPartsToOdoo() {
         return;
     }
 
-    const confirmSync = confirm(`¿Desea sincronizar los ${state.parts.length} repuestos con Odoo? Se procesarán en paralelo para mayor velocidad.`);
+    // Optimization: Identify only parts that might need syncing
+    const partsToSync = state.parts.filter(p => !p.odoo_id || !p.lastOdooSync || (p.lastModified && p.lastModified > p.lastOdooSync));
+
+    if (partsToSync.length === 0) {
+        showToast('Todos los repuestos ya están sincronizados.', 'info');
+        return;
+    }
+
+    const confirmSync = confirm(`Se han detectado ${partsToSync.length} repuestos con cambios pendientes. ¿Desea sincronizarlos ahora?`);
     if (!confirmSync) return;
 
     showLoading(true);
@@ -7547,13 +7654,12 @@ async function syncAllPartsToOdoo() {
     let errorCount = 0;
 
     const batchSize = 8;
-    const parts = state.parts;
 
-    for (let i = 0; i < parts.length; i += batchSize) {
-        const batch = parts.slice(i, i + batchSize);
+    for (let i = 0; i < partsToSync.length; i += batchSize) {
+        const batch = partsToSync.slice(i, i + batchSize);
         await Promise.all(batch.map(async (part) => {
             try {
-                // Sincronizar metadata y stock (syncPartStockToOdoo llama internamente a syncPartToOdoo)
+                // Sincronizar metadata y stock
                 await syncPartStockToOdoo(part.id, part);
                 successCount++;
             } catch (error) {
@@ -7649,13 +7755,19 @@ async function syncPartToOdoo(partData) {
             }
         }
 
-        // Guardar el odoo_id en Firestore si es nuevo o ha cambiado
-        if (odooId && odooId !== partData.odoo_id) {
-            console.log(`[Odoo Sync] Guardando Odoo ID ${odooId} en Firestore para el repuesto ${partData.id}`);
+        if (odooId) {
+            console.log(`[Odoo Sync] Actualizando marca de tiempo de sincronización para repuesto ${partData.id}`);
+            const syncTime = new Date().toISOString();
             const partDocId = partData.fb_id || partData.id;
-            await updateDoc(doc(state.collections.parts, partDocId), { odoo_id: odooId });
+            await updateDoc(doc(state.collections.parts, partDocId), {
+                odoo_id: odooId,
+                lastOdooSync: syncTime
+            });
             const localPart = state.parts.find(p => p.fb_id === partData.fb_id || p.id === partData.id);
-            if (localPart) localPart.odoo_id = odooId;
+            if (localPart) {
+                localPart.odoo_id = odooId;
+                localPart.lastOdooSync = syncTime;
+            }
         }
 
         return odooId;
@@ -7763,12 +7875,19 @@ async function syncMachineToOdoo(machineData) {
         }
 
         // Guardar el odoo_id en Firestore si es nuevo o ha cambiado
-        if (odooId && odooId !== machineData.odoo_id) {
-            console.log(`[Odoo Sync] Guardando Odoo ID ${odooId} en Firestore para la máquina ${machineData.id}`);
-            await updateDoc(doc(state.collections.machines, machineData.id), { odoo_id: odooId });
+        if (odooId) {
+            console.log(`[Odoo Sync] Actualizando marca de tiempo de sincronización para ${machineData.id}`);
+            const syncTime = new Date().toISOString();
+            await updateDoc(doc(state.collections.machines, machineData.fb_id), {
+                odoo_id: odooId,
+                lastOdooSync: syncTime
+            });
             // Actualizar también en el estado local para evitar re-sincronizaciones innecesarias
-            const localMachine = state.machines.find(m => m.id === machineData.id);
-            if (localMachine) localMachine.odoo_id = odooId;
+            const localMachine = state.machines.find(m => m.fb_id === machineData.fb_id);
+            if (localMachine) {
+                localMachine.odoo_id = odooId;
+                localMachine.lastOdooSync = syncTime;
+            }
         }
 
         return odooId;
@@ -10129,27 +10248,27 @@ function getDashboardPeriod() {
 }
 
 function updateDashboardData() {
+    if (state.currentTab !== 'dashboard') return;
+
     const { startDate, endDate, periodLabel } = getDashboardPeriod();
 
     document.querySelectorAll('.period-label').forEach(el => {
         el.textContent = `(${periodLabel})`;
     });
 
-    let ordersForDashboard = state.workOrders;
     const userRole = state.currentUser?.role;
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
-
-    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado))) {
-        const relevantMachineIds = new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado);
-    ordersForDashboard = state.workOrders.filter(wo => wo.machineId && relevantMachineIds.has(wo.machineId));
-    }
+    const hasMachineFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado));
+    const relevantMachineIds = hasMachineFilter ? new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado) : null;
 
     const startIso = startDate.toISOString().split('T')[0];
     const endIso = endDate.toISOString().split('T')[0];
 
-    const ordersThisPeriod = ordersForDashboard.filter(o => {
+    // Optimized single filter pass for dashboard data
+    const ordersThisPeriod = state.workOrders.filter(o => {
         if (!o.date) return false;
+        if (relevantMachineIds && (!o.machineId || !relevantMachineIds.has(o.machineId))) return false;
         return o.date >= startIso && o.date <= endIso;
     });
 
@@ -10482,28 +10601,56 @@ function calculateKpisForPeriod(ordersInPeriod, startDate, endDate, machineId = 
         availability: null,
         pmp: null,
         avgCost: null,
-        otsCompleted: null,
-        otsPlanned: null
+        otsCompleted: 0,
+        otsPlanned: periodOrders.length,
+        totalExecutedCost: 0,
+        totalPlannedCost: 0
     };
 
-    // MTBF & MTTR
-    const correctiveOrdersForPeriod = periodOrders.filter(o => ['Correctivo', 'Emergencia'].includes(o.type));
+    const correctiveTypes = ['Correctivo', 'Emergencia'];
+    const preventiveTypes = ['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'];
 
-    // MTBF actualizado: (Tiempo transcurrido en el periodo hasta hoy) / (Fallas + 1)
+    let correctiveCount = 0;
+    let repairOrdersForPeriod = [];
+    let preventivePlannedCount = 0;
+    let preventiveCompletedCount = 0;
+    let completedOrders = [];
+
+    // Single loop to categorize all orders in period
+    for (const o of periodOrders) {
+        const isCorrective = correctiveTypes.includes(o.type);
+        const isPreventive = preventiveTypes.includes(o.type);
+        const isCompleted = o.status === 'Completado';
+
+        if (isCorrective) {
+            correctiveCount++;
+            if (isCompleted) repairOrdersForPeriod.push(o);
+        }
+        if (isPreventive) {
+            preventivePlannedCount++;
+            if (isCompleted) preventiveCompletedCount++;
+        }
+        if (isCompleted) {
+            completedOrders.push(o);
+            kpis.otsCompleted++;
+        }
+    }
+
+    // MTBF Calculation
     const now = new Date();
     const effectiveEndDate = endDate > now ? now : endDate;
     const timeElapsedMs = Math.max(0, effectiveEndDate - startDate);
 
     if (timeElapsedMs > 0) {
-        const mtbfMs = timeElapsedMs / (correctiveOrdersForPeriod.length + 1);
+        const mtbfMs = timeElapsedMs / (correctiveCount + 1);
         kpis.mtbf = mtbfMs / (1000 * 60 * 60 * 24);
     }
 
-    const repairOrdersForPeriod = correctiveOrdersForPeriod.filter(o => o.status === 'Completado');
+    // MTTR Calculation
+    let totalRepairTimeMs = 0;
     if (repairOrdersForPeriod.length > 0) {
-        const totalRepairTime = repairOrdersForPeriod.reduce((sum, o) => sum + getTotalWorkDurationMs(o), 0);
-        const mttrMs = totalRepairTime / repairOrdersForPeriod.length;
-        kpis.mttr = mttrMs / (1000 * 60 * 60);
+        totalRepairTimeMs = repairOrdersForPeriod.reduce((sum, o) => sum + getTotalWorkDurationMs(o), 0);
+        kpis.mttr = (totalRepairTimeMs / repairOrdersForPeriod.length) / (1000 * 60 * 60);
     }
 
     // Availability
@@ -10515,35 +10662,25 @@ function calculateKpisForPeriod(ordersInPeriod, startDate, endDate, machineId = 
 
     if (machinesForKpi.length > 0) {
         const scheduledUptimeMs = calculateScheduledUptimeMs(machinesForKpi, startDate, endDate);
-        const totalDowntimeMs = repairOrdersForPeriod.reduce((sum, o) => sum + getTotalWorkDurationMs(o), 0);
         if (scheduledUptimeMs > 0) {
-            const actualUptimeMs = Math.max(0, scheduledUptimeMs - totalDowntimeMs);
+            const actualUptimeMs = Math.max(0, scheduledUptimeMs - totalRepairTimeMs);
             kpis.availability = (actualUptimeMs / scheduledUptimeMs) * 100;
         }
     }
 
-    // PMP, Cost & OTs
-    const completedOrdersInPeriod = periodOrders.filter(o => o.status === 'Completado');
-    const plannedOrdersInPeriod = periodOrders; // Include all
-
-    kpis.otsPlanned = plannedOrdersInPeriod.length;
-    kpis.otsCompleted = completedOrdersInPeriod.length;
-
-    const preventivePlanned = periodOrders.filter(o => ['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)).length;
-    if (preventivePlanned > 0) {
-        const preventiveCompleted = completedOrdersInPeriod.filter(o => ['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)).length;
-        kpis.pmp = (preventiveCompleted / preventivePlanned) * 100;
+    // PMP Calculation
+    if (preventivePlannedCount > 0) {
+        kpis.pmp = (preventiveCompletedCount / preventivePlannedCount) * 100;
     }
 
-    if (completedOrdersInPeriod.length > 0) {
-        const { totalCost } = calculateTotalCostForMultiple(completedOrdersInPeriod);
-        kpis.avgCost = totalCost / completedOrdersInPeriod.length;
+    // Cost Calculation - Optimized to single pass inside calculateTotalCostForMultiple
+    if (completedOrders.length > 0) {
+        const { totalCost } = calculateTotalCostForMultiple(completedOrders);
+        kpis.avgCost = totalCost / completedOrders.length;
         kpis.totalExecutedCost = totalCost;
-    } else {
-        kpis.totalExecutedCost = 0;
     }
 
-    const { totalCost: totalPlannedCost } = calculateTotalCostForMultiple(plannedOrdersInPeriod);
+    const { totalCost: totalPlannedCost } = calculateTotalCostForMultiple(periodOrders);
     kpis.totalPlannedCost = totalPlannedCost;
 
     return kpis;
@@ -11220,24 +11357,31 @@ function downloadBackup() {
 }
 
 function populateDynamicSelectors(searchTerm = '', specificId = null) {
-    const selectors = [
-        document.getElementById('report-technician-select'),
-        document.getElementById('report-machine-select'),
-        document.getElementById('report-machine-parts-select'),
-        document.getElementById('kpi-machine-select'),
-        document.getElementById('solicitud-machine'),
-        document.getElementById('report-executive-area'),
-        document.getElementById('report-executive-cost-center')
+    const selectorsConfig = [
+        { id: 'report-technician-select', tab: 'reportes' },
+        { id: 'report-machine-select', tab: 'reportes' },
+        { id: 'report-machine-parts-select', tab: 'reportes' },
+        { id: 'kpi-machine-select', tab: 'dashboard' },
+        { id: 'solicitud-machine', tab: 'solicitudes' },
+        { id: 'report-executive-area', tab: 'reportes' },
+        { id: 'report-executive-cost-center', tab: 'reportes' }
     ];
     
-    selectors.forEach(selector => {
-        if (selector) {
-            if (specificId && selector.id !== specificId) return;
+    selectorsConfig.forEach(cfg => {
+        const selector = document.getElementById(cfg.id);
+        if (!selector) return;
 
-            const currentVal = selector.value || selector.dataset.lastValue || "";
-            const lowerSearch = (specificId === selector.id) ? searchTerm.toLowerCase() : '';
+        // Skip if a specific ID is requested and doesn't match
+        if (specificId && cfg.id !== specificId) return;
 
-            if (selector.id === 'report-technician-select') {
+        // Performance: Only update if the containing tab is active, or if it's an explicit search/specific update
+        const isTabActive = state.currentTab === cfg.tab;
+        if (!specificId && !isTabActive) return;
+
+        const currentVal = selector.value || selector.dataset.lastValue || "";
+        const lowerSearch = (specificId === selector.id) ? searchTerm.toLowerCase() : '';
+
+        if (selector.id === 'report-technician-select') {
                 selector.innerHTML = '<option value="">Seleccione un técnico...</option>';
                 let techniciansToPopulate = state.technicians.filter(t => t.role === 'Técnico');
 
@@ -11298,7 +11442,6 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
                 }
                 selector.dataset.lastValue = currentVal;
             }
-        }
     });
 }
 
@@ -11824,6 +11967,7 @@ window.updatePlanNotifications = updatePlanNotifications;
 
 // --- Smart Monitoring Functions ---
 function renderSmartMonitoring() {
+    if (state.currentTab !== 'monitoreo-inteligente') return;
     const container = document.getElementById('smart-monitoring-container');
     if (!container) return;
     container.innerHTML = '';
