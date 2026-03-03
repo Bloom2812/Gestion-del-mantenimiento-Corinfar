@@ -1544,19 +1544,33 @@ body.dark-mode .execution-task-fallo-row {
 /* Drag and Drop Styles */
 .task-group-handle {
     cursor: grab;
-    color: #adb5bd;
-    padding: 0 5px;
+    color: #495057;
+    padding: 10px;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+.task-group-handle:hover {
+    color: var(--primary-color);
 }
 .task-group-handle:active {
     cursor: grabbing;
 }
 .task-handle {
     cursor: grab;
-    color: #adb5bd;
-    padding: 0 10px;
+    color: #495057;
+    padding: 10px 15px;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 1.1rem;
+    transition: color 0.2s ease;
+    align-self: stretch;
+}
+.task-handle:hover {
+    color: var(--primary-color);
 }
 .task-handle:active {
     cursor: grabbing;
