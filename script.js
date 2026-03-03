@@ -1576,6 +1576,7 @@ async function switchTab(tabName) {
     }
 
     if (tabName === 'maquinaria') renderMachines();
+    if (tabName === 'repuestos') renderParts();
     if (tabName === 'monitoreo-inteligente') renderSmartMonitoring();
     if (tabName === 'solicitudes-repuestos') renderPartRequests();
     if (tabName === 'trabajo-activo') {
@@ -2851,30 +2852,41 @@ async function generateFichaMaestra(machineId) {
         check();
     });
 
-    // Populate the iframe data
-    const t = (id) => doc.getElementById(id);
+    // Re-acquire the iframe's document reference to ensure we have the fully loaded context
+    const updatedDoc = iframe.contentWindow.document;
+
+    // Populate the iframe data with safety checks
+    const t = (id) => updatedDoc.getElementById(id);
+    const setT = (id, prop, val) => {
+        const el = t(id);
+        if (el) el[prop] = val;
+    };
+
     const historyBody = t('print-history-table-body');
     const partsBody = t('print-parts-table-body');
     const docsList = t('print-docs-list');
 
     // Basic Info
-    t('print-logo').src = GLOBAL_LOGO;
-    t('print-asset-id').textContent = machine.id;
-    t('print-ref-id').textContent = `EQ: ${machine.id}`;
-    t('print-criticidad').textContent = (machine.criticidad || 'BAJA').toUpperCase();
+    setT('print-logo', 'src', GLOBAL_LOGO);
+    setT('print-asset-id', 'textContent', machine.id);
+    setT('print-ref-id', 'textContent', `EQ: ${machine.id}`);
 
-    const crit = (machine.criticidad || 'Baja').toLowerCase();
-    const critBg = crit === 'alta' ? '#dc2626' : (crit === 'media' ? '#d97706' : '#16a34a');
-    t('print-criticidad').style.backgroundColor = critBg;
+    const critEl = t('print-criticidad');
+    if (critEl) {
+        critEl.textContent = (machine.criticidad || 'BAJA').toUpperCase();
+        const crit = (machine.criticidad || 'Baja').toLowerCase();
+        const critBg = crit === 'alta' ? '#dc2626' : (crit === 'media' ? '#d97706' : '#16a34a');
+        critEl.style.backgroundColor = critBg;
+    }
 
-    t('print-location').textContent = machine.location || 'N/A';
-    t('print-brand').textContent = machine.brand || 'N/A';
-    t('print-model').textContent = machine.model || 'N/A';
-    t('print-serial').textContent = machine.serialNumber || 'N/A';
-    t('print-purchase-date').textContent = machine.purchaseDate || 'N/A';
-    t('print-commissioning-date').textContent = machine.commissioningDate || 'N/A';
-    t('print-risk').textContent = machine.riskClassification || 'N/A';
-    t('print-type').textContent = machine.type === 'instalacion' ? 'Instalación' : 'Máquina';
+    setT('print-location', 'textContent', machine.location || 'N/A');
+    setT('print-brand', 'textContent', machine.brand || 'N/A');
+    setT('print-model', 'textContent', machine.model || 'N/A');
+    setT('print-serial', 'textContent', machine.serialNumber || 'N/A');
+    setT('print-purchase-date', 'textContent', machine.purchaseDate || 'N/A');
+    setT('print-commissioning-date', 'textContent', machine.commissioningDate || 'N/A');
+    setT('print-risk', 'textContent', machine.riskClassification || 'N/A');
+    setT('print-type', 'textContent', machine.type === 'instalacion' ? 'Instalación' : 'Máquina');
 
     // Status Badge
     const activeOrders = state.workOrders.filter(wo => wo.machineId === machineId && ['En Proceso', 'Pausado'].includes(wo.status));
@@ -2890,10 +2902,10 @@ async function generateFichaMaestra(machineId) {
         statusText = '● En Mantenimiento';
         statusColorClass = 'bg-yellow-100 text-yellow-800';
     }
-    t('print-status-badge').innerHTML = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColorClass}">${statusText}</span>`;
+    setT('print-status-badge', 'innerHTML', `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColorClass}">${statusText}</span>`);
 
     // Image
-    t('print-asset-image').src = machine.imageUrl || 'https://via.placeholder.com/400x300?text=Sin+Imagen';
+    setT('print-asset-image', 'src', machine.imageUrl || 'https://via.placeholder.com/400x300?text=Sin+Imagen');
 
     // Monthly KPIs Logic
     const now = new Date();
@@ -2927,32 +2939,46 @@ async function generateFichaMaestra(machineId) {
         }
     }
 
-    t('print-total-mant').textContent = machineWorkOrders.length;
-    t('print-mtbf').textContent = mtbf;
-    t('print-availability').textContent = availability;
+    setT('print-total-mant', 'textContent', machineWorkOrders.length);
+    setT('print-mtbf', 'textContent', mtbf);
+    setT('print-availability', 'textContent', availability);
 
     // Qualifications
-    t('print-iq-status').textContent = machine.iqStatus ? 'VALIDADO' : 'PENDIENTE';
-    t('print-iq-status').className = `font-semibold uppercase text-[9px] ${machine.iqStatus ? 'text-green-600' : 'text-slate-400'}`;
-    t('print-iq-date').textContent = machine.iqDate || 'N/A';
+    const iqStatusEl = t('print-iq-status');
+    if (iqStatusEl) {
+        iqStatusEl.textContent = machine.iqStatus ? 'VALIDADO' : 'PENDIENTE';
+        iqStatusEl.className = `font-semibold uppercase text-[9px] ${machine.iqStatus ? 'text-green-600' : 'text-slate-400'}`;
+    }
+    setT('print-iq-date', 'textContent', machine.iqDate || 'N/A');
 
-    t('print-oq-status').textContent = machine.oqStatus ? 'VALIDADO' : 'PENDIENTE';
-    t('print-oq-status').className = `font-semibold uppercase text-[9px] ${machine.oqStatus ? 'text-green-600' : 'text-slate-400'}`;
-    t('print-oq-date').textContent = machine.oqDate || 'N/A';
+    const oqStatusEl = t('print-oq-status');
+    if (oqStatusEl) {
+        oqStatusEl.textContent = machine.oqStatus ? 'VALIDADO' : 'PENDIENTE';
+        oqStatusEl.className = `font-semibold uppercase text-[9px] ${machine.oqStatus ? 'text-green-600' : 'text-slate-400'}`;
+    }
+    setT('print-oq-date', 'textContent', machine.oqDate || 'N/A');
 
-    t('print-pq-status').textContent = machine.pqStatus ? 'VIGENTE' : 'VENCIDO/PENDIENTE';
-    t('print-pq-status').className = `font-semibold uppercase text-[9px] ${machine.pqStatus ? 'text-blue-600' : 'text-red-600'}`;
-    t('print-pq-date').textContent = machine.pqDate || 'N/A';
-    t('print-pq-next').textContent = machine.pqNextDate || 'N/A';
+    const pqStatusEl = t('print-pq-status');
+    if (pqStatusEl) {
+        pqStatusEl.textContent = machine.pqStatus ? 'VIGENTE' : 'VENCIDO/PENDIENTE';
+        pqStatusEl.className = `font-semibold uppercase text-[9px] ${machine.pqStatus ? 'text-blue-600' : 'text-red-600'}`;
+    }
+    setT('print-pq-date', 'textContent', machine.pqDate || 'N/A');
+    setT('print-pq-next', 'textContent', machine.pqNextDate || 'N/A');
 
     // Highlight PQ near expiration
     if (machine.pqNextDate) {
         const next = new Date(machine.pqNextDate + 'T12:00:00');
         const diffDays = Math.ceil((next - new Date()) / (1000 * 60 * 60 * 24));
         if (diffDays > 0 && diffDays < 30) {
-            t('print-pq-row').style.backgroundColor = '#fffbeb';
-            t('print-pq-next').style.color = '#b45309';
-            t('print-pq-next').innerHTML = `⚠️ Vence en ${diffDays} días`;
+            const pqRow = t('print-pq-row');
+            if (pqRow) pqRow.style.backgroundColor = '#fffbeb';
+
+            const pqNextEl = t('print-pq-next');
+            if (pqNextEl) {
+                pqNextEl.style.color = '#b45309';
+                pqNextEl.innerHTML = `⚠️ Vence en ${diffDays} días`;
+            }
         }
     }
 
@@ -2962,13 +2988,14 @@ async function generateFichaMaestra(machineId) {
         .sort((a, b) => new Date(b.date || '1970-01-01') - new Date(a.date || '1970-01-01'))
         .slice(0, 5);
 
-    historyBody.innerHTML = recentOrders.map(o => `
+    const historyHTML = recentOrders.map(o => `
         <tr>
             <td class="px-3 py-1.5 font-medium border-b border-slate-100">${o.id}</td>
             <td class="px-3 py-1.5 border-b border-slate-100">${new Date(o.date + 'T12:00:00Z').toLocaleDateString('es-ES')}</td>
             <td class="px-3 py-1.5 border-b border-slate-100 ${['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(o.type) ? 'text-green-600' : 'text-red-600'} font-medium italic">${o.type}</td>
         </tr>
     `).join('') || '<tr><td colspan="3" class="px-3 py-1.5 text-center text-slate-400">Sin historial registrado</td></tr>';
+    if (historyBody) historyBody.innerHTML = historyHTML;
 
     // Parts Table
     const criticalityOrder = { 'Crítico': 4, 'Alto': 3, 'Medio': 2, 'Bajo': 1 };
@@ -2982,7 +3009,7 @@ async function generateFichaMaestra(machineId) {
         })
         .slice(0, 5);
 
-    partsBody.innerHTML = sortedParts.map(p => {
+    const partsHTML = sortedParts.map(p => {
         let stockStatus = 'OK';
         let stockClass = 'bg-green-100 text-green-800';
         if (p.stock <= 0) {
@@ -2999,6 +3026,7 @@ async function generateFichaMaestra(machineId) {
             </tr>
         `;
     }).join('') || '<tr><td colspan="2" class="px-3 py-1.5 text-center text-slate-400">No hay repuestos vinculados</td></tr>';
+    if (partsBody) partsBody.innerHTML = partsHTML;
 
     // Documentation List
     let docsHTML = '';
@@ -3006,11 +3034,11 @@ async function generateFichaMaestra(machineId) {
     if (!machine.techManualUrl) docsHTML += `<li class="flex items-center gap-2"><span class="w-1 h-1 bg-red-400 rounded-full"></span> Manual Técnico NO DISPONIBLE</li>`;
     if (machine.userManualUrl) docsHTML += `<li class="flex items-center gap-2"><span class="w-1 h-1 bg-green-400 rounded-full"></span> Manual de Usuario: DISPONIBLE ✅</li>`;
     if (machine.techManualUrl) docsHTML += `<li class="flex items-center gap-2"><span class="w-1 h-1 bg-green-400 rounded-full"></span> Manual Técnico: DISPONIBLE ✅</li>`;
-    docsList.innerHTML = docsHTML;
+    setT('print-docs-list', 'innerHTML', docsHTML);
 
     // Footer Info
-    t('print-user').textContent = state.currentUser?.username || 'Sistema';
-    t('print-date').textContent = new Date().toLocaleString('es-ES');
+    setT('print-user', 'textContent', state.currentUser?.username || 'Sistema');
+    setT('print-date', 'textContent', new Date().toLocaleString('es-ES'));
 
     // Force Tailwind to re-process the document after content injection
     if (iframe.contentWindow.tailwind) {
