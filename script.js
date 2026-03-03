@@ -3523,6 +3523,7 @@ function renderParts() {
         const partsTab = document.getElementById('repuestos');
         if (partsTab) partsTab.prepend(errorPill);
     }
+    });
 }
 
 function addOrUpdatePartInTable(part) {
