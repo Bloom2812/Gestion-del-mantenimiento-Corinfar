@@ -6776,6 +6776,9 @@ function createWorkOrderCard(order) {
     if (order.status === 'Pendiente de Aprobación') {
         card.classList.add('status-pending-approval');
     }
+    if (order.type === 'Mecanizado') {
+        card.classList.add('type-mecanizado');
+    }
     card.dataset.id = order.id;
     const machine = state.machines.find(m => m.id === order.machineId) || { name: 'Desconocido' };
     const isLeadTechnician = state.currentUser?.username === order.leadTechnician;
@@ -6854,6 +6857,13 @@ function createWorkOrderCard(order) {
 
     const cardTitle = order.id ? order.id : `(${machine.id || 'N/A'})`;
     const expiredBadge = order.isExpired ? '<br><span class="badge bg-dark text-white mt-1"><i class="fas fa-hourglass-end me-1"></i>Expirada</span>' : '';
+    let typeBadgeColor = 'danger';
+    if (['Preventivo', 'Predictivo', 'Calibración'].includes(order.type)) {
+        typeBadgeColor = 'primary';
+    } else if (order.type === 'Mecanizado') {
+        typeBadgeColor = 'info';
+    }
+
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-start">
             <div>
@@ -6862,7 +6872,7 @@ function createWorkOrderCard(order) {
                 ${originalSolicitud ? `<br><small class="text-info fw-bold">Solicitud: ${originalSolicitud.id}</small>` : ''}
             </div>
             <div class="text-end">
-                <span class="badge bg-${['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) ? 'primary' : 'danger'}">${order.type}</span>
+                <span class="badge bg-${typeBadgeColor}">${order.type}</span>
                 ${expiredBadge}
             </div>
         </div>
@@ -8381,7 +8391,8 @@ async function saveWorkOrder(updates = {}) {
         const isFirstStart = newStatus === 'En Proceso' && oldStatus !== 'En Proceso' && isPlanned;
 
         if (isFirstStart) {
-            orderData.id = generateNextId('MA'); // Assign active ID
+            const prefix = orderData.type === 'Mecanizado' ? 'ME' : 'MA';
+            orderData.id = generateNextId(prefix); // Assign active ID
 
             // Filtrar repuestos sin stock al iniciar la orden
             let removedParts = [];
