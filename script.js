@@ -2129,8 +2129,8 @@ function renderMachines() {
         // Status Logic
         const mOrders = ordersByMachine.get(m.id) || [];
         const activeOrders = mOrders.filter(wo => ['En Proceso', 'Pausado'].includes(wo.status));
-        const hasCorrective = activeOrders.some(wo => ['Correctivo', 'Emergencia', 'Calibración'].includes(wo.type));
-        const hasPreventive = activeOrders.some(wo => ['Preventivo', 'Predictivo', 'Mecanizado'].includes(wo.type));
+        const hasCorrective = activeOrders.some(wo => ['Correctivo', 'Emergencia'].includes(wo.type));
+        const hasPreventive = activeOrders.some(wo => ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(wo.type));
         const status = hasCorrective ? 'parada' : (hasPreventive ? 'mantenimiento' : 'operando');
         machineStatusMap.set(m.id, status);
 
@@ -2144,8 +2144,8 @@ function renderMachines() {
         const validOrders = mOrders.filter(wo => !['Cancelado', 'Rechazado'].includes(wo.status));
         let corr = 0, prev = 0;
         validOrders.forEach(wo => {
-            if (['Correctivo', 'Emergencia', 'Calibración'].includes(wo.type)) corr++;
-            else if (['Preventivo', 'Predictivo', 'Mecanizado'].includes(wo.type)) prev++;
+            if (['Correctivo', 'Emergencia'].includes(wo.type)) corr++;
+            else if (['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(wo.type)) prev++;
         });
         machineWorkStatsMap.set(m.id, { correctivos: corr, preventivos: prev });
 
@@ -2329,8 +2329,8 @@ function showMachineDetail(machineId) {
 
     // Status Logic
     const activeOrders = state.workOrders.filter(wo => wo.machineId === machineId && ['En Proceso', 'Pausado'].includes(wo.status));
-    const hasCorrective = activeOrders.some(wo => ['Correctivo', 'Emergencia', 'Calibración'].includes(wo.type));
-    const hasPreventive = activeOrders.some(wo => ['Preventivo', 'Predictivo', 'Mecanizado'].includes(wo.type));
+    const hasCorrective = activeOrders.some(wo => ['Correctivo', 'Emergencia'].includes(wo.type));
+    const hasPreventive = activeOrders.some(wo => ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(wo.type));
 
     let statusLabel = 'Operativo / Calificado';
     let statusClass = 'success';
@@ -2932,7 +2932,7 @@ async function generateFichaMaestra(machineId) {
         o.machineId === machineId &&
         new Date(o.date || o.createdAt) >= startOfMonth
     );
-    const correctiveOrders = machineWorkOrders.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type));
+    const correctiveOrders = machineWorkOrders.filter(o => ['Correctivo', 'Emergencia'].includes(o.type));
 
     let mtbf = 'N/A';
     let calcStartDate = startOfMonth;
@@ -8302,10 +8302,10 @@ async function saveWorkOrder(updates = {}) {
             supportTechnicians: supportTechnicians,
             technicians: [...new Set([leadTechnician, ...supportTechnicians].filter(Boolean))],
             partsUsed: partsUsed,
-            failureType: document.getElementById('wo-type').value === 'Correctivo' 
+            failureType: ['Correctivo', 'Emergencia'].includes(document.getElementById('wo-type').value)
                 ? document.getElementById('wo-failure-type').value 
                 : null,
-            maintenanceType: document.getElementById('wo-type').value === 'Preventivo'
+            maintenanceType: ['Preventivo', 'Predictivo'].includes(document.getElementById('wo-type').value)
                 ? document.getElementById('wo-maintenance-type').value
                 : null,
             priority: document.getElementById('wo-priority').value || 'Media',
@@ -8316,13 +8316,13 @@ async function saveWorkOrder(updates = {}) {
         };
 
         if (['Correctivo', 'Emergencia'].includes(formData.type) && !formData.failureType) {
-            showToast('Para órdenes correctivas, es obligatorio seleccionar un tipo de falla.', 'error');
+            showToast('Para órdenes correctivas o de emergencia, es obligatorio seleccionar un tipo de falla.', 'error');
             showLoading(false);
             return;
         }
 
-        if (['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(formData.type) && !formData.maintenanceType) {
-            showToast('Para órdenes preventivas, es obligatorio seleccionar un tipo de mantenimiento.', 'error');
+        if (['Preventivo', 'Predictivo'].includes(formData.type) && !formData.maintenanceType) {
+            showToast('Para órdenes preventivas o predictivas, es obligatorio seleccionar un tipo de mantenimiento.', 'error');
             showLoading(false);
             return;
         }
@@ -8832,8 +8832,8 @@ function handleWorkOrderTypeChange() {
     const type = document.getElementById('wo-type').value;
     const failureGroup = document.getElementById('wo-failure-type-group');
     const maintenanceGroup = document.getElementById('wo-maintenance-type-group');
-    failureGroup.classList.toggle('d-none', type !== 'Correctivo');
-    maintenanceGroup.classList.toggle('d-none', type !== 'Preventivo');
+    failureGroup.classList.toggle('d-none', !['Correctivo', 'Emergencia'].includes(type));
+    maintenanceGroup.classList.toggle('d-none', !['Preventivo', 'Predictivo'].includes(type));
 }
 
 function generateNextId(prefix) {
@@ -12845,7 +12845,7 @@ async function calculateExecutiveMetrics(startDate, endDate) {
         return d >= prevMonthStart && d <= prevMonthEnd;
     }));
 
-    const failureTypes = ['Correctivo', 'Emergencia', 'Calibración'];
+    const failureTypes = ['Correctivo', 'Emergencia'];
 
     // 1. Resumen General
     const totalGenerated = ordersInPeriod.length;
@@ -13539,7 +13539,7 @@ async function renderPublicMachineReport(machineId) {
 
     // Calculate KPIs (simplified version of generateMachineReport logic)
     const machineWorkOrders = state.workOrders.filter(o => o.machineId === machine.id);
-    const correctiveOrders = machineWorkOrders.filter(o => ['Correctivo', 'Emergencia', 'Calibración'].includes(o.type));
+    const correctiveOrders = machineWorkOrders.filter(o => ['Correctivo', 'Emergencia'].includes(o.type));
 
     let mtbf = 'N/A';
     let startDate = machine.createdAt ? new Date(machine.createdAt) : null;
@@ -13661,7 +13661,7 @@ async function renderPublicMachineReport(machineId) {
                                     ${recentOrders.map(o => `
                                         <tr>
                                             <td class="small">${o.date || 'N/A'}</td>
-                                            <td><span class="badge ${['Preventivo', 'Predictivo'].includes(o.type) ? 'bg-info' : 'bg-danger'}" style="font-size: 0.6rem;">${o.type}</span></td>
+                                            <td><span class="badge ${['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(o.type) ? 'bg-info' : 'bg-danger'}" style="font-size: 0.6rem;">${o.type}</span></td>
                                             <td><span class="badge ${o.status === 'Completado' ? 'bg-success' : 'bg-warning text-dark'}" style="font-size: 0.6rem;">${o.status}</span></td>
                                         </tr>
                                     `).join('')}
