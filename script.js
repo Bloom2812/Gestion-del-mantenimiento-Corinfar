@@ -6745,8 +6745,8 @@ function renderActiveWorkView() {
                 localMonthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             }
 
-            // Si no está terminada y es de un mes anterior, lo consideramos "No Ejecutada"
-            if (wo.status !== 'Completado' && wo.status !== 'Cancelado' && wo.status !== 'Rechazado') {
+            // Si no está terminada o está expirada y es de un mes anterior, lo consideramos "No Ejecutada"
+            if ((wo.status !== 'Completado' && wo.status !== 'Cancelado' && wo.status !== 'Rechazado') || wo.isExpired) {
                 const woDate = new Date(d.getFullYear(), d.getMonth(), 1);
                 if (woDate < currentMonthObj) return true;
             }
@@ -11246,10 +11246,11 @@ async function handleExpiredWorkOrders() {
 
             if (now >= deadline) {
                 shouldUpdate = true;
-                nextStatus = 'Completado';
+                nextStatus = 'Cancelado';
+                isExpired = true;
                 note = isLastDay
-                    ? 'Finalizada automáticamente tras 2 días de gracia (fin de mes).'
-                    : 'Finalizada automáticamente al término del mes de ejecución.';
+                    ? 'Cancelada automáticamente tras 2 días de gracia (fin de mes) sin ser evaluada.'
+                    : 'Cancelada automáticamente al término del mes de ejecución sin ser evaluada.';
             }
         } else {
             // Pending/Planned/In Progress/Paused orders
@@ -11271,9 +11272,9 @@ async function handleExpiredWorkOrders() {
 
             if (now >= deadline) {
                 shouldUpdate = true;
-                nextStatus = order.status;
+                nextStatus = 'Cancelado';
                 isExpired = true;
-                note = 'Marcada como expirada automáticamente por exceder el tiempo máximo de ejecución permitido. La orden ahora es de solo lectura.';
+                note = 'Cancelada y marcada como expirada automáticamente por exceder el tiempo máximo de ejecución permitido. La orden ahora es de solo lectura.';
             }
         }
 
