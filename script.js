@@ -407,6 +407,114 @@ async function hashPassword(password) {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+async function updateRTDBMirror(collectionName, data, fbId) {
+    if (!state.rtdb) return;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-cmms-app';
+    const cleanId = (data.id || fbId).toString().replace(/[.#$\[\]]/g, '_');
+
+    const updateMap = {
+        'workOrders': 'workOrders',
+        'solicitudes': 'solicitudes',
+        'machines': 'machines',
+        'partRequests': 'partRequests',
+        'workPlanExecutions': 'executions'
+    };
+
+    const target = updateMap[collectionName];
+    if (!target) return;
+
+    try {
+        const mirrorRef = rtdbRef(state.rtdb, `artifacts/${appId}/live/${target}/${cleanId}`);
+
+        // Simple data for RTDB mirror to avoid bloat
+        const mirrorData = {
+            fbId: fbId,
+            status: data.status || 'N/A',
+            lastUpdate: new Date().toISOString(),
+            updatedBy: state.currentUser?.username || 'system'
+        };
+
+        if (data.id) mirrorData.id = data.id;
+        if (data.machineId) mirrorData.machineId = data.machineId;
+        if (data.type) mirrorData.type = data.type;
+        if (data.date) mirrorData.date = data.date;
+        if (data.leadTechnician) mirrorData.leadTechnician = data.leadTechnician;
+
+        await rtdbSet(mirrorRef, mirrorData);
+
+        // Update global counters
+        const countersRef = rtdbRef(state.rtdb, `artifacts/${appId}/live/counters`);
+        const counters = {};
+
+        if (collectionName === 'solicitudes') {
+            counters.pendingSolicitudes = state.solicitudes.filter(s => s.status === 'Pendiente').length;
+        } else if (collectionName === 'workOrders') {
+            counters.activeWorkOrders = state.workOrders.filter(wo => ['En Proceso', 'Pausado', 'Pendiente'].includes(wo.status)).length;
+            counters.inProgressCount = state.workOrders.filter(wo => wo.status === 'En Proceso').length;
+        }
+
+        if (Object.keys(counters).length > 0) {
+            await rtdbUpdate(countersRef, counters);
+        }
+
+    } catch (error) {
+        console.error("RTDB Mirror Error:", error);
+    }
+}
+
+async function removeRTDBMirror(collectionName, fbId) {
+    if (!state.rtdb) return;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-cmms-app';
+    const cleanId = fbId.toString().replace(/[.#$\[\]]/g, '_');
+
+    const updateMap = {
+        'workOrders': 'workOrders',
+        'solicitudes': 'solicitudes',
+        'machines': 'machines',
+        'partRequests': 'partRequests',
+        'workPlanExecutions': 'executions'
+    };
+
+    const target = updateMap[collectionName];
+    if (!target) return;
+
+    try {
+        const mirrorRef = rtdbRef(state.rtdb, `artifacts/${appId}/live/${target}/${cleanId}`);
+        await rtdbSet(mirrorRef, null);
+
+        // Update global counters
+        const countersRef = rtdbRef(state.rtdb, `artifacts/${appId}/live/counters`);
+        const counters = {};
+
+        if (collectionName === 'solicitudes') {
+            counters.pendingSolicitudes = state.solicitudes.filter(s => s.status === 'Pendiente').length;
+        } else if (collectionName === 'workOrders') {
+            counters.activeWorkOrders = state.workOrders.filter(wo => ['En Proceso', 'Pausado', 'Pendiente'].includes(wo.status)).length;
+            counters.inProgressCount = state.workOrders.filter(wo => wo.status === 'En Proceso').length;
+        }
+
+        if (Object.keys(counters).length > 0) {
+            await rtdbUpdate(countersRef, counters);
+        }
+    } catch (error) {
+        console.error("RTDB Mirror Removal Error:", error);
+    }
+}
+
+function updateUIFromRTCounters() {
+    if (!state.liveCounters) return;
+    const c = state.liveCounters;
+
+    // Contadores en el Dashboard (si es que existen los IDs)
+    const solCountEl = document.getElementById('stat-solicitudes');
+    if (solCountEl && c.pendingSolicitudes !== undefined) {
+        solCountEl.textContent = c.pendingSolicitudes;
+    }
+
+    // Otros contadores futuros pueden agregarse aquí
+    // Ej: sidebar notification badges
+}
+
 async function recordAuditLog(collectionName, docId, action, oldData, newData, detailedAction = null) {
     // Evitar registrar contraseñas en el log de auditoría
     const sanitize = (data) => {
@@ -781,6 +889,9 @@ function setupRealtimeListeners() {
     
     onSnapshot(query(state.collections.technicians), snapshot => {
         const wasEmpty = state.technicians.length === 0;
+        if (wasEmpty && snapshot.size > 0) {
+            showLoading(false);
+        }
          snapshot.docChanges().forEach(change => {
             const techData = { fb_id: change.doc.id, ...change.doc.data() };
             const index = state.technicians.findIndex(p => p.fb_id === change.doc.id);
@@ -2189,7 +2300,7 @@ function createProveedorRowHTML(proveedor) {
 
 // --- CRUD Machine Functions ---
 function renderMachines() {
-    if (state.currentTab !== 'maquinaria') return;
+    if (state.currentTab !== 'maquinaria' && state.currentTab !== 'dashboard' && initialLoadComplete) return;
     requestAnimationFrame(() => {
     const container = document.getElementById('machine-distribution-container');
     if (!container) return;
@@ -3508,7 +3619,7 @@ function deleteMachine(machineId) {
 
 // --- CRUD Part Functions ---
 function renderParts() {
-    if (state.currentTab !== 'repuestos') return;
+    if (state.currentTab !== 'repuestos' && state.currentTab !== 'dashboard' && initialLoadComplete) return;
     requestAnimationFrame(() => {
     const criticalList = document.getElementById('parts-list-critical');
     const attentionList = document.getElementById('parts-list-attention');
@@ -4806,6 +4917,13 @@ function renderSolicitudes() {
         const tr = document.createElement('tr');
         
         let statusText = solicitud.status;
+
+        // Override with RTDB Mirror status if available
+        const solMirror = state.rtdbMirrors?.solicitudes?.[(solicitud.id || solicitud.fb_id).toString().replace(/[.#$\[\]]/g, '_')];
+        if (solMirror && solMirror.status) {
+            statusText = solMirror.status;
+        }
+
         let statusBadgeClass = '';
         let linkedWorkOrder = null;
 
@@ -10512,8 +10630,10 @@ function getDashboardDataHash(orders, startDate, endDate) {
     return `${orders.length}-${startDate.getTime()}-${endDate.getTime()}`;
 }
 
+let initialLoadComplete = false;
+
 async function updateDashboardData(force = false) {
-    if (state.currentTab !== 'dashboard') return;
+    if (state.currentTab !== 'dashboard' && !force && initialLoadComplete) return;
     if (force) {
         dashboardCache.lastDataHash = null;
         dashboardCache.lastPeriod = null;
@@ -10559,6 +10679,7 @@ async function updateDashboardData(force = false) {
     updateKpis(ordersThisPeriod, startDate, endDate, kpis);
     updateCharts(ordersThisPeriod);
     updatePlanNotifications();
+    initialLoadComplete = true;
     });
 }
 
@@ -11767,6 +11888,7 @@ window.handleFinishPlanExecution = handleFinishPlanExecution;
 window.showTechnicianModal = showTechnicianModal;
 window.showManagePartsModal = showManagePartsModal;
 window.addTaskGroup = addTaskGroup;
+window.updateUIFromRTCounters = updateUIFromRTCounters;
 
 async function generateTokenLink(fbId, type) {
     const tech = state.technicians.find(t => t.fb_id === fbId);
@@ -12269,7 +12391,7 @@ window.updatePlanNotifications = updatePlanNotifications;
 
 // --- Smart Monitoring Functions ---
 function renderSmartMonitoring() {
-    if (state.currentTab !== 'monitoreo-inteligente') return;
+    if (state.currentTab !== 'monitoreo-inteligente' && state.currentTab !== 'dashboard' && initialLoadComplete) return;
     requestAnimationFrame(() => {
     const container = document.getElementById('smart-monitoring-container');
     if (!container) return;
