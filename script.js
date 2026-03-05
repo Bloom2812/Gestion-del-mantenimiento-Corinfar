@@ -9,6 +9,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
+    getDatabase, ref as rtdbRef, set as rtdbSet, onValue as rtdbOnValue, update as rtdbUpdate, push as rtdbPush
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+import {
     getStorage, ref, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
@@ -24,6 +28,7 @@ const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, {
     localCache: persistentLocalCache()
 });
+const rtdb = getDatabase(app);
 const storage = getStorage(app);
 
 // Export for verification
@@ -34,6 +39,7 @@ const auth = getAuth(app);
 const state = {
     odoo: null, // Instancia del conector de Odoo
     storage: storage,
+    rtdb: rtdb,
     currentUser: null,
     currentExecution: null,
     currentTab: 'dashboard',
@@ -76,6 +82,7 @@ const state = {
     partMovements: [],
     partRequests: [],
         auditLogs: [],
+    rtdbMonitoring: {},
     modals: {},
     charts: {},
     searchTimeouts: {},
@@ -954,6 +961,18 @@ function setupRealtimeListeners() {
         if (changed) renderPartRequests();
     });
 
+    // --- RTDB Real-time High Frequency Listeners ---
+    const monitoringRef = rtdbRef(state.rtdb, `artifacts/${appId}/monitoring`);
+    rtdbOnValue(monitoringRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            state.rtdbMonitoring = data;
+            // Immediate UI update if in relevant tabs
+            if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
+            if (state.currentTab === 'maquinaria') renderMachines();
+        }
+    });
+
 }
 
 
@@ -1678,6 +1697,7 @@ async function switchTab(tabName) {
         populateDynamicSelectors();
         populateWorkOrderSelectors();
         populateExecutionReportSelector();
+        if (tabName === 'dashboard') updateDashboardData(true);
     }
 
     if (tabName === 'maquinaria') renderMachines();
@@ -2229,7 +2249,14 @@ function renderMachines() {
         // 1. No está parado pero tiene alguna orden preventiva/predictiva/etc en proceso
         const hasPreventiveInProgress = activeOrders.some(wo => wo.status === 'En Proceso' && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(wo.type));
 
-        const status = (hasCorrectiveInProgress || hasPauseParado) ? 'parada' : (hasPreventiveInProgress ? 'mantenimiento' : 'operando');
+        let status = (hasCorrectiveInProgress || hasPauseParado) ? 'parada' : (hasPreventiveInProgress ? 'mantenimiento' : 'operando');
+
+        // Override with RTDB Live Status if available
+        const liveData = state.rtdbMonitoring && state.rtdbMonitoring[m.id];
+        if (liveData && liveData.liveStatus) {
+            status = liveData.liveStatus; // e.g., 'parada', 'mantenimiento', 'operando', 'offline'
+        }
+
         machineStatusMap.set(m.id, status);
 
         if (status !== 'operando') {
@@ -8083,6 +8110,14 @@ async function syncMachineToOdoo(machineData) {
             }
         }
 
+        // Bridge to RTDB for immediate UI feedback on machine status
+        if (machineData.id) {
+            rtdbUpdate(rtdbRef(state.rtdb, `artifacts/${appId}/monitoring/${machineData.id}`), {
+                lastOdooSync: new Date().toISOString()
+                // liveStatus will be updated by RTDB sensors, but we can nudge it here if Odoo had a status
+            });
+        }
+
         return odooId;
     } catch (e) {
         console.error("[Odoo Sync] Error sincronizando máquina:", e);
@@ -8230,6 +8265,17 @@ async function syncPartStockToOdoo(partId, partData = null) {
                 inventory_quantity: currentStock
             });
             await state.odoo.executeKw('stock.quant', 'action_apply_inventory', [[newQuantId]]);
+        }
+
+        // Bridge to RTDB for immediate UI feedback on high-priority stock change
+        if (currentStock <= (Number(part.minStock) || 0)) {
+             rtdbUpdate(rtdbRef(state.rtdb, `artifacts/${appId}/notifications/critical_stock`), {
+                 [part.id]: {
+                     name: part.name,
+                     stock: currentStock,
+                     timestamp: new Date().toISOString()
+                 }
+             });
         }
 
     } catch (error) {
@@ -10466,8 +10512,12 @@ function getDashboardDataHash(orders, startDate, endDate) {
     return `${orders.length}-${startDate.getTime()}-${endDate.getTime()}`;
 }
 
-async function updateDashboardData() {
+async function updateDashboardData(force = false) {
     if (state.currentTab !== 'dashboard') return;
+    if (force) {
+        dashboardCache.lastDataHash = null;
+        dashboardCache.lastPeriod = null;
+    }
     requestAnimationFrame(async () => {
 
     const { startDate, endDate, periodLabel } = getDashboardPeriod();
@@ -12299,70 +12349,109 @@ function renderSmartMonitoring() {
             });
         });
 
+        // Integration with RTDB Sensors
+        const rtdbMachineData = state.rtdbMonitoring && state.rtdbMonitoring[machine.id];
+        const rtdbSensors = rtdbMachineData?.sensors || {};
+
         const latestMeasurements = [];
-        Object.keys(historyMap).forEach(key => {
-            const history = historyMap[key].filter(h => !isNaN(h.value));
-            if (history.length > 0) {
+
+        // Combine Keys from History and RTDB Sensors
+        const allKeys = new Set([...Object.keys(historyMap), ...Object.keys(rtdbSensors)]);
+
+        allKeys.forEach(key => {
+            const history = historyMap[key] || [];
+            const rtdbValue = rtdbSensors[key];
+
+            let latestValue, unit, status, date, trend, isRtdb = false;
+
+            if (rtdbValue !== undefined) {
+                // RTDB sensor data takes precedence for "latest"
+                latestValue = typeof rtdbValue === 'object' ? rtdbValue.value : rtdbValue;
+                unit = typeof rtdbValue === 'object' ? rtdbValue.unit : (history[0]?.unit || '');
+                date = typeof rtdbValue === 'object' ? rtdbValue.timestamp : new Date().toISOString();
+                isRtdb = true;
+
+                // Determine trend from last history point if available
+                const lastHistory = history[history.length - 1];
+                if (lastHistory) {
+                    if (latestValue > lastHistory.value) trend = 'up';
+                    else if (latestValue < lastHistory.value) trend = 'down';
+                    else trend = 'stable';
+                } else {
+                    trend = 'stable';
+                }
+            } else if (history.length > 0) {
                 const latest = history[history.length - 1];
-                let trend = 'stable';
+                latestValue = latest.value;
+                unit = latest.unit;
+                status = latest.status;
+                date = latest.date;
+
                 if (history.length > 1) {
                     const prev = history[history.length - 2];
-                    if (latest.value > prev.value) trend = 'up';
-                    else if (latest.value < prev.value) trend = 'down';
+                    if (latestValue > prev.value) trend = 'up';
+                    else if (latestValue < prev.value) trend = 'down';
+                    else trend = 'stable';
+                } else {
+                    trend = 'stable';
                 }
-                if (latest.status === 'Alerta' || latest.status === 'Fallo') trend = 'alert';
-
-                // Get config for this variable
-                const config = state.monitoringConfigs.find(c => c.machineId === machine.id);
-                const varConfig = config?.variables?.find(v => v.name === key);
-
-                // Skip if explicitly disabled in config
-                if (varConfig && varConfig.enabled === false) return;
-
-                let currentStatus = latest.status;
-
-                // Apply custom thresholds if available
-                if (varConfig && varConfig.thresholds) {
-                    const val = latest.value;
-                    const t = varConfig.thresholds;
-
-                    const isInRange = (thr) => {
-                        if (!thr) return false;
-                        const min = thr.min !== "" ? parseFloat(thr.min) : null;
-                        const max = thr.max !== "" ? parseFloat(thr.max) : null;
-
-                        if (min !== null && max !== null) return val >= min && val <= max;
-                        if (min !== null) return val >= min;
-                        if (max !== null) return val <= max;
-                        return false;
-                    };
-
-                    if (isInRange(t.normal)) {
-                        currentStatus = 'Aprobó';
-                    } else if (isInRange(t.warning)) {
-                        currentStatus = 'Alerta';
-                    } else if (isInRange(t.critical)) {
-                        currentStatus = 'Fallo';
-                    } else {
-                        // Si está fuera de todos los rangos definidos, considerarlo fallo
-                        currentStatus = 'Fallo';
-                    }
-                }
-
-                latestMeasurements.push({
-                    key: key,
-                    ...latest,
-                    status: currentStatus,
-                    trend: trend,
-                    history: history
-                });
+            } else {
+                return; // No data for this key
             }
+
+            // Get config for this variable
+            const config = state.monitoringConfigs.find(c => c.machineId === machine.id);
+            const varConfig = config?.variables?.find(v => v.name === key);
+
+            // Skip if explicitly disabled in config
+            if (varConfig && varConfig.enabled === false) return;
+
+            let currentStatus = status || 'Aprobó';
+
+            // Apply custom thresholds if available
+            if (varConfig && varConfig.thresholds) {
+                const val = parseFloat(latestValue);
+                const t = varConfig.thresholds;
+
+                const isInRange = (thr) => {
+                    if (!thr) return false;
+                    const min = thr.min !== "" ? parseFloat(thr.min) : null;
+                    const max = thr.max !== "" ? parseFloat(thr.max) : null;
+
+                    if (min !== null && max !== null) return val >= min && val <= max;
+                    if (min !== null) return val >= min;
+                    if (max !== null) return val <= max;
+                    return false;
+                };
+
+                if (isInRange(t.normal)) currentStatus = 'Aprobó';
+                else if (isInRange(t.warning)) currentStatus = 'Alerta';
+                else if (isInRange(t.critical)) currentStatus = 'Fallo';
+                else currentStatus = 'Fallo';
+            }
+
+            if (currentStatus === 'Alerta' || currentStatus === 'Fallo') trend = 'alert';
+
+            latestMeasurements.push({
+                key: key,
+                value: latestValue,
+                unit: unit,
+                status: currentStatus,
+                date: date,
+                trend: trend,
+                isLive: isRtdb
+            });
         });
 
         // Machine Status logic
         let overallStatus = 'operativo';
         if (latestMeasurements.some(m => m.status === 'Fallo')) overallStatus = 'fallo';
         else if (latestMeasurements.some(m => m.status === 'Alerta')) overallStatus = 'alerta';
+
+        // Override with RTDB Live Status if available
+        if (rtdbMachineData && rtdbMachineData.liveStatus) {
+            overallStatus = rtdbMachineData.liveStatus;
+        }
 
         const statusLabel = overallStatus.toUpperCase();
 
@@ -12376,8 +12465,8 @@ function renderSmartMonitoring() {
             }[m.trend];
 
             measurementsHTML += `
-                <div class="measurement-item" onclick="showMeasurementHistory('${machine.id}', '${m.key.replace(/'/g, "\\'")}')">
-                    <div class="measurement-label">${m.key}</div>
+                <div class="measurement-item ${m.isLive ? 'live-sensor' : ''}" onclick="showMeasurementHistory('${machine.id}', '${m.key.replace(/'/g, "\\'")}')">
+                    <div class="measurement-label">${m.key} ${m.isLive ? '<span class="live-dot" title="Tiempo Real"></span>' : ''}</div>
                     <div class="measurement-value">${m.value}${m.unit ? ' ' + m.unit : ''}</div>
                     <div class="measurement-trend">${trendIcon}</div>
                 </div>
