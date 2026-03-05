@@ -813,7 +813,7 @@ body.dark-mode .kanban-card.type-mecanizado {
         grid-column: span 2;
     }
 }
-@media (max-width: 992px) {
+@media (max-width: 1100px) {
     .sidebar {
         position: fixed;
         top: 0;
@@ -851,7 +851,7 @@ body.dark-mode .kanban-card.type-mecanizado {
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1100px) {
     .table-responsive table {
         font-size: 0.875rem;
     }
@@ -1045,7 +1045,7 @@ body.dark-mode .kanban-card.type-mecanizado {
     border-radius: 12px;
     background-color: var(--card-bg) !important;
     box-shadow: 0 4px 12px var(--shadow-color) !important;
-    overflow: hidden;
+    overflow-x: auto;
 }
 
 body.dark-mode .inventory-zone .table-responsive {
@@ -1606,7 +1606,7 @@ body.dark-mode .execution-task-fallo-row {
 .execution-breadcrumb span { color: white; }
 
 /* Responsive adjustments for execution view */
-@media (max-width: 768px) {
+@media (max-width: 1100px) {
     .execution-view-header {
         padding: 0.75rem 1rem;
     }
@@ -1962,7 +1962,7 @@ body.dark-mode .machine-summary-header .summary-pill.maint-baja .count { color: 
 .stat-pill.correctivos .stat-count { color: #e74c3c; }
 .stat-pill.preventivos .stat-count { color: #3498db; }
 
-@media (max-width: 768px) {
+@media (max-width: 1100px) {
     .machine-location-group {
         flex-direction: column;
     }
