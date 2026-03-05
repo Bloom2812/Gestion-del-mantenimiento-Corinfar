@@ -2640,5 +2640,27 @@
     </div>
 </div>
 
+<!-- Modal para Estado del Equipo al Pausar -->
+<div class="modal fade" id="pause-status-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-warning text-dark border-bottom-0">
+                <h5 class="modal-title fw-bold"><i class="fas fa-pause-circle me-2"></i>Estado del Equipo al Pausar</h5>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="mb-4">Al pausar esta orden de trabajo, ¿en qué estado queda el equipo?</p>
+                <div class="d-grid gap-3">
+                    <button type="button" class="btn btn-success btn-lg py-3 fw-bold shadow-sm" id="btn-pause-operativo">
+                        <i class="fas fa-check-circle me-2"></i> El Equipo queda OPERATIVO
+                    </button>
+                    <button type="button" class="btn btn-danger btn-lg py-3 fw-bold shadow-sm" id="btn-pause-parado">
+                        <i class="fas fa-stop-circle me-2"></i> El Equipo queda PARADO
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

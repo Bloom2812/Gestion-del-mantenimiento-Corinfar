@@ -364,6 +364,33 @@ const FICHA_MAESTRA_TEMPLATE = `
 `;
 
 // --- Utility Functions ---
+async function requestMachineStatusOnPause(woType) {
+    // Si es Correctivo o Emergencia, el equipo queda PARADO automáticamente
+    if (['Correctivo', 'Emergencia'].includes(woType)) {
+        return 'parado';
+    }
+
+    return new Promise((resolve) => {
+        const btnOperativo = document.getElementById('btn-pause-operativo');
+        const btnParado = document.getElementById('btn-pause-parado');
+
+        const handleChoice = (status) => {
+            btnOperativo.removeEventListener('click', opHandler);
+            btnParado.removeEventListener('click', paHandler);
+            state.modals.pauseStatus.hide();
+            resolve(status);
+        };
+
+        const opHandler = () => handleChoice('operativo');
+        const paHandler = () => handleChoice('parado');
+
+        btnOperativo.addEventListener('click', opHandler, { once: true });
+        btnParado.addEventListener('click', paHandler, { once: true });
+
+        state.modals.pauseStatus.show();
+    });
+}
+
 async function hashPassword(password) {
     if (!password) return null;
     const encoder = new TextEncoder();
@@ -493,6 +520,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.modals.measurementHistory = new bootstrap.Modal(document.getElementById('measurement-history-modal'));
     state.modals.forgotPassword = new bootstrap.Modal(document.getElementById('forgot-password-modal'));
     state.modals.invitationLink = new bootstrap.Modal(document.getElementById('invitation-link-modal'));
+    state.modals.pauseStatus = new bootstrap.Modal(document.getElementById('pause-status-modal'));
     
     setupEventListeners();
 
@@ -519,6 +547,48 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let listenersStarted = false;
     onAuthStateChanged(auth, async (user) => {
+        const lastUserId = localStorage.getItem('corinfar_last_user_id');
+        if (lastUserId && !state.currentUser) {
+            const checkUser = async () => {
+                if (state.technicians.length > 0) {
+                    const savedUser = state.technicians.find(t => t.fb_id === lastUserId);
+                    if (savedUser) {
+                        state.currentUser = savedUser;
+                        // Aplicar preferencia de tema
+                        if (savedUser.theme === 'dark') {
+                            document.body.classList.add('dark-mode');
+                            state.currentTheme = 'dark';
+                        } else {
+                            document.body.classList.remove('dark-mode');
+                            state.currentTheme = 'light';
+                        }
+                        updateChartsTheme();
+
+                        document.getElementById('login-overlay').classList.add('d-none');
+                        document.getElementById('app-wrapper').classList.remove('d-none');
+                        document.getElementById('user-display').textContent = savedUser.username;
+                        document.getElementById('user-role').textContent = savedUser.role;
+                        document.getElementById('user-avatar').src = `https://ui-avatars.com/api/?name=${savedUser.username}&background=0D8ABC&color=fff`;
+
+                        setupRealtimeListeners();
+                        applyUserPermissions();
+
+                        const lastTab = localStorage.getItem('corinfar_last_tab');
+                        if (lastTab) switchTab(lastTab);
+                    }
+                    return true;
+                }
+                return false;
+            };
+
+            if (!await checkUser()) {
+                const techInterval = setInterval(async () => {
+                    if (await checkUser()) clearInterval(techInterval);
+                }, 500);
+                setTimeout(() => clearInterval(techInterval), 10000); // Timeout 10s
+            }
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const machineId = urlParams.get('machineId');
         const token = urlParams.get('token');
@@ -1109,7 +1179,11 @@ function setupEventListeners() {
     document.getElementById('wo-type').addEventListener('change', handleWorkOrderTypeChange);
     document.getElementById('wo-save-btn').addEventListener('click', () => saveWorkOrder());
     document.getElementById('wo-start-btn').addEventListener('click', () => saveWorkOrder({ status: 'En Proceso' }));
-    document.getElementById('wo-pause-btn').addEventListener('click', () => saveWorkOrder({ status: 'Pausado' }));
+    document.getElementById('wo-pause-btn').addEventListener('click', async () => {
+        const type = document.getElementById('wo-type').value;
+        const machineStatusOnPause = await requestMachineStatusOnPause(type);
+        saveWorkOrder({ status: 'Pausado', machineStatusOnPause });
+    });
     document.getElementById('wo-resume-btn').addEventListener('click', () => saveWorkOrder({ status: 'En Proceso' }));
     document.getElementById('wo-complete-btn').addEventListener('click', () => saveWorkOrder({ status: 'Pendiente de Evaluación' }));
     document.getElementById('wo-validate-btn').addEventListener('click', async () => {
@@ -1442,8 +1516,16 @@ async function handleLogin(e) {
         
         showToast(`Bienvenido, ${user.username}`, 'success');
         
+        localStorage.setItem('corinfar_last_user_id', user.fb_id);
+
         setupRealtimeListeners(); // Re-setup listeners with correct user role
         applyUserPermissions();
+
+        // Restaurar pestaña si existe en el almacenamiento
+        const lastTab = localStorage.getItem('corinfar_last_tab');
+        if (lastTab) {
+            switchTab(lastTab);
+        }
     } else {
         document.getElementById('login-error').classList.remove('d-none');
         showToast('Usuario o contraseña incorrectos', 'error');
@@ -1455,11 +1537,17 @@ async function handleLogin(e) {
 }
 
 function handleLogout(force = false) {
-    if (force === true) {
+    const logoutAction = () => {
+        localStorage.removeItem('corinfar_last_user_id');
+        localStorage.removeItem('corinfar_last_tab');
         window.location.reload();
+    };
+
+    if (force === true) {
+        logoutAction();
     } else {
         showConfirmation('Cerrar sesión', '¿Está seguro de que desea cerrar la sesión?', () => {
-            window.location.reload();
+            logoutAction();
         });
     }
 }
@@ -1567,6 +1655,7 @@ function applyUserPermissions() {
 
 // --- UI Functions ---
 async function switchTab(tabName) {
+    localStorage.setItem('corinfar_last_tab', tabName);
     document.querySelectorAll('.main-content > .tab-content').forEach(tab => tab.classList.add('d-none'));
     document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
     
@@ -2129,9 +2218,18 @@ function renderMachines() {
         // Status Logic
         const mOrders = ordersByMachine.get(m.id) || [];
         const activeOrders = mOrders.filter(wo => ['En Proceso', 'Pausado'].includes(wo.status));
-        const hasCorrective = activeOrders.some(wo => ['Correctivo', 'Emergencia'].includes(wo.type));
-        const hasPreventive = activeOrders.some(wo => ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(wo.type));
-        const status = hasCorrective ? 'parada' : (hasPreventive ? 'mantenimiento' : 'operando');
+
+        // El equipo está PARADO si:
+        // 1. Tiene alguna orden de correctivo en proceso
+        // 2. Tiene alguna orden pausada donde el usuario indicó que el equipo queda PARADO
+        const hasCorrectiveInProgress = activeOrders.some(wo => wo.status === 'En Proceso' && ['Correctivo', 'Emergencia'].includes(wo.type));
+        const hasPauseParado = activeOrders.some(wo => wo.status === 'Pausado' && wo.machineStatusOnPause === 'parado');
+
+        // El equipo está EN MANTENIMIENTO si:
+        // 1. No está parado pero tiene alguna orden preventiva/predictiva/etc en proceso
+        const hasPreventiveInProgress = activeOrders.some(wo => wo.status === 'En Proceso' && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(wo.type));
+
+        const status = (hasCorrectiveInProgress || hasPauseParado) ? 'parada' : (hasPreventiveInProgress ? 'mantenimiento' : 'operando');
         machineStatusMap.set(m.id, status);
 
         if (status !== 'operando') {
@@ -7083,6 +7181,12 @@ async function handleKanbanWorkOrderAction(workOrderFbId, newStatus) {
         let finalStatus = newStatus;
         const oldStatus = orderData.status;
 
+        let extraUpdates = {};
+        if (finalStatus === 'Pausado' && oldStatus !== 'Pausado') {
+            const machineStatusOnPause = await requestMachineStatusOnPause(orderData.type);
+            extraUpdates.machineStatusOnPause = machineStatusOnPause;
+        }
+
         // 21 CFR Part 11: Re-autenticación para firma electrónica
         const isFinishing = (finalStatus === 'Pendiente de Evaluación' || finalStatus === 'Completado' || finalStatus === 'Pendiente de Aprobación');
         if (isFinishing && oldStatus !== finalStatus) {
@@ -8353,6 +8457,11 @@ async function saveWorkOrder(updates = {}) {
         const oldStatus = existingOrder.status;
         let newStatus = orderData.status;
 
+        if (newStatus === 'Pausado' && oldStatus !== 'Pausado' && !updates.machineStatusOnPause) {
+            const machineStatusOnPause = await requestMachineStatusOnPause(orderData.type);
+            orderData.machineStatusOnPause = machineStatusOnPause;
+        }
+
         // 21 CFR Part 11: Re-autenticación para firma electrónica al completar/evaluar o validar
         const isFinishing = (newStatus === 'Pendiente de Evaluación' || newStatus === 'Completado' || newStatus === 'Pendiente de Aprobación');
         const isValidating = !existingOrder.validatedBy && orderData.validatedBy;
@@ -8444,6 +8553,8 @@ async function saveWorkOrder(updates = {}) {
 
             if (newStatus === 'En Proceso') {
                  workIntervals.push({ start: now.toISOString(), end: null });
+                 // Al reanudar, borramos el estado de equipo pausado para que vuelva a estar en mantenimiento/parado
+                 delete orderData.machineStatusOnPause;
             } else if (['Pausado', 'Pendiente de Evaluación', 'Completado', 'Pendiente de Aprobación'].includes(newStatus) && oldStatus === 'En Proceso') {
                 const lastInterval = workIntervals.find(i => !i.end);
                 if (lastInterval) {
