@@ -412,9 +412,9 @@ async function hashPassword(password) {
 }
 
 async function updateRTDBMirror(collectionName, data, fbId) {
-    if (!state.rtdb) return;
+    if (!state.rtdb || !fbId) return;
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-cmms-app';
-    const cleanId = (data.id || fbId).toString().replace(/[.#$\[\]]/g, '_');
+    const cleanId = fbId.toString().replace(/[.#$\[\]]/g, '_');
 
     const updateMap = {
         'workOrders': 'workOrders',
@@ -2351,7 +2351,7 @@ function renderMachines() {
         // 1. Tiene alguna orden de correctivo en proceso
         // 2. Tiene alguna orden pausada donde el usuario indicó que el equipo queda PARADO
         const hasCorrectiveInProgress = activeOrders.some(wo => {
-            const cleanId = (wo.id || wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+            const cleanId = (wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
             const mirror = state.liveWorkOrders?.[cleanId];
             const currentStatus = mirror?.status || wo.status;
             const currentType = mirror?.type || wo.type;
@@ -2359,7 +2359,7 @@ function renderMachines() {
         });
 
         const hasPauseParado = activeOrders.some(wo => {
-            const cleanId = (wo.id || wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+            const cleanId = (wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
             const mirror = state.liveWorkOrders?.[cleanId];
             const currentStatus = mirror?.status || wo.status;
             return currentStatus === 'Pausado' && wo.machineStatusOnPause === 'parado';
@@ -2368,7 +2368,7 @@ function renderMachines() {
         // El equipo está EN MANTENIMIENTO si:
         // 1. No está parado pero tiene alguna orden preventiva/predictiva/etc en proceso
         const hasPreventiveInProgress = activeOrders.some(wo => {
-            const cleanId = (wo.id || wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+            const cleanId = (wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
             const mirror = state.liveWorkOrders?.[cleanId];
             const currentStatus = mirror?.status || wo.status;
             const currentType = mirror?.type || wo.type;
@@ -4934,7 +4934,7 @@ function renderSolicitudes() {
         const machine = state.machines.find(m => m.id === solicitud.machineId) || { name: 'N/A' };
         const tr = document.createElement('tr');
         
-        const cleanId = (solicitud.id || solicitud.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+        const cleanId = (solicitud.fb_id).toString().replace(/[.#$\[\]]/g, '_');
         const solMirror = state.liveSolicitudes?.[cleanId];
         const statusText = solMirror?.status || solicitud.status;
 
@@ -6952,7 +6952,7 @@ function renderActiveWorkView() {
     workOrdersToDisplay.forEach(wo => {
         const card = createWorkOrderCard(wo);
 
-        const cleanId = (wo.id || wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+        const cleanId = (wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
         const woMirror = state.liveWorkOrders?.[cleanId];
         const currentStatus = woMirror?.status || wo.status;
 
@@ -7455,9 +7455,11 @@ async function handleKanbanWorkOrderAction(workOrderFbId, newStatus) {
         }
 
         const oldOrder = JSON.parse(JSON.stringify(orderData));
+        const finalOrderData = { ...orderData, ...updates };
         await updateDoc(orderRef, updates);
-        const detailedAction = getWorkOrderDetailedAction(oldOrder, { ...orderData, ...updates }) + (isFinishing ? ' (Firmado)' : '');
-        await recordAuditLog('workOrders', orderData.id || workOrderFbId, 'UPDATE', oldOrder, { ...orderData, ...updates }, detailedAction);
+        await updateRTDBMirror('workOrders', finalOrderData, workOrderFbId);
+        const detailedAction = getWorkOrderDetailedAction(oldOrder, finalOrderData) + (isFinishing ? ' (Firmado)' : '');
+        await recordAuditLog('workOrders', orderData.id || workOrderFbId, 'UPDATE', oldOrder, finalOrderData, detailedAction);
 
         // If finishing the order, also finish any linked plan execution
         if (finalStatus === 'Pendiente de Evaluación' || finalStatus === 'Completado' || finalStatus === 'Pendiente de Aprobación') {
@@ -11034,7 +11036,7 @@ function updateStats(ordersThisPeriod, kpis) {
     let correctiveCount = 0;
 
     ordersThisPeriod.forEach(o => {
-        const cleanId = (o.id || o.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+        const cleanId = (o.fb_id).toString().replace(/[.#$\[\]]/g, '_');
         const mirror = state.liveWorkOrders?.[cleanId];
         const currentType = mirror?.type || o.type;
 
@@ -11236,7 +11238,7 @@ function updateCharts(ordersForPeriod) {
     const statusCounts = { 'Pendiente': 0, 'En Proceso': 0, 'Pausado': 0, 'Pendiente de Evaluación': 0, 'Completado': 0, 'Cancelado': 0 };
 
     ordersForPeriod.forEach(o => {
-        const cleanId = (o.id || o.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+        const cleanId = (o.fb_id).toString().replace(/[.#$\[\]]/g, '_');
         const mirror = state.liveWorkOrders?.[cleanId];
         const currentType = mirror?.type || o.type;
         const currentStatus = mirror?.status || o.status;
