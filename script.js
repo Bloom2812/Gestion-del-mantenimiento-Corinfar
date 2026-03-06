@@ -449,8 +449,18 @@ async function updateRTDBMirror(collectionName, data, fbId) {
         if (collectionName === 'solicitudes') {
             counters.pendingSolicitudes = state.solicitudes.filter(s => s.status === 'Pendiente').length;
         } else if (collectionName === 'workOrders') {
-            counters.activeWorkOrders = state.workOrders.filter(wo => ['En Proceso', 'Pausado', 'Pendiente'].includes(wo.status)).length;
-            counters.inProgressCount = state.workOrders.filter(wo => wo.status === 'En Proceso').length;
+            const activeWos = state.workOrders.filter(wo => ['En Proceso', 'Pausado', 'Pendiente'].includes(wo.status));
+            counters.activeWorkOrders = activeWos.length;
+            counters.inProgressCount = activeWos.filter(wo => wo.status === 'En Proceso').length;
+
+            // Add monthly stats for dashboard speed
+            const now = new Date();
+            const startIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+            const endIso = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+            const monthOrders = state.workOrders.filter(o => o.date >= startIso && o.date <= endIso);
+            counters.monthPreventive = monthOrders.filter(o => ['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)).length;
+            counters.monthCorrective = monthOrders.filter(o => ['Correctivo', 'Emergencia'].includes(o.type)).length;
         }
 
         if (Object.keys(counters).length > 0) {
@@ -511,8 +521,15 @@ function updateUIFromRTCounters() {
         solCountEl.textContent = c.pendingSolicitudes;
     }
 
-    // Otros contadores futuros pueden agregarse aquí
-    // Ej: sidebar notification badges
+    const prevCountEl = document.getElementById('stat-preventivos');
+    if (prevCountEl && c.monthPreventive !== undefined) {
+        prevCountEl.textContent = c.monthPreventive;
+    }
+
+    const corrCountEl = document.getElementById('stat-correctivos');
+    if (corrCountEl && c.monthCorrective !== undefined) {
+        corrCountEl.textContent = c.monthCorrective;
+    }
 }
 
 async function recordAuditLog(collectionName, docId, action, oldData, newData, detailedAction = null) {
@@ -662,6 +679,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let listenersStarted = false;
     onAuthStateChanged(auth, async (user) => {
+        showLoading(false);
         const lastUserId = localStorage.getItem('corinfar_last_user_id');
         if (lastUserId && !state.currentUser) {
             const checkUser = async () => {
@@ -803,7 +821,9 @@ function setupRealtimeListeners() {
     onSnapshot(query(state.collections.machines), snapshot => {
         let requiresKpiUpdate = false;
         let dataChanged = false;
-        populateDynamicSelectors();
+        if (state.currentTab === 'maquinaria' || state.currentTab === 'reportes' || !initialLoadComplete) {
+            populateDynamicSelectors();
+        }
         snapshot.docChanges().forEach(change => {
             dataChanged = true;
             const machineData = { fb_id: change.doc.id, ...change.doc.data() };
@@ -834,7 +854,9 @@ function setupRealtimeListeners() {
     onSnapshot(query(state.collections.parts), snapshot => {
         let requiresCostUpdate = false;
         let dataChanged = false;
-        populateDynamicSelectors();
+        if (state.currentTab === 'repuestos' || state.currentTab === 'reportes' || !initialLoadComplete) {
+            populateDynamicSelectors();
+        }
          snapshot.docChanges().forEach(change => {
             dataChanged = true;
             const partData = { fb_id: change.doc.id, ...change.doc.data() };
@@ -864,7 +886,9 @@ function setupRealtimeListeners() {
 
      onSnapshot(query(state.collections.proveedores), snapshot => {
         let dataChanged = false;
-        populateDynamicSelectors();
+        if (state.currentTab === 'proveedores' || !initialLoadComplete) {
+            populateDynamicSelectors();
+        }
          snapshot.docChanges().forEach(change => {
             dataChanged = true;
             const provData = { fb_id: change.doc.id, ...change.doc.data() };
@@ -889,7 +913,7 @@ function setupRealtimeListeners() {
     
     onSnapshot(query(state.collections.technicians), snapshot => {
         const wasEmpty = state.technicians.length === 0;
-        if (wasEmpty && snapshot.size > 0) {
+        if (wasEmpty) {
             showLoading(false);
         }
          snapshot.docChanges().forEach(change => {
@@ -919,13 +943,13 @@ function setupRealtimeListeners() {
     // For complex views like dashboard, calendar, kanban, a full re-render on data change is more robust and acceptable.
     let firstWoLoad = true;
     const debouncedWorkOrdersUpdate = debounce(() => {
-        populateWorkOrderSelectors();
-        renderCalendar();
-        if (state.currentTab === 'maquinaria') renderMachines();
-        if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
-        if (state.currentTab === 'trabajo-activo') renderActiveWorkView();
-        if (state.currentTab === 'ordenes-asignadas') renderAssignedOrders();
-        if (state.currentTab === 'solicitudes') renderSolicitudes();
+        if (state.currentTab === 'reportes' || !initialLoadComplete) populateWorkOrderSelectors();
+        if (state.currentTab === 'planificador' || !initialLoadComplete) renderCalendar();
+        if (state.currentTab === 'maquinaria' || !initialLoadComplete) renderMachines();
+        if (state.currentTab === 'monitoreo-inteligente' || !initialLoadComplete) renderSmartMonitoring();
+        if (state.currentTab === 'trabajo-activo' || !initialLoadComplete) renderActiveWorkView();
+        if (state.currentTab === 'ordenes-asignadas' || !initialLoadComplete) renderAssignedOrders();
+        if (state.currentTab === 'solicitudes' || !initialLoadComplete) renderSolicitudes();
         updateDashboardData();
     }, 300);
 
@@ -955,11 +979,11 @@ function setupRealtimeListeners() {
     });
 
     const debouncedWorkPlansUpdate = debounce(() => {
-        if (state.currentTab === 'maquinaria') renderMachines();
-        if (state.currentTab === 'planes-trabajo') {
+        if (state.currentTab === 'maquinaria' || !initialLoadComplete) renderMachines();
+        if (state.currentTab === 'planes-trabajo' || !initialLoadComplete) {
             renderWorkPlans();
         }
-        populateExecutionReportSelector();
+        if (state.currentTab === 'reportes' || !initialLoadComplete) populateExecutionReportSelector();
         updatePlanNotifications();
     }, 300);
 
@@ -977,9 +1001,9 @@ function setupRealtimeListeners() {
     });
 
     const debouncedPlanExecutionsUpdate = debounce(() => {
-        if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
+        if (state.currentTab === 'monitoreo-inteligente' || !initialLoadComplete) renderSmartMonitoring();
         updateDashboardData();
-        populateExecutionReportSelector();
+        if (state.currentTab === 'reportes' || !initialLoadComplete) populateExecutionReportSelector();
     }, 300);
 
     onSnapshot(query(state.collections.workPlanExecutions), snapshot => {
@@ -1016,8 +1040,8 @@ function setupRealtimeListeners() {
         const solicitudesQuery = query(state.collections.solicitudes);
 
         const debouncedSolicitudesUpdate = debounce(() => {
-            if (state.currentTab === 'solicitudes') renderSolicitudes();
-            if (state.currentTab === 'trabajo-activo') renderActiveWorkView();
+            if (state.currentTab === 'solicitudes' || !initialLoadComplete) renderSolicitudes();
+            if (state.currentTab === 'trabajo-activo' || !initialLoadComplete) renderActiveWorkView();
             updateDashboardData();
         }, 300);
 
@@ -1079,11 +1103,30 @@ function setupRealtimeListeners() {
         if (data) {
             state.rtdbMonitoring = data;
             // Immediate UI update if in relevant tabs
-            if (state.currentTab === 'monitoreo-inteligente') renderSmartMonitoring();
-            if (state.currentTab === 'maquinaria') renderMachines();
+            if (state.currentTab === 'monitoreo-inteligente' || !initialLoadComplete) renderSmartMonitoring();
+            if (state.currentTab === 'maquinaria' || !initialLoadComplete) renderMachines();
         }
     });
 
+    // Real-time Counters and Critical State Mirror
+    const liveRootRef = rtdbRef(state.rtdb, `artifacts/${appId}/live`);
+    rtdbOnValue(liveRootRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            state.liveCounters = data.counters || {};
+            state.liveWorkOrders = data.workOrders || {};
+            state.liveSolicitudes = data.solicitudes || {};
+            state.liveMachines = data.machines || {};
+
+            updateUIFromRTCounters();
+
+            // Targeted UI updates for speed
+            if (state.currentTab === 'dashboard' || !initialLoadComplete) updateDashboardData(true);
+            if (state.currentTab === 'solicitudes' || !initialLoadComplete) renderSolicitudes();
+            if (state.currentTab === 'trabajo-activo' || !initialLoadComplete) renderActiveWorkView();
+            if (state.currentTab === 'maquinaria' || !initialLoadComplete) renderMachines();
+        }
+    });
 }
 
 
@@ -2353,12 +2396,30 @@ function renderMachines() {
         // El equipo está PARADO si:
         // 1. Tiene alguna orden de correctivo en proceso
         // 2. Tiene alguna orden pausada donde el usuario indicó que el equipo queda PARADO
-        const hasCorrectiveInProgress = activeOrders.some(wo => wo.status === 'En Proceso' && ['Correctivo', 'Emergencia'].includes(wo.type));
-        const hasPauseParado = activeOrders.some(wo => wo.status === 'Pausado' && wo.machineStatusOnPause === 'parado');
+        const hasCorrectiveInProgress = activeOrders.some(wo => {
+            const cleanId = (wo.id || wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+            const mirror = state.liveWorkOrders?.[cleanId];
+            const currentStatus = mirror?.status || wo.status;
+            const currentType = mirror?.type || wo.type;
+            return currentStatus === 'En Proceso' && ['Correctivo', 'Emergencia'].includes(currentType);
+        });
+
+        const hasPauseParado = activeOrders.some(wo => {
+            const cleanId = (wo.id || wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+            const mirror = state.liveWorkOrders?.[cleanId];
+            const currentStatus = mirror?.status || wo.status;
+            return currentStatus === 'Pausado' && wo.machineStatusOnPause === 'parado';
+        });
 
         // El equipo está EN MANTENIMIENTO si:
         // 1. No está parado pero tiene alguna orden preventiva/predictiva/etc en proceso
-        const hasPreventiveInProgress = activeOrders.some(wo => wo.status === 'En Proceso' && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(wo.type));
+        const hasPreventiveInProgress = activeOrders.some(wo => {
+            const cleanId = (wo.id || wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+            const mirror = state.liveWorkOrders?.[cleanId];
+            const currentStatus = mirror?.status || wo.status;
+            const currentType = mirror?.type || wo.type;
+            return currentStatus === 'En Proceso' && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(currentType);
+        });
 
         let status = (hasCorrectiveInProgress || hasPauseParado) ? 'parada' : (hasPreventiveInProgress ? 'mantenimiento' : 'operando');
 
@@ -3575,9 +3636,11 @@ async function handleMachineSubmit(e) {
 
         const docRef = doc(state.collections.machines, machineData.id);
         await setDoc(docRef, machineData, { merge: true });
+        await updateRTDBMirror('machines', machineData, machineData.id);
 
         if (originalId && originalId !== machineData.id) {
              await deleteDoc(doc(state.collections.machines, originalId));
+             await removeRTDBMirror('machines', originalId);
              await recordAuditLog('machines', machineData.id, 'CREATE', null, machineData, 'Cambio ID Máquina');
              await recordAuditLog('machines', originalId, 'DELETE', existingMachine, null, 'Eliminación por cambio ID');
         } else if (!originalId) {
@@ -3843,6 +3906,7 @@ async function handlePartRequestSubmit() {
             status: 'Pendiente'
         };
         const docRef = await addDoc(state.collections.partRequests, requestData);
+        await updateRTDBMirror('partRequests', requestData, docRef.id);
         await recordAuditLog('partRequests', woId || docRef.id, 'CREATE', null, requestData, 'Creación Solicitud Repuesto');
 
         document.getElementById('wo-request-description').value = '';
@@ -4916,13 +4980,9 @@ function renderSolicitudes() {
         const machine = state.machines.find(m => m.id === solicitud.machineId) || { name: 'N/A' };
         const tr = document.createElement('tr');
         
-        let statusText = solicitud.status;
-
-        // Override with RTDB Mirror status if available
-        const solMirror = state.rtdbMirrors?.solicitudes?.[(solicitud.id || solicitud.fb_id).toString().replace(/[.#$\[\]]/g, '_')];
-        if (solMirror && solMirror.status) {
-            statusText = solMirror.status;
-        }
+        const cleanId = (solicitud.id || solicitud.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+        const solMirror = state.liveSolicitudes?.[cleanId];
+        const statusText = solMirror?.status || solicitud.status;
 
         let statusBadgeClass = '';
         let linkedWorkOrder = null;
@@ -5121,6 +5181,7 @@ async function handleSolicitudSubmit(e) {
 
     try {
         const docRef = await addDoc(state.collections.solicitudes, solicitudData);
+        await updateRTDBMirror('solicitudes', solicitudData, docRef.id);
         await recordAuditLog('solicitudes', solicitudData.id, 'CREATE', null, solicitudData, 'Creación Solicitud Mantenimiento');
         showToast('Solicitud enviada correctamente', 'success');
         state.modals.solicitud.hide();
@@ -6636,6 +6697,7 @@ async function completeLinkedPlanExecution(workOrderFbId, nowISO, status = 'Comp
 
         const oldExecution = JSON.parse(JSON.stringify(execution));
         await updateDoc(doc(state.collections.workPlanExecutions, execution.fb_id), updates);
+        await updateRTDBMirror('workPlanExecutions', { ...execution, ...updates }, execution.fb_id);
         await recordAuditLog('workPlanExecutions', execution.fb_id, 'UPDATE', oldExecution, { ...execution, ...updates });
 
         // If it wasn't finished by handleFinishPlanExecution (e.g., direct WO completion from Kanban),
@@ -6736,6 +6798,7 @@ async function handleFinishPlanExecution() {
                     workIntervals: workIntervals
                 };
                 const executionDocRef = await addDoc(state.collections.workPlanExecutions, executionData);
+                await updateRTDBMirror('workPlanExecutions', executionData, executionDocRef.id);
                 await updateDoc(workOrderDocRef, { executionId: executionDocRef.id });
             } else {
                 const executionDocRef = doc(state.collections.workPlanExecutions, execution.fb_id);
@@ -6745,12 +6808,14 @@ async function handleFinishPlanExecution() {
                     intervals[intervals.length - 1].end = now;
                 }
 
-                await updateDoc(executionDocRef, {
+                const executionUpdates = {
                     status: 'Pendiente de Aprobación',
                     taskGroups: execution.taskGroups,
                     completedAt: now,
                     workIntervals: intervals
-                });
+                };
+                await updateDoc(executionDocRef, executionUpdates);
+                await updateRTDBMirror('workPlanExecutions', { ...execution, ...executionUpdates }, execution.fb_id);
 
                 if (execution.workOrderFbId) {
                     const woRef = doc(state.collections.workOrders, execution.workOrderFbId);
@@ -6933,11 +6998,15 @@ function renderActiveWorkView() {
     workOrdersToDisplay.forEach(wo => {
         const card = createWorkOrderCard(wo);
 
-        if (wo.status === 'Cancelado' || wo.status === 'Rechazado') {
+        const cleanId = (wo.id || wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+        const woMirror = state.liveWorkOrders?.[cleanId];
+        const currentStatus = woMirror?.status || wo.status;
+
+        if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado') {
             if (cancelledContainer) cancelledContainer.appendChild(card);
-        } else if (wo.status === 'Pendiente' || wo.status === 'Planificada') {
+        } else if (currentStatus === 'Pendiente' || currentStatus === 'Planificada') {
             plannedContainer.appendChild(card);
-        } else if (wo.status === 'En Proceso') {
+        } else if (currentStatus === 'En Proceso') {
             inProgressContainer.appendChild(card);
             if (wo.workIntervals) {
                 const lastInterval = wo.workIntervals[wo.workIntervals.length - 1];
@@ -6945,11 +7014,11 @@ function renderActiveWorkView() {
                    updateTimerDisplay(wo.id, wo);
                 }
             }
-        } else if (wo.status === 'Pausado') {
+        } else if (currentStatus === 'Pausado') {
             pausedContainer.appendChild(card);
-        } else if (wo.status === 'Pendiente de Evaluación' || wo.status === 'Pendiente de Aprobación') {
+        } else if (currentStatus === 'Pendiente de Evaluación' || currentStatus === 'Pendiente de Aprobación') {
             if (evaluationContainer) evaluationContainer.appendChild(card);
-        } else if (wo.status === 'Completado') {
+        } else if (currentStatus === 'Completado') {
             if (completedContainer) completedContainer.appendChild(card);
         }
     });
@@ -7969,6 +8038,26 @@ async function syncAllMachinesToOdoo() {
     }
 }
 
+async function triggerRTDBFullSync() {
+    if (!state.currentUser || state.currentUser.role !== 'Admin') return;
+    showLoading(true);
+    try {
+        const promises = [];
+        state.machines.forEach(m => promises.push(updateRTDBMirror('machines', m, m.fb_id || m.id)));
+        state.solicitudes.forEach(s => promises.push(updateRTDBMirror('solicitudes', s, s.fb_id)));
+        state.workOrders.forEach(wo => promises.push(updateRTDBMirror('workOrders', wo, wo.fb_id)));
+
+        await Promise.all(promises);
+        showToast('Sincronización RTDB completada', 'success');
+    } catch (error) {
+        console.error("RTDB Full Sync error:", error);
+        showToast('Error en sincronización RTDB', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+window.triggerRTDBFullSync = triggerRTDBFullSync;
+
 async function syncAllPartsToOdoo() {
     if (!state.odoo) {
         showToast('Odoo no está configurado o conectado.', 'error');
@@ -8755,10 +8844,12 @@ async function saveWorkOrder(updates = {}) {
             document.getElementById('wo-fb-id-hidden').value = docRef.id;
             document.getElementById('wo-id').value = orderData.id;
             currentFbId = docRef.id;
+            await updateRTDBMirror('workOrders', orderData, docRef.id);
             await recordAuditLog('workOrders', orderData.id, 'CREATE', null, orderData, 'Creación OT');
         } else {
             const docRef = doc(state.collections.workOrders, fbId);
             await setDoc(docRef, orderData, { merge: true });
+            await updateRTDBMirror('workOrders', orderData, fbId);
             const detailedAction = getWorkOrderDetailedAction(existingOrder, orderData) + (isFinishing ? ' (Firmado)' : '');
             await recordAuditLog('workOrders', orderData.id, 'UPDATE', existingOrder, orderData, detailedAction);
         }
@@ -10975,18 +11066,39 @@ function updateMachineCriticidadChart() {
 
 function updateStats(ordersThisPeriod, kpis) {
     updateMachineCriticidadChart();
-    document.getElementById('stat-solicitudes').textContent = state.solicitudes.filter(s => s.status === 'Pendiente').length;
+
+    // Prioritize Live RTDB Counters for instant UI response
+    const lc = state.liveCounters || {};
+
+    document.getElementById('stat-solicitudes').textContent = (lc.pendingSolicitudes !== undefined)
+        ? lc.pendingSolicitudes
+        : state.solicitudes.filter(s => s.status === 'Pendiente').length;
     
     let preventiveCount = 0;
     let correctiveCount = 0;
 
     ordersThisPeriod.forEach(o => {
-        if (['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(o.type)) preventiveCount++;
-        else if (['Correctivo', 'Emergencia'].includes(o.type)) correctiveCount++;
+        const cleanId = (o.id || o.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+        const mirror = state.liveWorkOrders?.[cleanId];
+        const currentType = mirror?.type || o.type;
+
+        if (['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(currentType)) preventiveCount++;
+        else if (['Correctivo', 'Emergencia'].includes(currentType)) correctiveCount++;
     });
 
-    document.getElementById('stat-preventivos').textContent = preventiveCount;
-    document.getElementById('stat-correctivos').textContent = correctiveCount;
+    // Check if we are in the "Current Month" to use RTDB monthly counters
+    const { periodLabel } = getDashboardPeriod();
+    const now = new Date();
+    const currentMonthLabel = `${now.toLocaleDateString('es-ES', { month: 'long' })} ${now.getFullYear()}`;
+    const isCurrentMonth = periodLabel.toLowerCase() === currentMonthLabel.toLowerCase();
+
+    document.getElementById('stat-preventivos').textContent = (isCurrentMonth && lc.monthPreventive !== undefined)
+        ? lc.monthPreventive
+        : preventiveCount;
+
+    document.getElementById('stat-correctivos').textContent = (isCurrentMonth && lc.monthCorrective !== undefined)
+        ? lc.monthCorrective
+        : correctiveCount;
     
     const f = new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' });
 
@@ -11168,13 +11280,18 @@ function updateCharts(ordersForPeriod) {
     const statusCounts = { 'Pendiente': 0, 'En Proceso': 0, 'Pausado': 0, 'Pendiente de Evaluación': 0, 'Completado': 0, 'Cancelado': 0 };
 
     ordersForPeriod.forEach(o => {
-        if (['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)) preventiveCount++;
-        else if (['Correctivo', 'Emergencia'].includes(o.type)) correctiveCount++;
+        const cleanId = (o.id || o.fb_id).toString().replace(/[.#$\[\]]/g, '_');
+        const mirror = state.liveWorkOrders?.[cleanId];
+        const currentType = mirror?.type || o.type;
+        const currentStatus = mirror?.status || o.status;
 
-        if (o.type === 'Calibración') failureCounts['Falla de Operación']++;
+        if (['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(currentType)) preventiveCount++;
+        else if (['Correctivo', 'Emergencia'].includes(currentType)) correctiveCount++;
+
+        if (currentType === 'Calibración') failureCounts['Falla de Operación']++;
         else if (failureCounts.hasOwnProperty(o.failureType)) failureCounts[o.failureType]++;
 
-        let statusKey = o.status;
+        let statusKey = currentStatus;
         if (statusKey === 'Pendiente de Aprobación') statusKey = 'Pendiente de Evaluación';
         if (statusCounts.hasOwnProperty(statusKey)) statusCounts[statusKey]++;
     });
