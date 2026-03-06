@@ -784,9 +784,8 @@ function setupRealtimeListeners() {
     onSnapshot(query(state.collections.machines), snapshot => {
         let requiresKpiUpdate = false;
         let dataChanged = false;
-        if (state.currentTab === 'maquinaria' || state.currentTab === 'reportes' || !initialLoadComplete) {
-            populateDynamicSelectors();
-        }
+        // Always populate dynamic selectors to keep state consistent
+        populateDynamicSelectors();
         snapshot.docChanges().forEach(change => {
             dataChanged = true;
             const machineData = { fb_id: change.doc.id, ...change.doc.data() };
@@ -817,9 +816,7 @@ function setupRealtimeListeners() {
     onSnapshot(query(state.collections.parts), snapshot => {
         let requiresCostUpdate = false;
         let dataChanged = false;
-        if (state.currentTab === 'repuestos' || state.currentTab === 'reportes' || !initialLoadComplete) {
-            populateDynamicSelectors();
-        }
+        populateDynamicSelectors();
          snapshot.docChanges().forEach(change => {
             dataChanged = true;
             const partData = { fb_id: change.doc.id, ...change.doc.data() };
@@ -849,9 +846,7 @@ function setupRealtimeListeners() {
 
      onSnapshot(query(state.collections.proveedores), snapshot => {
         let dataChanged = false;
-        if (state.currentTab === 'proveedores' || !initialLoadComplete) {
-            populateDynamicSelectors();
-        }
+        populateDynamicSelectors();
          snapshot.docChanges().forEach(change => {
             dataChanged = true;
             const provData = { fb_id: change.doc.id, ...change.doc.data() };
@@ -906,13 +901,14 @@ function setupRealtimeListeners() {
     // For complex views like dashboard, calendar, kanban, a full re-render on data change is more robust and acceptable.
     let firstWoLoad = true;
     const debouncedWorkOrdersUpdate = debounce(() => {
-        if (state.currentTab === 'reportes' || !initialLoadComplete) populateWorkOrderSelectors();
+        populateWorkOrderSelectors();
         if (state.currentTab === 'planificador' || !initialLoadComplete) renderCalendar();
         if (state.currentTab === 'maquinaria' || !initialLoadComplete) renderMachines();
         if (state.currentTab === 'monitoreo-inteligente' || !initialLoadComplete) renderSmartMonitoring();
         if (state.currentTab === 'trabajo-activo' || !initialLoadComplete) renderActiveWorkView();
         if (state.currentTab === 'ordenes-asignadas' || !initialLoadComplete) renderAssignedOrders();
         if (state.currentTab === 'solicitudes' || !initialLoadComplete) renderSolicitudes();
+        // Always try to update dashboard data; the updated hash logic will handle caching
         updateDashboardData();
     }, 300);
 
@@ -946,8 +942,9 @@ function setupRealtimeListeners() {
         if (state.currentTab === 'planes-trabajo' || !initialLoadComplete) {
             renderWorkPlans();
         }
-        if (state.currentTab === 'reportes' || !initialLoadComplete) populateExecutionReportSelector();
+        populateExecutionReportSelector();
         updatePlanNotifications();
+        updateDashboardData();
     }, 300);
 
     onSnapshot(query(state.collections.workPlans), snapshot => {
@@ -965,8 +962,8 @@ function setupRealtimeListeners() {
 
     const debouncedPlanExecutionsUpdate = debounce(() => {
         if (state.currentTab === 'monitoreo-inteligente' || !initialLoadComplete) renderSmartMonitoring();
+        populateExecutionReportSelector();
         updateDashboardData();
-        if (state.currentTab === 'reportes' || !initialLoadComplete) populateExecutionReportSelector();
     }, 300);
 
     onSnapshot(query(state.collections.workPlanExecutions), snapshot => {
@@ -1005,6 +1002,7 @@ function setupRealtimeListeners() {
         const debouncedSolicitudesUpdate = debounce(() => {
             if (state.currentTab === 'solicitudes' || !initialLoadComplete) renderSolicitudes();
             if (state.currentTab === 'trabajo-activo' || !initialLoadComplete) renderActiveWorkView();
+            // Always update dashboard data on solicitudes change
             updateDashboardData();
         }, 300);
 
@@ -3922,6 +3920,7 @@ function renderWoPendingRequests() {
 }
 
 function renderPartRequests() {
+    if (state.currentTab !== 'solicitudes-repuestos' && initialLoadComplete) return;
     const list = document.getElementById('part-request-list');
     if (!list) return;
     const statusFilter = document.getElementById('part-request-status-filter').value;
@@ -4892,6 +4891,7 @@ function deleteTechnician(techId) {
 
 // --- Solicitud (Request) Functions ---
 function renderSolicitudes() {
+    if (state.currentTab !== 'solicitudes' && initialLoadComplete) return;
     const tbody = document.getElementById('solicitud-list');
     tbody.innerHTML = '';
     
@@ -5660,6 +5660,7 @@ function renderCriteriaBreakdown(evaluations, forPdf = false) {
 // --- Work Plan Functions ---
 
 function renderWorkPlans() {
+    if (state.currentTab !== 'planes-trabajo' && initialLoadComplete) return;
     const container = document.getElementById('work-plans-list-container');
     const searchTerm = document.getElementById('work-plan-search-input').value.toLowerCase();
     container.innerHTML = '';
@@ -7502,6 +7503,7 @@ async function handleKanbanWorkOrderAction(workOrderFbId, newStatus) {
 
 // --- Assigned Orders Functions (for Technicians) ---
 function renderAssignedOrders() {
+    if (state.currentTab !== 'ordenes-asignadas' && initialLoadComplete) return;
     const container = document.getElementById('assigned-orders-container');
     if (!container) return;
     container.innerHTML = '';
@@ -10676,7 +10678,18 @@ const dashboardCache = {
 };
 
 function getDashboardDataHash(orders, startDate, endDate) {
-    return `${orders.length}-${startDate.getTime()}-${endDate.getTime()}`;
+    // Resumen de estados para detectar cambios sin necesidad de un hash gigante
+    const woStatusSummary = orders.reduce((acc, o) => {
+        acc[o.status] = (acc[o.status] || 0) + 1;
+        return acc;
+    }, {});
+    const solStatusSummary = state.solicitudes.reduce((acc, s) => {
+        acc[s.status] = (acc[s.status] || 0) + 1;
+        return acc;
+    }, {});
+    const liveCountersHash = JSON.stringify(state.liveCounters || {});
+
+    return `${JSON.stringify(woStatusSummary)}-${JSON.stringify(solStatusSummary)}-${liveCountersHash}-${startDate.getTime()}-${endDate.getTime()}`;
 }
 
 let initialLoadComplete = false;
@@ -12234,6 +12247,7 @@ function getAuditDocLabel(log) {
 }
 
 function renderAuditLogs() {
+    if (state.currentTab !== 'auditoria' && initialLoadComplete) return;
     const list = document.getElementById('audit-log-list');
     if (!list) return;
 
