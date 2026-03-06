@@ -1806,8 +1806,14 @@ async function switchTab(tabName) {
         if (tabName === 'dashboard') updateDashboardData(true);
     }
 
-    if (tabName === 'maquinaria') renderMachines();
-    if (tabName === 'repuestos') renderParts();
+    if (tabName === 'maquinaria') {
+        renderMachines();
+        if (state.odoo) syncFromOdoo().catch(err => console.error("[Odoo Inbound Sync] Error:", err));
+    }
+    if (tabName === 'repuestos') {
+        renderParts();
+        if (state.odoo) syncFromOdoo().catch(err => console.error("[Odoo Inbound Sync] Error:", err));
+    }
     if (tabName === 'monitoreo-inteligente') renderSmartMonitoring();
     if (tabName === 'solicitudes-repuestos') renderPartRequests();
     if (tabName === 'trabajo-activo') {
@@ -8502,7 +8508,8 @@ async function syncWorkOrderToOdoo(orderData, fbId) {
             description: orderData.description,
             maintenance_type: orderData.type.toLowerCase() === 'preventivo' ? 'preventive' : 'corrective',
             priority: orderData.priority === 'Alta' ? '3' : (orderData.priority === 'Media' ? '2' : '1'),
-            equipment_id: equipmentId
+            equipment_id: equipmentId,
+            duration: orderData.manHours || 0
         };
 
         if (technicianOdooId) {
@@ -8525,6 +8532,221 @@ async function syncWorkOrderToOdoo(orderData, fbId) {
     } catch (odooError) {
         console.warn(`[Odoo Sync] Fallo sincronización de OT ${orderData.id}:`, odooError);
         showToast(`Error sincronización Odoo (OT ${orderData.id}): ${odooError.message}`, 'warning');
+    }
+}
+
+/**
+ * Inbound Sync: Fetches data from Odoo and updates Firestore
+ */
+async function syncFromOdoo() {
+    if (!state.odoo) return;
+
+    // Prevent concurrent syncs and throttle to once every 2 minutes
+    const now = new Date();
+    if (state.isSyncingFromOdoo) return;
+    if (state.lastOdooSync && (now - state.lastOdooSync) < 120000) return;
+
+    state.isSyncingFromOdoo = true;
+
+    const syncStatusEl = document.getElementById('odoo-sync-status');
+    if (syncStatusEl) syncStatusEl.classList.remove('d-none');
+
+    console.log("[Odoo Inbound Sync] Starting synchronization...");
+
+    try {
+        await Promise.all([
+            syncWorkOrderStatusesFromOdoo(),
+            syncInventoryFromOdoo()
+        ]);
+        console.log("[Odoo Inbound Sync] Completed successfully.");
+        state.lastOdooSync = new Date();
+        const lastUpdateText = document.getElementById('last-update-text');
+        if (lastUpdateText) lastUpdateText.textContent = `Sincronizado: ${state.lastOdooSync.toLocaleTimeString()}`;
+    } catch (error) {
+        console.error("[Odoo Inbound Sync] Error during synchronization:", error);
+    } finally {
+        state.isSyncingFromOdoo = false;
+        if (syncStatusEl) syncStatusEl.classList.add('d-none');
+    }
+}
+
+async function syncWorkOrderStatusesFromOdoo() {
+    if (!state.odoo) return;
+
+    try {
+        // Fetch maintenance requests that have an Odoo ID (they came from the app or were linked)
+        const odooRequests = await state.odoo.searchRead('maintenance.request', [], ['id', 'stage_id', 'duration', 'write_date']);
+
+        if (!odooRequests || odooRequests.length === 0) return;
+
+        const stageMap = {
+            'nueva solicitud': 'Pendiente',
+            'en progreso': 'En Proceso',
+            'reparado': 'Completado',
+            'desechar': 'Cancelado'
+        };
+
+        const batch = writeBatch(db);
+        let updatesCount = 0;
+
+        for (const oReq of odooRequests) {
+            let localOrder = state.workOrders.find(wo => wo.odoo_id === oReq.id);
+
+            // If order doesn't exist locally, IMPORT it
+            if (!localOrder) {
+                console.log(`[Odoo Inbound Sync] New order detected in Odoo (ID: ${oReq.id}). Importing...`);
+
+                // Fetch full details for the new order
+                const fullDetails = await state.odoo.searchRead('maintenance.request', [['id', '=', oReq.id]],
+                    ['name', 'description', 'maintenance_type', 'equipment_id', 'priority', 'duration', 'user_id', 'stage_id']);
+
+                if (!fullDetails || fullDetails.length === 0) continue;
+                const d = fullDetails[0];
+
+                // Map Machine
+                const odooEquipId = Array.isArray(d.equipment_id) ? d.equipment_id[0] : d.equipment_id;
+                const machine = state.machines.find(m => m.odoo_id === odooEquipId);
+                if (!machine) {
+                    console.warn(`[Odoo Inbound Sync] Skipping import of Odoo order ${d.name}: Machine not found locally.`);
+                    continue;
+                }
+
+                // Map Status
+                const odooStageName = Array.isArray(d.stage_id) ? d.stage_id[1].toLowerCase() : '';
+                const mappedStatus = stageMap[odooStageName] || 'Pendiente';
+
+                // Map Technician
+                const odooUserId = Array.isArray(d.user_id) ? d.user_id[0] : d.user_id;
+                const tech = state.technicians.find(t => t.odoo_id === odooUserId);
+
+                const newOrder = {
+                    id: d.name.startsWith('MA-') || d.name.startsWith('ME-') || d.name.startsWith('MP-') ? d.name : generateNextId('MA'),
+                    odoo_id: d.id,
+                    machineId: machine.id,
+                    description: d.description || d.name,
+                    type: d.maintenance_type === 'preventive' ? 'Preventivo' : 'Correctivo',
+                    priority: d.priority === '3' ? 'Alta' : (d.priority === '2' ? 'Media' : 'Baja'),
+                    status: mappedStatus,
+                    leadTechnician: tech ? tech.username : '',
+                    technicians: tech ? [tech.username] : [],
+                    manHours: d.duration || 0,
+                    date: new Date().toISOString().split('T')[0],
+                    createdAt: new Date().toISOString(),
+                    partsUsed: []
+                };
+
+                await addDoc(state.collections.workOrders, newOrder);
+                updatesCount++;
+                continue;
+            }
+
+            const odooStageName = Array.isArray(oReq.stage_id) ? oReq.stage_id[1].toLowerCase() : '';
+            const mappedStatus = stageMap[odooStageName];
+
+            const updates = {};
+            let shouldUpdate = false;
+
+            if (mappedStatus && localOrder.status !== mappedStatus) {
+                updates.status = mappedStatus;
+                shouldUpdate = true;
+
+                // Si Odoo lo marca como completado, necesitamos registrar los intervalos y fecha final
+                if (mappedStatus === 'Completado' || mappedStatus === 'Pendiente de Evaluación') {
+                    const now = new Date().toISOString();
+                    if (!localOrder.fechaInicioReal) updates.fechaInicioReal = now;
+                    if (!localOrder.fechaFinalizacionReal) updates.fechaFinalizacionReal = now;
+
+                    // Asegurar que haya al menos un intervalo de trabajo para que la duración sea consistente
+                    if (!localOrder.workIntervals || localOrder.workIntervals.length === 0) {
+                        updates.workIntervals = [{ start: now, end: now }];
+                    } else if (!localOrder.workIntervals.some(i => i.end)) {
+                         const lastInterval = localOrder.workIntervals.find(i => !i.end);
+                         if (lastInterval) lastInterval.end = now;
+                         updates.workIntervals = localOrder.workIntervals;
+                    }
+                }
+            }
+
+            // Sincronizar horas hombre de vuelta si cambiaron en Odoo
+            if (oReq.duration !== undefined && localOrder.manHours !== oReq.duration) {
+                updates.manHours = oReq.duration;
+                shouldUpdate = true;
+            }
+
+            if (shouldUpdate) {
+                const woRef = doc(state.collections.workOrders, localOrder.fb_id);
+                batch.update(woRef, updates);
+                updatesCount++;
+
+                // Actualizar localmente para evitar re-procesar antes del snapshot
+                Object.assign(localOrder, updates);
+            }
+        }
+
+        if (updatesCount > 0) {
+            await batch.commit();
+            console.log(`[Odoo Inbound Sync] Actualizadas ${updatesCount} órdenes desde Odoo.`);
+        }
+    } catch (error) {
+        console.error("[Odoo Inbound Sync] Error syncing work orders:", error);
+    }
+}
+
+async function syncInventoryFromOdoo() {
+    if (!state.odoo) return;
+
+    try {
+        // We need an internal location ID to fetch stock from.
+        // We'll look for one named "Stock" or similar as a default, or try to get configured one.
+        const stockLocs = await state.odoo.searchRead('stock.location', [['usage', '=', 'internal']], ['id', 'name']);
+        if (!stockLocs || stockLocs.length === 0) {
+            console.warn("[Odoo Inbound Sync] No internal locations found in Odoo.");
+            return;
+        }
+
+        // For now, take the first internal location or one named 'Stock'
+        const targetLoc = stockLocs.find(l => l.name === 'Stock') || stockLocs[0];
+        console.log(`[Odoo Inbound Sync] Fetching stock from Odoo location: ${targetLoc.name} (ID: ${targetLoc.id})`);
+
+        // Fetch products that are linked to our parts
+        const products = await state.odoo.searchRead('product.product', [['type', '=', 'product']], ['id', 'default_code']);
+
+        // Fetch quants for the specific location to get accurate stock for THAT location only
+        const quants = await state.odoo.searchRead('stock.quant', [['location_id', '=', targetLoc.id]], ['product_id', 'quantity']);
+
+        const batch = writeBatch(db);
+        let updatesCount = 0;
+
+        // Map product stock from quants
+        const stockMap = {};
+        quants.forEach(q => {
+            const pId = Array.isArray(q.product_id) ? q.product_id[0] : q.product_id;
+            stockMap[pId] = (stockMap[pId] || 0) + q.quantity;
+        });
+
+        for (const prod of products) {
+            // Link by odoo_id or default_code (part ID)
+            const localPart = state.parts.find(p => p.odoo_id === prod.id || p.id === prod.default_code);
+            if (!localPart) continue;
+
+            const odooStock = stockMap[prod.id] || 0;
+
+            if (localPart.stock !== odooStock) {
+                const partRef = doc(state.collections.parts, localPart.fb_id);
+                batch.update(partRef, { stock: odooStock });
+                updatesCount++;
+
+                // Update local state
+                localPart.stock = odooStock;
+            }
+        }
+
+        if (updatesCount > 0) {
+            await batch.commit();
+            console.log(`[Odoo Inbound Sync] Updated ${updatesCount} parts stock from Odoo.`);
+        }
+    } catch (error) {
+        console.error("[Odoo Inbound Sync] Error syncing inventory:", error);
     }
 }
 
@@ -8639,6 +8861,7 @@ async function saveWorkOrder(updates = {}) {
             sourceSolicitudId: solicitud ? solicitud.fb_id : (existingOrder.sourceSolicitudId || null),
             linkedPlanId: linkedPlanId,
             externalCost: parseFloat(document.getElementById('wo-external-cost')?.value) || 0,
+            manHours: parseFloat(document.getElementById('wo-man-hours')?.value) || 0,
         };
 
         if (['Correctivo', 'Emergencia'].includes(formData.type) && !formData.failureType) {
@@ -9019,6 +9242,7 @@ async function showWorkOrderModal(identifier = null, type = 'Preventivo', source
             }
             document.getElementById('wo-requester').value = order.requester;
             document.getElementById('wo-external-cost').value = order.externalCost || 0;
+            document.getElementById('wo-man-hours').value = order.manHours || 0;
             document.getElementById('wo-failure-type').value = order.failureType || '';
             document.getElementById('wo-maintenance-type').value = order.maintenanceType || '';
             
@@ -10696,6 +10920,12 @@ let initialLoadComplete = false;
 
 async function updateDashboardData(force = false) {
     if (state.currentTab !== 'dashboard' && !force && initialLoadComplete) return;
+
+    // Trigger Odoo Inbound Sync when dashboard is refreshed
+    if (state.odoo && state.currentTab === 'dashboard') {
+        syncFromOdoo().catch(err => console.error("[Odoo Inbound Sync] Error:", err));
+    }
+
     if (force) {
         dashboardCache.lastDataHash = null;
         dashboardCache.lastPeriod = null;
