@@ -379,6 +379,9 @@ async function requestMachineStatusOnPause(woType) {
     }
 
     return new Promise((resolve) => {
+        // Asegurarse de quitar el overlay de carga para que el usuario pueda interactuar
+        showLoading(false);
+
         const btnOperativo = document.getElementById('btn-pause-operativo');
         const btnParado = document.getElementById('btn-pause-parado');
 
@@ -1315,6 +1318,7 @@ function setupEventListeners() {
     document.getElementById('wo-pause-btn').addEventListener('click', async () => {
         const type = document.getElementById('wo-type').value;
         const machineStatusOnPause = await requestMachineStatusOnPause(type);
+        showLoading(true); // El modal de pausa lo quita, hay que ponerlo para el guardado
         saveWorkOrder({ status: 'Pausado', machineStatusOnPause });
     });
     document.getElementById('wo-resume-btn').addEventListener('click', () => saveWorkOrder({ status: 'En Proceso' }));
@@ -7349,6 +7353,7 @@ async function handleKanbanWorkOrderAction(workOrderFbId, newStatus) {
         if (finalStatus === 'Pausado' && oldStatus !== 'Pausado') {
             const machineStatusOnPause = await requestMachineStatusOnPause(orderData.type);
             extraUpdates.machineStatusOnPause = machineStatusOnPause;
+            showLoading(true); // Restaurar el cargador para el proceso de guardado
         }
 
         // 21 CFR Part 11: Re-autenticación para firma electrónica
@@ -8663,6 +8668,7 @@ async function saveWorkOrder(updates = {}) {
         if (newStatus === 'Pausado' && oldStatus !== 'Pausado' && !updates.machineStatusOnPause) {
             const machineStatusOnPause = await requestMachineStatusOnPause(orderData.type);
             orderData.machineStatusOnPause = machineStatusOnPause;
+            showLoading(true); // Restaurar el cargador para el proceso de guardado
         }
 
         // 21 CFR Part 11: Re-autenticación para firma electrónica al completar/evaluar o validar
@@ -13168,6 +13174,8 @@ window.selectMonitoringVar = selectMonitoringVar;
 window.toggleMonitoringVar = toggleMonitoringVar;
 window.saveWorkOrder = saveWorkOrder;
 window.handleKanbanWorkOrderAction = handleKanbanWorkOrderAction;
+window.showLoading = showLoading;
+window.requestMachineStatusOnPause = requestMachineStatusOnPause;
 
 // --- Executive Report Functions ---
 async function generateExecutiveReportData() {
