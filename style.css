@@ -1045,7 +1045,7 @@ body.dark-mode .kanban-card.type-mecanizado {
     border-radius: 12px;
     background-color: var(--card-bg) !important;
     box-shadow: 0 4px 12px var(--shadow-color) !important;
-    overflow: hidden;
+    overflow-x: auto !important;
 }
 
 body.dark-mode .inventory-zone .table-responsive {

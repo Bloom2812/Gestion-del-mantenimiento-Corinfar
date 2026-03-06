@@ -13951,8 +13951,11 @@ async function renderPublicMachineReport(machineId) {
     const correctiveOrders = machineWorkOrders.filter(o => ['Correctivo', 'Emergencia'].includes(o.type));
 
     let mtbf = 'N/A';
-    let startDate = machine.createdAt ? new Date(machine.createdAt) : null;
-    if (startDate) {
+    // Prioritize createdAt, then commissioningDate, then purchaseDate. Default to 30 days ago if none exist.
+    let startDateRaw = machine.createdAt || machine.commissioningDate || machine.purchaseDate;
+    let startDate = startDateRaw ? new Date(startDateRaw) : new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+
+    if (startDate && !isNaN(startDate.getTime())) {
         const totalTimeMs = Math.max(0, new Date() - startDate);
         const mtbfMs = totalTimeMs / (correctiveOrders.length + 1);
         mtbf = `${(mtbfMs / (1000 * 60 * 60 * 24)).toFixed(1)}d`;
