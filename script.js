@@ -4936,7 +4936,7 @@ function renderSolicitudes() {
         
         const cleanId = (solicitud.fb_id).toString().replace(/[.#$\[\]]/g, '_');
         const solMirror = state.liveSolicitudes?.[cleanId];
-        const statusText = solMirror?.status || solicitud.status;
+        let statusText = solMirror?.status || solicitud.status;
 
         let statusBadgeClass = '';
         let linkedWorkOrder = null;
