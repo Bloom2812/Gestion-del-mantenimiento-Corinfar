@@ -2973,9 +2973,33 @@ function renderPartDetailHTML(part, movements) {
         });
     }
 
+    const supplierName = state.proveedores.find(s => s.id === part.supplierId)?.nombre || 'N/A';
+
+    let docsHTML = '';
+    if (part.technicalDocs && part.technicalDocs.length > 0) {
+        docsHTML = part.technicalDocs.map(doc => `
+            <div class="col-md-6">
+                <div class="tech-doc-item p-3 rounded-3 border bg-white d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="fas fa-file-pdf text-danger fa-2x"></i>
+                        <div>
+                            <p class="fw-bold mb-0 small text-truncate" style="max-width: 200px;">${doc.name}</p>
+                            <span class="text-muted x-small">Ficha Técnica</span>
+                        </div>
+                    </div>
+                    <a href="${doc.url}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                        Ver Documento
+                    </a>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        docsHTML = '<div class="col-12"><p class="text-center text-muted py-3 small bg-white rounded-3 border">No hay fichas técnicas adjuntas</p></div>';
+    }
+
     contentContainer.innerHTML = `
         <!-- Header -->
-        <div class="sticky-top border-bottom px-4 py-3 d-flex align-items-center justify-content-between" style="z-index: 1020; background-color: var(--modal-bg);">
+        <div class="border-bottom px-4 py-3 d-flex align-items-center justify-content-between" style="z-index: 1020; background-color: var(--modal-bg);">
             <div class="d-flex align-items-center gap-3">
                 <button class="btn btn-link p-0 d-flex align-items-center justify-content-center" data-bs-dismiss="modal" style="width: 32px; height: 32px; border-radius: 50%; color: inherit;">
                     <i class="fas fa-arrow-left"></i>
@@ -2987,7 +3011,7 @@ function renderPartDetailHTML(part, movements) {
             </button>
         </div>
 
-        <div class="modal-body p-4 scrollable-content" style="background-color: var(--content-bg);">
+        <div class="p-4" style="background-color: var(--content-bg);">
             <!-- Top Section: Image & Basic Info -->
             <section class="row g-4 mb-4 bg-white p-4 rounded-3 border mx-0 shadow-sm">
                 <div class="col-md-4">
@@ -3028,7 +3052,7 @@ function renderPartDetailHTML(part, movements) {
                         <i class="fas fa-store text-primary-custom mt-1"></i>
                         <div>
                             <p class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.65rem;">Proveedor</p>
-                            <p class="fw-bold mb-0 small">${part.supplier || 'N/A'}</p>
+                            <p class="fw-bold mb-0 small">${supplierName}</p>
                         </div>
                     </div>
                 </div>
@@ -3053,7 +3077,7 @@ function renderPartDetailHTML(part, movements) {
             </section>
 
             <!-- History Table -->
-            <section class="bg-white rounded-3 border shadow-sm overflow-hidden">
+            <section class="bg-white rounded-3 border shadow-sm overflow-hidden mb-4">
                 <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light">
                     <h6 class="fw-bold mb-0 d-flex align-items-center gap-2">
                         <i class="fas fa-history text-muted"></i>
@@ -3075,6 +3099,17 @@ function renderPartDetailHTML(part, movements) {
                             ${movementsHTML}
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- Technical Docs -->
+            <section>
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <i class="fas fa-file-pdf text-primary-custom"></i>
+                    <h6 class="fw-bold mb-0">Fichas Técnicas y Documentación</h6>
+                </div>
+                <div class="row g-3">
+                    ${docsHTML}
                 </div>
             </section>
         </div>
@@ -13927,6 +13962,9 @@ function getKpiFormula(type) {
 
 window.generateExecutiveReportData = generateExecutiveReportData;
 window.renderPublicMachineReport = renderPublicMachineReport;
+window.showPartHistoryModal = showPartHistoryModal;
+window.showPartDetail = showPartDetail;
+window.showPartModal = showPartModal;
 
 async function renderPublicMachineReport(machineId) {
     const machine = state.machines.find(m => m.id === machineId || m.fb_id === machineId);
