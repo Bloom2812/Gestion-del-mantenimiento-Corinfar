@@ -2966,7 +2966,7 @@ function renderPartDetailHTML(part, movements) {
                     </td>
                     <td class="px-3 py-3 fw-bold ${qtyClass}">${qtyPrefix}${m.quantity}</td>
                     <td class="px-3 py-3">
-                        <span class="badge bg-light text-dark border font-monospace small" style="font-size: 0.75rem;">${m.details?.details || '-'}</span>
+                        <span class="badge bg-light text-dark border font-monospace small" style="font-size: 0.75rem;">${m.orderHumanId || m.details?.details || '-'}</span>
                     </td>
                 </tr>
             `;
@@ -12504,6 +12504,7 @@ window.applyUserPermissions = applyUserPermissions;
 
 // Export functions to window for verification and external access
 window.showPartModal = showPartModal;
+window.renderPartDetailHTML = renderPartDetailHTML;
 window.renderParts = renderParts;
 window.showMachineDetail = showMachineDetail;
 window.renderMachines = renderMachines;
