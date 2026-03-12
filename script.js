@@ -7131,7 +7131,7 @@ function renderActiveWorkView() {
         const woMirror = state.liveWorkOrders?.[cleanId];
         const currentStatus = woMirror?.status || wo.status;
 
-        if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado') {
+        if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado' || wo.isExpired) {
             if (cancelledContainer) cancelledContainer.appendChild(card);
         } else if (currentStatus === 'Pendiente' || currentStatus === 'Planificada') {
             plannedContainer.appendChild(card);
