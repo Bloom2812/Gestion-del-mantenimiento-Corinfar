@@ -4936,10 +4936,10 @@ function showTechnicianModal(techId = null) {
         linkActionContainer.classList.remove('d-none');
         linkDisplay.classList.add('d-none');
 
-        generateLinkBtn.onclick = () => {
+        generateLinkBtn.onclick = async () => {
             const tech = state.technicians.find(t => t.fb_id === techId);
             const type = tech?.resetRequested ? 'reset' : 'invitation';
-            const link = generateTokenLink(techId, type, false); // false para que solo devuelva el link
+            const link = await generateTokenLink(techId, type, false); // false para que solo devuelva el link
             linkInput.value = link;
             linkDisplay.classList.remove('d-none');
         };
@@ -5837,9 +5837,9 @@ async function showTechnicianProfileModal(technicianId) {
         profileActions.classList.remove('d-none');
         profileLinkDisplay.classList.add('d-none');
 
-        profileGenerateLinkBtn.onclick = () => {
+        profileGenerateLinkBtn.onclick = async () => {
             const type = technician.resetRequested ? 'reset' : 'invitation';
-            const link = generateTokenLink(technicianId, type, false);
+            const link = await generateTokenLink(technicianId, type, false);
             profileLinkInput.value = link;
             profileLinkDisplay.classList.remove('d-none');
         };
@@ -12210,9 +12210,9 @@ window.showManagePartsModal = showManagePartsModal;
 window.addTaskGroup = addTaskGroup;
 window.updateUIFromRTCounters = updateUIFromRTCounters;
 
-async function generateTokenLink(fbId, type) {
+async function generateTokenLink(fbId, type, showModal = true) {
     const tech = state.technicians.find(t => t.fb_id === fbId);
-    if (!tech) return;
+    if (!tech) return "";
 
     const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const expiry = new Date();
@@ -12228,15 +12228,20 @@ async function generateTokenLink(fbId, type) {
         const baseUrl = window.location.origin + window.location.pathname;
         const link = `${baseUrl}?token=${token}`;
 
-        document.getElementById('generated-link-input').value = link;
-        document.getElementById('link-modal-desc').textContent = type === 'reset'
-            ? 'Copie este link de recuperación y envíelo al usuario. Es válido por 24 horas.'
-            : 'Copie este link de invitación y envíelo al usuario. Es válido por 24 horas.';
+        if (showModal) {
+            document.getElementById('generated-link-input').value = link;
+            document.getElementById('link-modal-desc').textContent = type === 'reset'
+                ? 'Copie este link de recuperación y envíelo al usuario. Es válido por 24 horas.'
+                : 'Copie este link de invitación y envíelo al usuario. Es válido por 24 horas.';
 
-        state.modals.invitationLink.show();
+            state.modals.invitationLink.show();
+        }
+
+        return link;
     } catch (error) {
         console.error("Error generating token link:", error);
         showToast('Error al generar el link', 'error');
+        return "";
     }
 }
 window.generateTokenLink = generateTokenLink;
@@ -12357,7 +12362,7 @@ async function handleForgotPasswordRequest() {
 
         // Notificar al administrador vía Telegram
         const message = `🚨 *Solicitud de Restablecimiento*\n\nEl usuario *${tech.username}* ha solicitado una nueva contraseña.\n\nPor favor, genere un link de recuperación desde el panel de usuarios.`;
-        await sendTelegramMessage(message);
+        await sendTelegramNotification(message);
 
         showToast('Solicitud enviada. El administrador le enviará un link de recuperación.', 'success');
         state.modals.forgotPassword.hide();
