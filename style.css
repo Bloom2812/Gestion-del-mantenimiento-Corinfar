@@ -2668,3 +2668,7 @@ body.dark-mode #executive-report-content {
 body.dark-mode .live-sensor {
     border-color: rgba(13, 110, 253, 0.4);
 }
+
+.reset-requested-row {
+    background-color: #fff3cd !important;
+}
