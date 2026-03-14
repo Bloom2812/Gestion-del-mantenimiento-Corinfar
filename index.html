@@ -1854,6 +1854,24 @@
         <img src="" id="signature-preview" class="img-fluid border rounded bg-white" style="max-height: 100px;">
     </div>
 </div>
+
+<div id="technician-link-action-container" class="mb-3 d-none px-3">
+    <label class="form-label fw-bold">Acciones de Acceso</label>
+    <div class="d-grid gap-2">
+        <button type="button" class="btn btn-outline-primary" id="tech-modal-generate-link">
+            <i class="fas fa-link me-2"></i>Generar Link de Acceso
+        </button>
+    </div>
+    <div id="tech-modal-link-display" class="mt-2 d-none">
+        <div class="input-group">
+            <input type="text" class="form-control form-control-sm" id="tech-modal-link-input" readonly>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="tech-modal-copy-link">
+                <i class="fas fa-copy"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-footer">
 <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
 <button class="btn btn-primary" type="submit">Guardar</button>
@@ -2631,22 +2649,6 @@
                                 </div>
                             </div>
 
-                            <div id="technician-link-action-container" class="mb-3 d-none">
-                                <label class="form-label">Acciones de Acceso</label>
-                                <div class="d-grid gap-2">
-                                    <button type="button" class="btn btn-outline-primary" id="tech-modal-generate-link">
-                                        <i class="fas fa-link me-2"></i>Generar Link de Acceso
-                                    </button>
-                                </div>
-                                <div id="tech-modal-link-display" class="mt-2 d-none">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control form-control-sm" id="tech-modal-link-input" readonly>
-                                        <button class="btn btn-outline-secondary btn-sm" type="button" id="tech-modal-copy-link">
-                                            <i class="fas fa-copy"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
                         <div class="card border-0 rounded-4" style="background-color: #f15a24; color: white;">
