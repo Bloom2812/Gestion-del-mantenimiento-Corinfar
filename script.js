@@ -12209,6 +12209,7 @@ window.showTechnicianModal = showTechnicianModal;
 window.showManagePartsModal = showManagePartsModal;
 window.addTaskGroup = addTaskGroup;
 window.updateUIFromRTCounters = updateUIFromRTCounters;
+window.handleForgotPasswordRequest = handleForgotPasswordRequest;
 
 async function generateTokenLink(fbId, type, showModal = true) {
     const tech = state.technicians.find(t => t.fb_id === fbId);
@@ -12343,32 +12344,52 @@ async function handleSetPasswordSubmit(e) {
 }
 
 async function handleForgotPasswordRequest() {
-    const username = document.getElementById('forgot-username').value.trim();
+    const usernameInput = document.getElementById('forgot-username');
+    const username = usernameInput.value.trim();
+
     if (!username) {
         showToast('Ingrese su nombre de usuario', 'warning');
         return;
     }
 
-    const tech = state.technicians.find(t => t.username === username);
-    if (!tech) {
-        showToast('Usuario no encontrado', 'error');
-        return;
-    }
+    showLoading(true);
 
     try {
+        // Búsqueda insensible a mayúsculas para evitar errores comunes
+        const tech = state.technicians.find(t => t.username.toLowerCase() === username.toLowerCase());
+
+        if (!tech) {
+            showToast('Usuario no encontrado en la base de datos.', 'error');
+            showLoading(false);
+            return;
+        }
+
+        // Actualizar Firestore
         await updateDoc(doc(state.collections.technicians, tech.fb_id), {
             resetRequested: true
         });
 
         // Notificar al administrador vía Telegram
         const message = `🚨 *Solicitud de Restablecimiento*\n\nEl usuario *${tech.username}* ha solicitado una nueva contraseña.\n\nPor favor, genere un link de recuperación desde el panel de usuarios.`;
-        await sendTelegramNotification(message);
 
-        showToast('Solicitud enviada. El administrador le enviará un link de recuperación.', 'success');
+        // Intentar enviar notificación pero no bloquear si falla Telegram
+        try {
+            await sendTelegramNotification(message);
+        } catch (tgError) {
+            console.warn("Error enviando notificación por Telegram:", tgError);
+        }
+
+        showToast('Solicitud enviada con éxito. El administrador le enviará un link de recuperación pronto.', 'success');
+
+        // Limpiar y cerrar
+        usernameInput.value = '';
         state.modals.forgotPassword.hide();
+
     } catch (error) {
         console.error("Error requesting password reset:", error);
-        showToast('Error al procesar la solicitud', 'error');
+        showToast('Error al procesar la solicitud. Verifique su conexión.', 'error');
+    } finally {
+        showLoading(false);
     }
 }
 
