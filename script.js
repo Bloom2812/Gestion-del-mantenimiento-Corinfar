@@ -1111,7 +1111,15 @@ function setupEventListeners() {
     document.getElementById('login-form').addEventListener('submit', handleLogin);
     document.getElementById('forgot-password-link').addEventListener('click', (e) => {
         e.preventDefault();
-        state.modals.forgotPassword.show();
+        showLoading(false);
+        if (state.modals.forgotPassword) {
+            state.modals.forgotPassword.show();
+        } else {
+            console.error("Forgot Password modal not initialized");
+            // Fallback initialization
+            state.modals.forgotPassword = new bootstrap.Modal(document.getElementById('forgot-password-modal'));
+            state.modals.forgotPassword.show();
+        }
     });
     document.getElementById('submit-forgot-password').addEventListener('click', handleForgotPasswordRequest);
     document.getElementById('set-password-form').addEventListener('submit', handleSetPasswordSubmit);
