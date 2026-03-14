@@ -4659,6 +4659,9 @@ function renderTechnicians() {
 
     state.technicians.forEach(tech => {
         const tr = document.createElement('tr');
+        if (tech.resetRequested) {
+            tr.classList.add('reset-requested-row');
+        }
         const isCurrentUser = state.currentUser && state.currentUser.username === tech.username;
 
         let actionsHTML = '';
@@ -4920,6 +4923,34 @@ function showTechnicianModal(techId = null) {
     if (!generaGasto) {
         document.getElementById('technician-salary-wrapper').classList.add('d-none');
         document.getElementById('technician-salary').required = false;
+    }
+
+    // Acciones de Link de Acceso para Admins y usuarios existentes
+    const linkActionContainer = document.getElementById('technician-link-action-container');
+    const linkDisplay = document.getElementById('tech-modal-link-display');
+    const generateLinkBtn = document.getElementById('tech-modal-generate-link');
+    const linkInput = document.getElementById('tech-modal-link-input');
+    const copyLinkBtn = document.getElementById('tech-modal-copy-link');
+
+    if (state.currentUser?.role === 'Admin' && techId) {
+        linkActionContainer.classList.remove('d-none');
+        linkDisplay.classList.add('d-none');
+
+        generateLinkBtn.onclick = () => {
+            const tech = state.technicians.find(t => t.fb_id === techId);
+            const type = tech?.resetRequested ? 'reset' : 'invitation';
+            const link = generateTokenLink(techId, type, false); // false para que solo devuelva el link
+            linkInput.value = link;
+            linkDisplay.classList.remove('d-none');
+        };
+
+        copyLinkBtn.onclick = () => {
+            linkInput.select();
+            document.execCommand('copy');
+            showToast('Link copiado al portapapeles', 'success');
+        };
+    } else {
+        linkActionContainer.classList.add('d-none');
     }
 
     state.modals.technician.show();
@@ -5794,6 +5825,33 @@ async function showTechnicianProfileModal(technicianId) {
         `;
     }
 
+
+    // Acciones de perfil para Administradores
+    const profileActions = document.getElementById('tech-profile-actions');
+    const profileLinkDisplay = document.getElementById('tech-profile-link-display');
+    const profileGenerateLinkBtn = document.getElementById('tech-profile-generate-link');
+    const profileLinkInput = document.getElementById('tech-profile-link-input');
+    const profileCopyLinkBtn = document.getElementById('tech-profile-copy-link');
+
+    if (state.currentUser?.role === 'Admin') {
+        profileActions.classList.remove('d-none');
+        profileLinkDisplay.classList.add('d-none');
+
+        profileGenerateLinkBtn.onclick = () => {
+            const type = technician.resetRequested ? 'reset' : 'invitation';
+            const link = generateTokenLink(technicianId, type, false);
+            profileLinkInput.value = link;
+            profileLinkDisplay.classList.remove('d-none');
+        };
+
+        profileCopyLinkBtn.onclick = () => {
+            profileLinkInput.select();
+            document.execCommand('copy');
+            showToast('Link copiado al portapapeles', 'success');
+        };
+    } else {
+        profileActions.classList.add('d-none');
+    }
 
     state.modals.technicianProfile.show();
 }
@@ -12296,6 +12354,11 @@ async function handleForgotPasswordRequest() {
         await updateDoc(doc(state.collections.technicians, tech.fb_id), {
             resetRequested: true
         });
+
+        // Notificar al administrador vía Telegram
+        const message = `🚨 *Solicitud de Restablecimiento*\n\nEl usuario *${tech.username}* ha solicitado una nueva contraseña.\n\nPor favor, genere un link de recuperación desde el panel de usuarios.`;
+        await sendTelegramMessage(message);
+
         showToast('Solicitud enviada. El administrador le enviará un link de recuperación.', 'success');
         state.modals.forgotPassword.hide();
     } catch (error) {
