@@ -253,6 +253,13 @@ body {
     border-top: 5px solid var(--primary-color);
 }
 
+/* Modals that must appear above login/set-password overlays (z-index 2000) */
+#forgot-password-modal,
+#invitation-link-modal,
+.modal-backdrop.show:last-of-type {
+    z-index: 2500 !important;
+}
+
 .spinner-border {
     width: 3rem;
     height: 3rem;
