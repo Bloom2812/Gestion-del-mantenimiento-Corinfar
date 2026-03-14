@@ -661,6 +661,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     setupEventListeners();
 
+    // --- Modal Management (Accessibility & Layering) ---
+    const highZModals = [
+        { id: 'forgot-password-modal', focusId: 'forgot-username' },
+        { id: 'invitation-link-modal', focusId: 'generated-link-input' }
+    ];
+
+    highZModals.forEach(m => {
+        const el = document.getElementById(m.id);
+        if (el) {
+            el.addEventListener('show.bs.modal', () => {
+                document.body.classList.add('high-z-modal-open');
+            });
+            el.addEventListener('shown.bs.modal', () => {
+                if (m.focusId) {
+                    const focusEl = document.getElementById(m.focusId);
+                    if (focusEl) focusEl.focus();
+                }
+            });
+            el.addEventListener('hidden.bs.modal', () => {
+                document.body.classList.remove('high-z-modal-open');
+            });
+        }
+    });
+
     // Initialize Sortable for main task groups in work plan modal
     const taskGroupsContainer = document.getElementById('task-groups-container');
     if (taskGroupsContainer) {
@@ -1112,11 +1136,13 @@ function setupEventListeners() {
     document.getElementById('forgot-password-link').addEventListener('click', (e) => {
         e.preventDefault();
         showLoading(false);
+
+        const forgotInput = document.getElementById('forgot-username');
+        if (forgotInput) forgotInput.value = '';
+
         if (state.modals.forgotPassword) {
             state.modals.forgotPassword.show();
         } else {
-            console.error("Forgot Password modal not initialized");
-            // Fallback initialization
             state.modals.forgotPassword = new bootstrap.Modal(document.getElementById('forgot-password-modal'));
             state.modals.forgotPassword.show();
         }
