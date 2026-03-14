@@ -255,9 +255,12 @@ body {
 
 /* Modals that must appear above login/set-password overlays (z-index 2000) */
 #forgot-password-modal,
-#invitation-link-modal,
-.modal-backdrop.show:last-of-type {
+#invitation-link-modal {
     z-index: 2500 !important;
+}
+
+body.high-z-modal-open .modal-backdrop.show:last-of-type {
+    z-index: 2490 !important;
 }
 
 .spinner-border {
