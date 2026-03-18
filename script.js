@@ -1735,7 +1735,7 @@ async function testOdooConnection() {
                 console.warn("Error de permisos Odoo:", permError);
             }
         } else {
-             throw new Error("No se recibió un UID válido.");
+             throw new Error("No se recibió un UID válido. Verifique sus credenciales (Email y API Key).");
         }
     } catch (error) {
         console.error("Test Odoo error:", error);
