@@ -44,13 +44,20 @@ export class OdooConnector {
             }
 
             // Si la respuesta es un objeto que contiene el UID (formato de algunos proxies personalizados)
-            if (response && typeof response === 'object' && response.uid) {
-                this.uid = response.uid;
-                return this.uid;
+            if (response && typeof response === 'object') {
+                if (response.uid) {
+                    this.uid = response.uid;
+                    return this.uid;
+                }
+
+                // Si el proxy devolvió uid: false, significa que Odoo rechazó las credenciales
+                if (response.uid === false) {
+                    throw new Error('Credenciales incorrectas: Odoo rechazó la autenticación (UID: false)');
+                }
             }
 
             // Si llegamos aquí, la respuesta no es válida
-            throw new Error('Fallo en la autenticación: No se recibió un UID válido');
+            throw new Error('Fallo en la autenticación: No se recibió un UID válido del servidor');
         } catch (error) {
             console.error("Error de Odoo Auth:", error);
             throw error;
