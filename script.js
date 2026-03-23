@@ -8965,8 +8965,8 @@ async function saveWorkOrder(updates = {}) {
             showToast('Trabajo finalizado. Pendiente de validación por el Planificador.', 'info');
         }
 
-        // Track pause extension if paused in its original month
-        if (newStatus === 'Pausado' && oldStatus !== 'Pausado') {
+        // Track extension if started or paused in its original month
+        if ((newStatus === 'Pausado' || newStatus === 'En Proceso') && (oldStatus !== 'Pausado' && oldStatus !== 'En Proceso')) {
             const scheduledDate = new Date((orderData.originalDate || orderData.date) + 'T12:00:00');
             const now = new Date();
             if (now.getMonth() === scheduledDate.getMonth() && now.getFullYear() === scheduledDate.getFullYear()) {
@@ -11786,12 +11786,23 @@ async function handleExpiredWorkOrders() {
             const sYear = sDate.getFullYear();
             const sMonth = sDate.getMonth();
 
+            let hasExtension = order.hadPauseExtension;
+
+            // Robust check: if the order is currently In Progress or Paused,
+            // and it was scheduled for this month or earlier, we check if it started in its month.
+            if (!hasExtension && (order.status === 'En Proceso' || order.status === 'Pausado')) {
+                const startDate = order.fechaInicioReal ? new Date(order.fechaInicioReal) : null;
+                if (startDate && startDate.getMonth() === sMonth && startDate.getFullYear() === sYear) {
+                    hasExtension = true;
+                }
+            }
+
             let deadline;
-            if (order.hadPauseExtension) {
-                // Allowed until the end of the next month
+            if (hasExtension) {
+                // Allowed until the end of the next month (1st day of month + 2)
                 deadline = new Date(sYear, sMonth + 2, 1, 0, 0, 0);
             } else {
-                // Allowed until the end of the scheduled month
+                // Allowed until the end of the scheduled month (1st day of month + 1)
                 deadline = new Date(sYear, sMonth + 1, 1, 0, 0, 0);
             }
 
