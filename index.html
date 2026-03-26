@@ -148,6 +148,7 @@
 <a class="nav-tab active" data-tab="dashboard" href="#"><i class="fas fa-chart-pie"></i> Dashboard</a>
 <a class="nav-tab" data-tab="monitoreo-inteligente" href="#"><i class="fas fa-microchip"></i> Monitoreo Inteligente</a>
 <a class="nav-tab" data-tab="maquinaria" href="#"><i class="fas fa-cogs"></i> Maquinaria</a>
+<a class="nav-tab" data-tab="equipos-baja" href="#"><i class="fas fa-archive"></i> Equipos de Baja</a>
 <a class="nav-tab" data-tab="repuestos" href="#"><i class="fas fa-box-open"></i> Repuestos</a>
 <a class="nav-tab" data-tab="proveedores" href="#"><i class="fas fa-truck"></i> Proveedores</a>
 <a class="nav-tab" data-tab="tecnicos" href="#"><i class="fas fa-users-cog"></i> Usuarios</a>
@@ -437,6 +438,39 @@
 
     <div id="machine-distribution-container" class="machine-distribution-list">
         <!-- Contenido generado por JS -->
+    </div>
+</div>
+
+<div class="tab-content d-none" id="equipos-baja">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="fas fa-archive me-2"></i>Equipos Dados de Baja</h2>
+        <div class="input-group input-group-sm" style="max-width: 300px;">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input class="form-control" id="search-decommissioned-input" placeholder="Buscar equipo de baja..." type="text"/>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID Activo</th>
+                            <th>Nombre</th>
+                            <th>Fecha de Baja</th>
+                            <th>Motivo</th>
+                            <th>Tipo de Baja</th>
+                            <th>Notas</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="decommissioned-machines-list">
+                        <!-- Generado por JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 <div class="tab-content d-none inventory-zone" id="repuestos">
@@ -1349,6 +1383,15 @@
                             </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-status">Estado del Activo</label>
+                                    <select class="form-select" id="machine-status" required="">
+                                        <option value="ACTIVO">ACTIVO</option>
+                                        <option value="EN_MANTENIMIENTO">EN MANTENIMIENTO</option>
+                                        <option value="FUERA_DE_SERVICIO">FUERA DE SERVICIO</option>
+                                        <option value="DADO_DE_BAJA" disabled>DADO DE BAJA (Usar botón específico)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
                                     <label class="form-label" for="machine-criticidad">Clasificación de Criticidad</label>
                                     <select class="form-select" id="machine-criticidad" required="">
                                         <option value="Baja" selected>Baja</option>
@@ -1356,6 +1399,8 @@
                                         <option value="Alta">Alta</option>
                                     </select>
                                 </div>
+                            </div>
+                            <div class="row">
                                 <div class="col-md-6 mb-3 d-flex align-items-end">
                                     <div class="form-check form-switch mb-2">
                                         <input class="form-check-input" type="checkbox" id="machine-monitoring-enabled" checked>
@@ -1542,6 +1587,74 @@
                         <button class="btn btn-primary" type="submit">Guardar Máquina</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Dar de Baja Equipo -->
+<div class="modal fade" id="decommission-modal" tabindex="-1">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Dar de Baja Equipo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="decommission-form">
+                    <input type="hidden" id="decommission-machine-fb-id">
+                    <div class="alert alert-warning small">
+                        <i class="fas fa-info-circle me-1"></i> Esta acción desactivará automáticamente todos los planes de mantenimiento preventivo asociados a este equipo.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-uppercase">Equipo a dar de baja</label>
+                        <input type="text" class="form-control bg-light" id="decommission-machine-name-display" readonly>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="decommission-date" class="form-label small fw-bold text-uppercase">Fecha de Baja</label>
+                            <input type="date" class="form-control" id="decommission-date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="decommission-type" class="form-label small fw-bold text-uppercase">Tipo de Baja</label>
+                            <select class="form-select" id="decommission-type" required>
+                                <option value="">Seleccione...</option>
+                                <option value="TECNICA">Técnica</option>
+                                <option value="ECONOMICA">Económica</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="decommission-reason" class="form-label small fw-bold text-uppercase">Motivo de Baja</label>
+                        <select class="form-select" id="decommission-reason" required>
+                            <option value="">Seleccione...</option>
+                            <option value="OBSOLESCENCIA">Obsolescencia</option>
+                            <option value="FALLA_IRREPARABLE">Falla Irreparable</option>
+                            <option value="REEMPLAZO">Reemplazo</option>
+                            <option value="SINIESTRO">Siniestro</option>
+                            <option value="OTRO">Otro</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="decommission-replacement" class="form-label small fw-bold text-uppercase">Equipo de Reemplazo (Opcional)</label>
+                        <select class="form-select" id="decommission-replacement">
+                            <option value="">Ninguno / Por adquirir</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-0">
+                        <label for="decommission-notes" class="form-label small fw-bold text-uppercase">Observaciones / Notas</label>
+                        <textarea class="form-control" id="decommission-notes" rows="3" placeholder="Detalle las razones de la baja..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top-0 p-4 pt-0 gap-2">
+                <button type="button" class="btn btn-light flex-grow-1 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="decommission-form" class="btn btn-danger flex-grow-1 fw-bold">Confirmar Baja</button>
             </div>
         </div>
     </div>
