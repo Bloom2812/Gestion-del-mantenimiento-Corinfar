@@ -76,6 +76,7 @@ const state = {
         settings: collection(db, `/artifacts/${appId}/public/data/settings`),
         auditLogs: collection(db, `/artifacts/${appId}/public/data/auditLogs`),
         monitoringConfigs: collection(db, `/artifacts/${appId}/public/data/monitoringConfigs`),
+        equipmentStatusHistory: collection(db, `/artifacts/${appId}/public/data/equipmentStatusHistory`),
     },
     monitoringConfigs: [],
     currentMonitoringConfig: null,
@@ -83,6 +84,7 @@ const state = {
     partMovements: [],
     partRequests: [],
         auditLogs: [],
+    equipmentStatusHistory: [],
     rtdbMonitoring: {},
     modals: {},
     charts: {},
@@ -658,6 +660,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.modals.forgotPassword = new bootstrap.Modal(document.getElementById('forgot-password-modal'));
     state.modals.invitationLink = new bootstrap.Modal(document.getElementById('invitation-link-modal'));
     state.modals.pauseStatus = new bootstrap.Modal(document.getElementById('pause-status-modal'));
+    state.modals.decommission = new bootstrap.Modal(document.getElementById('decommission-modal'));
     
     setupEventListeners();
 
@@ -801,6 +804,7 @@ function setupRealtimeListeners() {
     // OPTIMIZED: Use docChanges for efficient DOM updates on simple list views
     const debouncedMachinesUpdate = debounce((requiresKpiUpdate) => {
         renderMachines();
+        renderDecommissionedMachines();
         populateDynamicSelectors();
         updateMachineCriticidadChart();
         if (requiresKpiUpdate) updateDashboardData();
@@ -1021,6 +1025,16 @@ function setupRealtimeListeners() {
         if (changed) debouncedMonitoringConfigsUpdate();
     });
 
+    onSnapshot(query(state.collections.equipmentStatusHistory), snapshot => {
+        snapshot.docChanges().forEach(change => {
+            const data = { fb_id: change.doc.id, ...change.doc.data() };
+            const index = state.equipmentStatusHistory.findIndex(h => h.fb_id === change.doc.id);
+            if (change.type === "added") { if (index === -1) state.equipmentStatusHistory.push(data); }
+            else if (change.type === "modified") { if (index > -1) state.equipmentStatusHistory[index] = data; }
+            else if (change.type === "removed") { if (index > -1) state.equipmentStatusHistory.splice(index, 1); }
+        });
+    });
+
     if (state.currentUser) {
         const solicitudesQuery = query(state.collections.solicitudes);
 
@@ -1186,6 +1200,8 @@ function setupEventListeners() {
     
     // Machine Listeners
     document.getElementById('add-machine-btn').addEventListener('click', () => showMachineModal());
+    document.getElementById('search-decommissioned-input').addEventListener('input', debounce(renderDecommissionedMachines, 300));
+    document.getElementById('decommission-form').addEventListener('submit', handleDecommissionSubmit);
     document.getElementById('sync-all-machines-odoo-btn').addEventListener('click', () => syncAllMachinesToOdoo());
     document.getElementById('machine-form').addEventListener('submit', handleMachineSubmit);
     document.getElementById('search-machine-input').addEventListener('input', debounce(renderMachines, 300));
@@ -1345,6 +1361,13 @@ function setupEventListeners() {
 
     // Work Order Listeners
     document.getElementById('wo-machine-search').addEventListener('input', (e) => populateWorkOrderMachineSelector(e.target.value));
+    document.getElementById('wo-machine').addEventListener('change', (e) => {
+        const machineId = e.target.value;
+        const machine = state.machines.find(m => m.id === machineId);
+        if (machine && machine.status === 'DADO_DE_BAJA') {
+            showToast('ADVERTENCIA: Este equipo está DADO DE BAJA.', 'warning');
+        }
+    });
     document.getElementById('wo-type').addEventListener('change', handleWorkOrderTypeChange);
     document.getElementById('wo-save-btn').addEventListener('click', () => saveWorkOrder());
     document.getElementById('wo-start-btn').addEventListener('click', () => saveWorkOrder({ status: 'En Proceso' }));
@@ -1858,10 +1881,10 @@ function applyUserPermissions() {
 
     switch (role) {
         case 'Admin':
-            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'repuestos', 'proveedores', 'tecnicos', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'auditoria', 'solicitudes', 'evaluation-criteria', 'solicitudes-repuestos', 'configuracion'];
+            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'equipos-baja', 'repuestos', 'proveedores', 'tecnicos', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'auditoria', 'solicitudes', 'evaluation-criteria', 'solicitudes-repuestos', 'configuracion'];
             break;
         case 'Planificador':
-            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'repuestos', 'proveedores', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'solicitudes', 'ordenes-asignadas', 'solicitudes-repuestos'];
+            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'equipos-baja', 'repuestos', 'proveedores', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'solicitudes', 'ordenes-asignadas', 'solicitudes-repuestos'];
             break;
         case 'Jefe de Area':
             visibleTabs = ['monitoreo-inteligente', ...(permissions || [])];
@@ -1950,7 +1973,7 @@ async function switchTab(tabName) {
     document.getElementById('dashboard-date-filter').classList.toggle('d-none', tabName !== 'dashboard');
 
     // Refresh dynamic selectors when entering key tabs
-    if (tabName === 'dashboard' || tabName === 'reportes') {
+    if (tabName === 'dashboard' || tabName === 'reportes' || tabName === 'equipos-baja') {
         populateDynamicSelectors();
         populateWorkOrderSelectors();
         populateExecutionReportSelector();
@@ -1958,6 +1981,7 @@ async function switchTab(tabName) {
     }
 
     if (tabName === 'maquinaria') renderMachines();
+    if (tabName === 'equipos-baja') renderDecommissionedMachines();
     if (tabName === 'repuestos') renderParts();
     if (tabName === 'monitoreo-inteligente') renderSmartMonitoring();
     if (tabName === 'solicitudes-repuestos') renderPartRequests();
@@ -2475,6 +2499,7 @@ function renderMachines() {
     const allowedMachineIds = hasPermissionFilter ? new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado) : null;
 
     const filteredMachines = state.machines.filter(m => {
+        if (m.status === 'DADO_DE_BAJA') return false;
         if (allowedMachineIds && !allowedMachineIds.has(m.id)) return false;
         if (!searchTerm) return true;
         return m.id.toLowerCase().includes(searchTerm) ||
@@ -2648,7 +2673,7 @@ function renderMachines() {
 
                     <div class="card-dist-status">
                         <div class="status-indicator-dot ${status}"></div>
-                        <span>${statusLabels[status]}</span>
+                        <span>${m.status === 'FUERA_DE_SERVICIO' ? 'FUERA DE SERVICIO' : statusLabels[status]}</span>
                     </div>
 
                     <div class="card-dist-info-row">
@@ -2735,7 +2760,12 @@ function showMachineDetail(machineId) {
     let statusLabel = 'Operativo / Calificado';
     let statusClass = 'success';
     let statusBg = '#10b981';
-    if (hasCorrective) {
+
+    if (machine.status === 'DADO_DE_BAJA') {
+        statusLabel = 'DADO DE BAJA';
+        statusClass = 'dark';
+        statusBg = '#1e293b';
+    } else if (hasCorrective) {
         statusLabel = 'Parado / Falla Crítica';
         statusClass = 'danger';
         statusBg = '#ef4444';
@@ -2743,6 +2773,10 @@ function showMachineDetail(machineId) {
         statusLabel = 'En Mantenimiento';
         statusClass = 'warning';
         statusBg = '#f59e0b';
+    } else if (machine.status === 'FUERA_DE_SERVICIO') {
+        statusLabel = 'FUERA DE SERVICIO';
+        statusClass = 'secondary';
+        statusBg = '#6c757d';
     }
 
     // IQ/OQ/PQ Logic for styling
@@ -2768,7 +2802,11 @@ function showMachineDetail(machineId) {
         .slice(0, 5);
 
     // Top Actions
+    const isDecommissioned = machine.status === 'DADO_DE_BAJA';
+    const canDecommission = ['Admin', 'Planificador'].includes(state.currentUser?.role);
+
     actionsTop.innerHTML = `
+        ${!isDecommissioned && canDecommission ? `<button class="btn btn-sm btn-outline-danger me-2" onclick="showDecommissionModal('${machine.fb_id}')"><i class="fas fa-archive me-1"></i>Dar de Baja</button>` : ''}
         <button class="btn btn-sm btn-outline-secondary me-2 edit-machine-from-detail" data-id="${machine.id}"><i class="fas fa-edit me-1"></i>Editar</button>
         <button class="btn btn-sm btn-outline-secondary me-2 print-machine-label"><i class="fas fa-print me-1"></i>Imprimir</button>
     `;
@@ -2991,6 +3029,40 @@ function showMachineDetail(machineId) {
                                     <i class="fas fa-download ms-auto text-muted"></i>
                                 </div>
                             </div>
+                        </div>
+                    </section>
+
+                    <section class="section-card p-4">
+                        <h5 class="fw-bold mb-4 text-primary-custom d-flex align-items-center gap-2">
+                            <i class="fas fa-history"></i> Historial de Cambios de Estado
+                        </h5>
+                        <div class="table-responsive p-0 shadow-none border-0">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th class="small fw-bold text-muted text-uppercase" style="font-size: 0.65rem;">Fecha</th>
+                                        <th class="small fw-bold text-muted text-uppercase" style="font-size: 0.65rem;">Estado</th>
+                                        <th class="small fw-bold text-muted text-uppercase" style="font-size: 0.65rem;">Motivo</th>
+                                        <th class="small fw-bold text-muted text-uppercase" style="font-size: 0.65rem;">Por</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${(() => {
+                                        const history = state.equipmentStatusHistory
+                                            .filter(h => h.equipment_fb_id === machine.fb_id || h.equipment_id === machine.id)
+                                            .sort((a, b) => new Date(b.change_date) - new Date(a.change_date));
+
+                                        return history.length > 0 ? history.map(h => `
+                                            <tr>
+                                                <td class="small">${new Date(h.change_date).toLocaleDateString()}</td>
+                                                <td><span class="badge bg-info bg-opacity-10 text-info" style="font-size: 0.6rem;">${h.new_status}</span></td>
+                                                <td class="small">${h.reason || '-'}</td>
+                                                <td class="small">${h.changed_by}</td>
+                                            </tr>
+                                        `).join('') : '<tr><td colspan="4" class="text-center text-muted py-3">No hay cambios registrados</td></tr>';
+                                    })()}
+                                </tbody>
+                            </table>
                         </div>
                     </section>
                 </div>
@@ -3613,6 +3685,7 @@ function showMachineModal(machineId = null) {
             document.getElementById('machine-name').value = machine.name;
             document.getElementById('machine-type').value = machine.type || 'maquina';
             document.getElementById('machine-location').value = machine.location;
+            document.getElementById('machine-status').value = machine.status || 'ACTIVO';
             document.getElementById('machine-criticidad').value = machine.criticidad || 'Baja';
             document.getElementById('machine-monitoring-enabled').checked = machine.monitoringEnabled !== false;
             idInput.setAttribute('readonly', true);
@@ -3729,6 +3802,7 @@ async function handleMachineSubmit(e) {
         lastModified: new Date().toISOString(),
         id: document.getElementById('machine-id').value.trim(),
         name: document.getElementById('machine-name').value,
+        status: document.getElementById('machine-status').value || 'ACTIVO',
         type: document.getElementById('machine-type').value,
         location: document.getElementById('machine-location').value,
         criticidad: document.getElementById('machine-criticidad').value,
@@ -3785,6 +3859,21 @@ async function handleMachineSubmit(e) {
              await recordAuditLog('machines', machineData.id, 'CREATE', null, machineData, 'Creación Máquina');
         } else {
              await recordAuditLog('machines', machineData.id, 'UPDATE', existingMachine, machineData, 'Modificación Máquina');
+
+             // Registrar historial de estado si cambió
+             if (existingMachine && existingMachine.status !== machineData.status) {
+                 const historyData = {
+                     equipment_id: machineData.id,
+                     equipment_fb_id: machineData.id,
+                     old_status: existingMachine.status || 'ACTIVO',
+                     new_status: machineData.status,
+                     changed_by: state.currentUser.username,
+                     change_date: new Date().toISOString(),
+                     reason: 'Cambio manual en edición de equipo',
+                     notes: ''
+                 };
+                 await addDoc(state.collections.equipmentStatusHistory, historyData);
+             }
         }
 
         // --- Sincronización con Odoo (Segundo Plano) ---
@@ -11705,8 +11794,8 @@ function populateWorkOrderMachineSelector(searchTerm = '') {
 
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     const filteredMachines = machinesToPopulate.filter(machine =>
-        machine.name.toLowerCase().includes(lowerCaseSearchTerm) ||
-        machine.id.toLowerCase().includes(lowerCaseSearchTerm)
+        (machine.name.toLowerCase().includes(lowerCaseSearchTerm) ||
+        machine.id.toLowerCase().includes(lowerCaseSearchTerm))
     );
 
     if (filteredMachines.length === 0) {
@@ -12139,6 +12228,7 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
         { id: 'report-machine-parts-select', tab: 'reportes' },
         { id: 'kpi-machine-select', tab: 'dashboard' },
         { id: 'solicitud-machine', tab: 'solicitudes' },
+        { id: 'decommission-replacement', tab: 'equipos-baja' },
         { id: 'report-executive-area', tab: 'reportes' },
         { id: 'report-executive-cost-center', tab: 'reportes' }
     ];
@@ -12206,6 +12296,10 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
                     );
                 }
 
+                if (selector.id !== 'report-machine-select' && selector.id !== 'kpi-machine-select') {
+                    machinesToPopulate = machinesToPopulate.filter(m => m.status !== 'DADO_DE_BAJA');
+                }
+
                 machinesToPopulate.forEach(machine => {
                     if (machine.id && machine.name) {
                         html += `<option value="${machine.id}">${machine.id} - ${machine.name}</option>`;
@@ -12255,6 +12349,9 @@ window.showManagePartsModal = showManagePartsModal;
 window.addTaskGroup = addTaskGroup;
 window.updateUIFromRTCounters = updateUIFromRTCounters;
 window.handleForgotPasswordRequest = handleForgotPasswordRequest;
+window.showDecommissionModal = showDecommissionModal;
+window.renderDecommissionedMachines = renderDecommissionedMachines;
+window.handleDecommissionSubmit = handleDecommissionSubmit;
 
 async function generateTokenLink(fbId, type, showModal = true) {
     const tech = state.technicians.find(t => t.fb_id === fbId);
@@ -14449,4 +14546,136 @@ async function renderPublicMachineReport(machineId) {
             </div>
         </div>
     `;
+}
+
+// --- Decommissioning Functions ---
+
+function renderDecommissionedMachines() {
+    if (state.currentTab !== 'equipos-baja' && initialLoadComplete) return;
+
+    const container = document.getElementById('decommissioned-machines-list');
+    if (!container) return;
+
+    const searchTerm = document.getElementById('search-decommissioned-input').value.toLowerCase();
+
+    const decommissioned = state.machines.filter(m =>
+        m.status === 'DADO_DE_BAJA' && (
+            m.id.toLowerCase().includes(searchTerm) ||
+            m.name.toLowerCase().includes(searchTerm)
+        )
+    );
+
+    if (decommissioned.length === 0) {
+        container.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron equipos dados de baja.</td></tr>';
+        return;
+    }
+
+    container.innerHTML = decommissioned.map(m => `
+        <tr>
+            <td><span class="badge bg-light text-dark border font-mono">${m.id}</span></td>
+            <td class="fw-bold">${m.name}</td>
+            <td>${m.decommissionDate || 'N/A'}</td>
+            <td><span class="badge bg-danger bg-opacity-10 text-danger">${m.decommissionReason || 'N/A'}</span></td>
+            <td><span class="badge bg-secondary">${m.decommissionType || 'N/A'}</span></td>
+            <td><small class="text-muted">${m.decommissionNotes || '-'}</small></td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary" onclick="showMachineDetail('${m.fb_id}')" title="Ver Detalle">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function showDecommissionModal(machineFbId) {
+    const machine = state.machines.find(m => m.fb_id === machineFbId);
+    if (!machine) return;
+
+    const form = document.getElementById('decommission-form');
+    form.reset();
+
+    document.getElementById('decommission-machine-fb-id').value = machine.fb_id;
+    document.getElementById('decommission-machine-name-display').value = `${machine.id} - ${machine.name}`;
+    document.getElementById('decommission-date').value = new Date().toISOString().split('T')[0];
+
+    // Populate replacement dropdown
+    const replacementSelect = document.getElementById('decommission-replacement');
+    let html = '<option value="">Ninguno / Por adquirir</option>';
+    state.machines.filter(m => m.status !== 'DADO_DE_BAJA' && m.id !== machine.id).forEach(m => {
+        html += `<option value="${m.id}">${m.id} - ${m.name}</option>`;
+    });
+    replacementSelect.innerHTML = html;
+
+    state.modals.decommission.show();
+}
+
+async function handleDecommissionSubmit(e) {
+    e.preventDefault();
+    const fbId = document.getElementById('decommission-machine-fb-id').value;
+    const machine = state.machines.find(m => m.fb_id === fbId);
+    if (!machine) return;
+
+    if (!['Admin', 'Planificador'].includes(state.currentUser?.role)) {
+        showToast('No tiene permisos para realizar esta acción.', 'error');
+        return;
+    }
+
+    showLoading(true);
+
+    const decommissionData = {
+        status: 'DADO_DE_BAJA',
+        decommissionDate: document.getElementById('decommission-date').value,
+        decommissionType: document.getElementById('decommission-type').value,
+        decommissionReason: document.getElementById('decommission-reason').value,
+        decommissionReplacementId: document.getElementById('decommission-replacement').value,
+        decommissionNotes: document.getElementById('decommission-notes').value,
+        lastModified: new Date().toISOString()
+    };
+
+    try {
+        const oldData = JSON.parse(JSON.stringify(machine));
+        const machineRef = doc(state.collections.machines, machine.fb_id);
+
+        // 1. Update Machine Document
+        await updateDoc(machineRef, decommissionData);
+        await updateRTDBMirror('machines', decommissionData, machine.fb_id);
+
+        // 2. Deactivate Maintenance Plans
+        const batch = writeBatch(db);
+        const machinePlans = state.workPlans.filter(p => p.machineId === machine.id && p.isActive);
+        machinePlans.forEach(plan => {
+            const planRef = doc(state.collections.workPlans, plan.fb_id);
+            batch.update(planRef, { isActive: false, lastModified: new Date().toISOString() });
+        });
+        await batch.commit();
+
+        // 3. Register Status History
+        const historyData = {
+            equipment_id: machine.id,
+            equipment_fb_id: machine.fb_id,
+            old_status: machine.status || 'ACTIVO',
+            new_status: 'DADO_DE_BAJA',
+            changed_by: state.currentUser.username,
+            change_date: new Date().toISOString(),
+            reason: decommissionData.decommissionReason,
+            notes: decommissionData.decommissionNotes
+        };
+        await addDoc(state.collections.equipmentStatusHistory, historyData);
+
+        // 4. Audit Log
+        await recordAuditLog('machines', machine.id, 'UPDATE', oldData, { ...machine, ...decommissionData }, 'BAJA DE EQUIPO');
+
+        showToast('Equipo dado de baja correctamente.', 'success');
+        state.modals.decommission.hide();
+        state.modals.machineDetail.hide();
+
+        if (state.currentTab === 'maquinaria') renderMachines();
+        if (state.currentTab === 'equipos-baja') renderDecommissionedMachines();
+
+    } catch (error) {
+        console.error("Error decommissioning machine:", error);
+        showToast('Error al dar de baja el equipo.', 'error');
+    } finally {
+        showLoading(false);
+    }
 }
