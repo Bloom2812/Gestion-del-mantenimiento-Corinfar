@@ -763,7 +763,9 @@
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="card-title mb-0">Seguimiento de Solicitudes de Repuestos e Insumos</h5>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 align-items-center">
+                    <label for="part-request-month-filter" class="form-label small mb-0 me-1">Mes:</label>
+                    <input type="month" id="part-request-month-filter" class="form-control form-control-sm" style="width: auto;">
                     <select class="form-select form-select-sm" id="part-request-status-filter" style="width: auto;">
                         <option value="all">Todos los estados</option>
                         <option value="Pendiente">Solicitado</option>
@@ -2257,8 +2259,12 @@
             </select>
         </div>
         <div class="col-md-2">
-            <button type="button" class="btn btn-sm btn-primary w-100" id="wo-submit-request-btn"><i class="fas fa-paper-plane me-1"></i>Solicitar</button>
+            <button type="button" class="btn btn-sm btn-outline-primary w-100" id="wo-add-to-request-cart-btn"><i class="fas fa-plus me-1"></i>Agregar</button>
         </div>
+    </div>
+    <div id="wo-request-cart-container"></div>
+    <div class="mt-2 text-end">
+        <button type="button" class="btn btn-sm btn-primary" id="wo-submit-request-btn" style="display:none;"><i class="fas fa-paper-plane me-1"></i>Enviar Solicitud</button>
     </div>
     <div id="wo-pending-requests-list" class="mt-3">
         <!-- List showing pending requests for this WO -->
@@ -3017,20 +3023,27 @@
                 <form id="material-delivery-form">
                     <input type="hidden" id="delivery-request-fb-id">
 
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Material Solicitado</label>
-                        <input type="text" class="form-control bg-light" id="delivery-material-desc" readonly>
+                    <div id="delivery-items-selection" class="mb-3">
+                        <label class="form-label small fw-bold">Ítem a Entregar</label>
+                        <select class="form-select mb-2" id="delivery-item-index">
+                            <!-- Items of the request -->
+                        </select>
+
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label small fw-bold">Cant. Pendiente</label>
+                                <input type="number" class="form-control bg-light" id="delivery-pending-qty" readonly>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label for="delivery-quantity" class="form-label small fw-bold">Cant. a Entregar</label>
+                                <input type="number" class="form-control" id="delivery-quantity" required min="1">
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <label class="form-label small fw-bold">Cantidad Pendiente</label>
-                            <input type="number" class="form-control bg-light" id="delivery-pending-qty" readonly>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <label for="delivery-quantity" class="form-label small fw-bold">Cantidad a Entregar</label>
-                            <input type="number" class="form-control" id="delivery-quantity" required min="1">
-                        </div>
+                    <div class="mb-3" id="single-item-delivery-info" style="display:none;">
+                        <label class="form-label small fw-bold">Material Solicitado</label>
+                        <input type="text" class="form-control bg-light" id="delivery-material-desc" readonly>
                     </div>
 
                     <div class="mb-3">
@@ -3049,6 +3062,30 @@
             <div class="modal-footer border-top-0">
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
                 <button type="submit" form="material-delivery-form" class="btn btn-success fw-bold px-4">Confirmar Entrega</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmar Recepción -->
+<div class="modal fade" id="confirm-receipt-modal" tabindex="-1" style="z-index: 2500;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Recepción de Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Para confirmar que ha recibido el material solicitado, por favor ingrese su contraseña:</p>
+                <div class="mb-3">
+                    <label class="form-label">Contraseña</label>
+                    <input type="password" id="receipt-password" class="form-control">
+                </div>
+                <input type="hidden" id="receipt-request-id">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirm-receipt-submit">Confirmar y Firmar</button>
             </div>
         </div>
     </div>
