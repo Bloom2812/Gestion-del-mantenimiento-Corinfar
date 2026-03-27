@@ -10262,7 +10262,7 @@ async function generateSingleWorkOrderReport(explicitWoId = null) {
                 }
             };
 
-            const drawHeader = () => {
+            const drawHeader = (customTitle = 'Orden de Trabajo de Mantenimiento') => {
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const margin = 40;
                 const headerY = 30;
@@ -10301,7 +10301,7 @@ async function generateSingleWorkOrderReport(explicitWoId = null) {
                 // Main Title
                 doc.setFontSize(14);
                 doc.setFont(undefined, 'bold');
-                doc.text('Orden de Trabajo de Mantenimiento', pageWidth / 2, headerY + headerHeight + 20, { align: 'center' });
+                doc.text(customTitle, pageWidth / 2, headerY + headerHeight + 20, { align: 'center' });
 
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'normal');
@@ -10504,13 +10504,9 @@ async function generateSingleWorkOrderReport(explicitWoId = null) {
             // --- Anexos Fotográficos ---
             if (order.images && order.images.length > 0) {
                 doc.addPage();
-                drawHeader();
+                drawHeader('Anexo: Registro Fotográfico de Actividades');
 
-                doc.setFontSize(14);
-                doc.setFont(undefined, 'bold');
-                doc.text('Anexo: Registro Fotográfico de Actividades', pageWidth / 2, 100, { align: 'center' });
-
-                let imgY = 120;
+                let imgY = 140;
                 const imgWidth = contentWidth * 0.7;
                 const imgHeight = 200;
                 const imgX = (pageWidth - imgWidth) / 2;
@@ -10519,8 +10515,8 @@ async function generateSingleWorkOrderReport(explicitWoId = null) {
                     const img = order.images[idx];
                     if (idx > 0 && idx % 2 === 0) {
                         doc.addPage();
-                        drawHeader();
-                        imgY = 120;
+                        drawHeader('Anexo: Registro Fotográfico de Actividades');
+                        imgY = 140;
                     }
 
                     try {
