@@ -55,6 +55,7 @@ const state = {
     workPlanExecutions: [],
     evaluationCriteria: [],
     technicianEvaluations: [],
+    currentWoImages: [],
     calendarDate: new Date(),
     machineMaintFilter: null,
     partStockFilter: null,
@@ -1400,6 +1401,8 @@ function setupEventListeners() {
         showToast('Orden rechazada y devuelta a estado Pausado.', 'info');
     });
     document.getElementById('wo-add-part-btn').addEventListener('click', () => addPartToWorkOrder());
+    document.getElementById('wo-add-image-btn').addEventListener('click', () => document.getElementById('wo-image-input').click());
+    document.getElementById('wo-image-input').addEventListener('change', handleWoImageUpload);
     document.getElementById('wo-submit-request-btn').addEventListener('click', handlePartRequestSubmit);
     document.getElementById('part-request-status-filter').addEventListener('change', renderPartRequests);
     document.getElementById('wo-add-support-technician-btn').addEventListener('click', handleAddSupportTechnicianClick);
@@ -8973,6 +8976,7 @@ async function saveWorkOrder(updates = {}) {
             machineId: document.getElementById('wo-machine').value,
             description: document.getElementById('wo-description').value,
             observaciones: document.getElementById('wo-observaciones').value || "",
+        images: state.currentWoImages,
             status: document.getElementById('wo-status').value,
             type: document.getElementById('wo-type').value,
             date: startDate, // Main date for calendar
@@ -9242,6 +9246,132 @@ function populateWorkPlanSelector(machineId, workOrderDate, currentPlanId = null
 }
 
 
+async function imageUrlToBase64(url) {
+    if (!url) return null;
+
+    const attemptLoad = (src) => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            let timeout = setTimeout(() => {
+                img.src = "";
+                resolve(null);
+            }, 12000);
+
+            img.onload = () => {
+                clearTimeout(timeout);
+                try {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0);
+                    resolve({
+                        data: canvas.toDataURL("image/jpeg", 0.8),
+                        width: img.width,
+                        height: img.height
+                    });
+                } catch (e) {
+                    console.error("Canvas error:", e);
+                    resolve(null);
+                }
+            };
+            img.onerror = () => {
+                clearTimeout(timeout);
+                resolve(null);
+            };
+            img.src = src;
+        });
+    };
+
+    // Optimization: For known cloud storage URLs (Firebase, Google), the proxy is often necessary
+    // to avoid CORS errors and console noise.
+    const needsProxy = url.includes('firebasestorage.googleapis.com') || url.includes('googleusercontent.com');
+
+    if (needsProxy) {
+        // Priority 1: Wsrv.nl Proxy (Modern, fast, and handles CORS very well)
+        const wsrvProxy = `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg&q=80`;
+        let result = await attemptLoad(wsrvProxy);
+        if (result) return result;
+
+        // Priority 2: Google Proxy (Legacy fallback)
+        const googleProxy = "https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=" + encodeURIComponent(url);
+        result = await attemptLoad(googleProxy);
+        if (result) return result;
+    }
+
+    // Priority 3 / Direct: Direct Load (Works for local files or properly configured CORS)
+    return await attemptLoad(url);
+}
+
+async function handleWoImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (state.currentWoImages.length >= 5) {
+        showToast('Límite de 5 imágenes alcanzado.', 'warning');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const storageRef = ref(state.storage, `artifacts/${appId}/workOrders/${Date.now()}_${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(snapshot.ref);
+
+        state.currentWoImages.push({
+            url: url,
+            caption: ''
+        });
+
+        renderWoImages();
+        showToast('Imagen subida correctamente.', 'success');
+    } catch (error) {
+        console.error("Error uploading image:", error);
+        showToast('Error al subir la imagen.', 'error');
+    } finally {
+        showLoading(false);
+        e.target.value = '';
+    }
+}
+
+function renderWoImages() {
+    const container = document.getElementById('wo-images-container');
+    container.innerHTML = '';
+
+    state.currentWoImages.forEach((img, idx) => {
+        const div = document.createElement('div');
+        div.className = 'wo-image-item';
+        div.innerHTML = `
+            <div class="wo-image-preview-wrapper">
+                <button type="button" class="wo-image-remove-btn" onclick="removeWoImage(${idx})">
+                    <i class="fas fa-times"></i>
+                </button>
+                <img src="${img.url}" alt="Actividad ${idx + 1}" onclick="window.open('${img.url}', '_blank')">
+            </div>
+            <input type="text" class="wo-image-caption-input" placeholder="Descripción..."
+                value="${img.caption || ''}" onchange="updateWoImageCaption(${idx}, this.value)">
+        `;
+        container.appendChild(div);
+    });
+
+    // Hide add button if limit reached
+    document.getElementById('wo-add-image-btn').style.display = state.currentWoImages.length >= 5 ? 'none' : 'inline-block';
+}
+
+function removeWoImage(index) {
+    state.currentWoImages.splice(index, 1);
+    renderWoImages();
+}
+
+function updateWoImageCaption(index, value) {
+    state.currentWoImages[index].caption = value;
+}
+
+window.handleWoImageUpload = handleWoImageUpload;
+window.removeWoImage = removeWoImage;
+window.updateWoImageCaption = updateWoImageCaption;
+
 async function showWorkOrderModal(identifier = null, type = 'Preventivo', sourceSolicitud = null) {
     const form = document.getElementById('work-order-form');
     form.reset();
@@ -9249,6 +9379,8 @@ async function showWorkOrderModal(identifier = null, type = 'Preventivo', source
     document.getElementById('wo-parts-list').innerHTML = '';
     document.getElementById('wo-support-technicians-list').innerHTML = '';
     document.getElementById('source-solicitud-id-hidden').value = '';
+    state.currentWoImages = [];
+    renderWoImages();
 
     // Hide checklist and show observations by default
     document.getElementById('wo-checklist-group').classList.add('d-none');
@@ -9319,6 +9451,8 @@ async function showWorkOrderModal(identifier = null, type = 'Preventivo', source
 
             document.getElementById('wo-description').value = order.description;
             document.getElementById('wo-observaciones').value = order.observaciones || "";
+            state.currentWoImages = order.images || [];
+            renderWoImages();
             document.getElementById('wo-status').value = order.status;
             document.getElementById('wo-type').value = order.type;
             document.getElementById('wo-priority').value = order.priority || 'Media';
@@ -10081,7 +10215,7 @@ function generateMachinePartsReport() {
     }, 500);
 }
 
-function generateSingleWorkOrderReport(explicitWoId = null) {
+async function generateSingleWorkOrderReport(explicitWoId = null) {
     const headerConfig = {
         line1Left: 'Fecha de elaboración: 27/01/2026',
         line2Left: 'Fecha de revisión: 03/02/2026',
@@ -10108,7 +10242,7 @@ function generateSingleWorkOrderReport(explicitWoId = null) {
 
     const machine = state.machines.find(m => m.id === order.machineId) || { name: 'N/A', id: 'N/A' };
 
-    setTimeout(() => { // Use timeout to allow loading spinner to show
+    setTimeout(async () => { // Use timeout to allow loading spinner to show
         try {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'pt', 'letter');
@@ -10367,6 +10501,59 @@ function generateSingleWorkOrderReport(explicitWoId = null) {
             doc.text(`Jefe de área:`, margin + 3 * (sigWidth + 20) + sigWidth / 2, finalY + 55, { align: 'center' });
             doc.text(`${jefeName}`, margin + 3 * (sigWidth + 20) + sigWidth / 2, finalY + 65, { align: 'center' });
             
+            // --- Anexos Fotográficos ---
+            if (order.images && order.images.length > 0) {
+                doc.addPage();
+                drawHeader();
+
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('Anexo: Registro Fotográfico de Actividades', pageWidth / 2, 100, { align: 'center' });
+
+                let imgY = 120;
+                const imgWidth = contentWidth * 0.7;
+                const imgHeight = 200;
+                const imgX = (pageWidth - imgWidth) / 2;
+
+                for (let idx = 0; idx < order.images.length; idx++) {
+                    const img = order.images[idx];
+                    if (idx > 0 && idx % 2 === 0) {
+                        doc.addPage();
+                        drawHeader();
+                        imgY = 120;
+                    }
+
+                    try {
+                        const imgResult = await imageUrlToBase64(img.url);
+                        if (imgResult) {
+                            // Calculate aspect ratio to fit within imgWidth and imgHeight
+                            let finalW = imgResult.width;
+                            let finalH = imgResult.height;
+                            const ratio = Math.min(imgWidth / finalW, imgHeight / finalH);
+                            finalW = finalW * ratio;
+                            finalH = finalH * ratio;
+
+                            const centerX = (pageWidth - finalW) / 2;
+                            doc.addImage(imgResult.data, 'JPEG', centerX, imgY, finalW, finalH);
+
+                            doc.setFontSize(10);
+                            doc.setFont(undefined, 'italic');
+                            const caption = img.caption || `Imagen ${idx + 1}`;
+                            const splitCaption = doc.splitTextToSize(caption, imgWidth);
+                            doc.text(splitCaption, pageWidth / 2, imgY + finalH + 15, { align: 'center' });
+                            imgY += finalH + 60;
+                        } else {
+                            throw new Error("Base64 conversion failed");
+                        }
+                    } catch (err) {
+                        console.error("Error adding activity image to PDF:", err);
+                        doc.setFontSize(10);
+                        doc.text(`[No se pudo cargar la imagen ${idx + 1}]`, pageWidth / 2, imgY + 20, { align: 'center' });
+                        imgY += 40;
+                    }
+                }
+            }
+
             drawFooter();
             doc.save(`OT_${workOrderId}.pdf`);
             
@@ -10531,63 +10718,6 @@ async function generateExecutionReportPDF() {
         return;
     }
 
-    const imageUrlToBase64 = async (url) => {
-        if (!url) return null;
-
-        const attemptLoad = (src) => {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.crossOrigin = 'Anonymous';
-                let timeout = setTimeout(() => {
-                    img.src = "";
-                    resolve(null);
-                }, 8000);
-
-                img.onload = () => {
-                    clearTimeout(timeout);
-                    try {
-                        const canvas = document.createElement("canvas");
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        const ctx = canvas.getContext("2d");
-                        ctx.drawImage(img, 0, 0);
-                        resolve({
-                            data: canvas.toDataURL("image/jpeg", 0.8),
-                            width: img.width,
-                            height: img.height
-                        });
-                    } catch (e) {
-                        console.error("Canvas error:", e);
-                        resolve(null);
-                    }
-                };
-                img.onerror = () => {
-                    clearTimeout(timeout);
-                    resolve(null);
-                };
-                img.src = src;
-            });
-        };
-
-        // Optimization: For known cloud storage URLs (Firebase, Google), the proxy is often necessary
-        // to avoid CORS errors and console noise. Strategy 1 & 2 often fail for these.
-        const needsProxy = url.includes('firebasestorage.googleapis.com') || url.includes('googleusercontent.com');
-
-        if (needsProxy) {
-            // Priority 1: Wsrv.nl Proxy (Modern, fast, and handles CORS very well)
-            const wsrvProxy = `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg&q=80`;
-            let result = await attemptLoad(wsrvProxy);
-            if (result) return result;
-
-            // Priority 2: Google Proxy (Legacy fallback)
-            const googleProxy = "https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=" + encodeURIComponent(url);
-            result = await attemptLoad(googleProxy);
-            if (result) return result;
-        }
-
-        // Priority 3 / Direct: Direct Load (Works for local files or properly configured CORS)
-        return await attemptLoad(url);
-    };
 
     showLoading(true);
 
