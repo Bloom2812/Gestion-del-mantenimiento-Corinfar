@@ -85,6 +85,7 @@ const state = {
     activeMonitoringVar: null,
     partMovements: [],
     partRequests: [],
+    requestCart: [],
     materialOut: [],
         auditLogs: [],
     equipmentStatusHistory: [],
@@ -666,7 +667,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.modals.decommission = new bootstrap.Modal(document.getElementById('decommission-modal'));
     state.modals.stockAdjustment = new bootstrap.Modal(document.getElementById('stock-adjustment-modal'));
     state.modals.materialDelivery = new bootstrap.Modal(document.getElementById('material-delivery-modal'));
-    
+    state.modals.confirmReceipt = new bootstrap.Modal(document.getElementById('confirm-receipt-modal'));
+
     setupEventListeners();
 
     // --- Modal Management (Accessibility & Layering) ---
@@ -1426,8 +1428,10 @@ function setupEventListeners() {
     document.getElementById('wo-add-part-btn').addEventListener('click', () => addPartToWorkOrder());
     document.getElementById('wo-add-image-btn').addEventListener('click', () => document.getElementById('wo-image-input').click());
     document.getElementById('wo-image-input').addEventListener('change', handleWoImageUpload);
+    document.getElementById('wo-add-to-request-cart-btn').addEventListener('click', handleAddToRequestCart);
     document.getElementById('wo-submit-request-btn').addEventListener('click', handlePartRequestSubmit);
     document.getElementById('part-request-status-filter').addEventListener('change', renderPartRequests);
+    document.getElementById('part-request-month-filter').addEventListener('change', renderPartRequests);
     document.getElementById('wo-add-support-technician-btn').addEventListener('click', handleAddSupportTechnicianClick);
     document.getElementById('wo-lead-technician-select').addEventListener('change', handleLeadTechnicianChange);
 
@@ -1568,6 +1572,12 @@ function setupEventListeners() {
 
     const testTelegramBtn = document.getElementById('test-telegram-btn');
     if (testTelegramBtn) testTelegramBtn.addEventListener('click', testTelegramConnection);
+
+    const confirmReceiptSubmit = document.getElementById('confirm-receipt-submit');
+    if (confirmReceiptSubmit) confirmReceiptSubmit.addEventListener('click', handleConfirmReceiptSubmit);
+
+    const deliveryItemSelect = document.getElementById('delivery-item-index');
+    if (deliveryItemSelect) deliveryItemSelect.addEventListener('change', handleDeliveryItemChange);
 }
 
 // --- Odoo Configuration Functions ---
@@ -2014,6 +2024,9 @@ async function switchTab(tabName) {
     if (tabName === 'repuestos') renderParts();
     if (tabName === 'monitoreo-inteligente') renderSmartMonitoring();
     if (tabName === 'solicitudes-repuestos') renderPartRequests();
+}
+
+window.renderPartRequests = renderPartRequests;
     if (tabName === 'inventario-dashboard') updateInventoryDashboard();
     if (tabName === 'trabajo-activo') {
         const monthFilter = document.getElementById('kanban-month-filter');
@@ -4156,16 +4169,67 @@ async function showPartHistoryModal(partId = null) {
     await loadPartMovements(partId);
 }
 
-async function handlePartRequestSubmit() {
+function handleAddToRequestCart() {
     const description = document.getElementById('wo-request-description').value.trim();
     const quantity = parseInt(document.getElementById('wo-request-quantity').value);
+
+    if (!description || isNaN(quantity) || quantity < 1) {
+        showToast('Complete la descripción y cantidad válida.', 'warning');
+        return;
+    }
+
+    state.requestCart.push({
+        description: description,
+        quantity: quantity,
+        status: 'Pendiente',
+        deliveredQuantity: 0
+    });
+
+    document.getElementById('wo-request-description').value = '';
+    document.getElementById('wo-request-quantity').value = 1;
+    renderRequestCart();
+}
+
+function renderRequestCart() {
+    const container = document.getElementById('wo-request-cart-container');
+    const submitBtn = document.getElementById('wo-submit-request-btn');
+
+    if (state.requestCart.length === 0) {
+        container.innerHTML = '';
+        submitBtn.style.display = 'none';
+        return;
+    }
+
+    submitBtn.style.display = 'inline-block';
+    let html = '<div class="mt-2"><table class="table table-sm table-bordered x-small mb-0"><thead class="table-light"><tr><th>Descripción</th><th>Cant.</th><th>Acción</th></tr></thead><tbody>';
+
+    state.requestCart.forEach((item, index) => {
+        html += `<tr>
+            <td>${item.description}</td>
+            <td>${item.quantity}</td>
+            <td class="text-center">
+                <button class="btn btn-xs btn-link text-danger p-0" onclick="removeFromRequestCart(${index})"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>`;
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+window.removeFromRequestCart = function(index) {
+    state.requestCart.splice(index, 1);
+    renderRequestCart();
+};
+
+async function handlePartRequestSubmit() {
     const urgency = document.getElementById('wo-request-urgency').value;
     const woFbId = document.getElementById('wo-fb-id-hidden').value;
     const woId = document.getElementById('wo-id').value;
     const machineId = document.getElementById('wo-machine').value;
 
-    if (!description || isNaN(quantity) || quantity < 1) {
-        showToast('Complete la descripción y cantidad válida.', 'warning');
+    if (state.requestCart.length === 0) {
+        showToast('Agregue al menos un ítem a la solicitud.', 'warning');
         return;
     }
 
@@ -4182,8 +4246,7 @@ async function handlePartRequestSubmit() {
             workOrderId: woId,
             machineId: machineId,
             requester: state.currentUser?.username || 'Desconocido',
-            description: description,
-            quantity: quantity,
+            items: state.requestCart,
             urgency: urgency,
             status: 'Pendiente'
         };
@@ -4191,9 +4254,9 @@ async function handlePartRequestSubmit() {
         await updateRTDBMirror('partRequests', requestData, docRef.id);
         await recordAuditLog('partRequests', woId || docRef.id, 'CREATE', null, requestData, 'Creación Solicitud Repuesto');
 
-        document.getElementById('wo-request-description').value = '';
-        document.getElementById('wo-request-quantity').value = 1;
-        showToast('Solicitud de repuesto enviada.', 'success');
+        state.requestCart = [];
+        renderRequestCart();
+        showToast('Solicitud de repuestos enviada.', 'success');
         renderWoPendingRequests();
     } catch (error) {
         console.error("Error submitting part request:", error);
@@ -4233,18 +4296,35 @@ function renderWoPendingRequests() {
     `;
     const tbody = table.querySelector('tbody');
     requests.forEach(r => {
-        const tr = document.createElement('tr');
-        let statusClass = 'bg-secondary';
-        if (r.status === 'Pedido') statusClass = 'bg-warning text-dark';
-        if (r.status === 'Recibido') statusClass = 'bg-success';
-        if (r.status === 'Rechazado') statusClass = 'bg-danger';
+        if (r.items && Array.isArray(r.items)) {
+            r.items.forEach(item => {
+                const tr = document.createElement('tr');
+                let statusClass = 'bg-secondary';
+                if (item.status === 'Pedido' || item.status === 'Aprobado') statusClass = 'bg-info text-white';
+                if (item.status === 'Recibido') statusClass = 'bg-success';
+                if (item.status === 'Rechazado') statusClass = 'bg-danger';
 
-        tr.innerHTML = `
-            <td>${r.description}</td>
-            <td>${r.quantity}</td>
-            <td><span class="badge ${statusClass}">${r.status}</span></td>
-        `;
-        tbody.appendChild(tr);
+                tr.innerHTML = `
+                    <td>${item.description}</td>
+                    <td>${item.quantity}</td>
+                    <td><span class="badge ${statusClass}">${item.status}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            const tr = document.createElement('tr');
+            let statusClass = 'bg-secondary';
+            if (r.status === 'Pedido' || r.status === 'Aprobado') statusClass = 'bg-info text-white';
+            if (r.status === 'Recibido') statusClass = 'bg-success';
+            if (r.status === 'Rechazado') statusClass = 'bg-danger';
+
+            tr.innerHTML = `
+                <td>${r.description}</td>
+                <td>${r.quantity}</td>
+                <td><span class="badge ${statusClass}">${r.status}</span></td>
+            `;
+            tbody.appendChild(tr);
+        }
     });
     list.appendChild(table);
 }
@@ -4254,10 +4334,18 @@ function renderPartRequests() {
     const list = document.getElementById('part-request-list');
     if (!list) return;
     const statusFilter = document.getElementById('part-request-status-filter').value;
+    const monthFilter = document.getElementById('part-request-month-filter').value;
 
     list.innerHTML = '';
     const user = state.currentUser;
     let filtered = state.partRequests.filter(r => statusFilter === 'all' || r.status === statusFilter);
+
+    if (monthFilter) {
+        filtered = filtered.filter(r => {
+            if (!r.date) return false;
+            return r.date.substring(0, 7) === monthFilter;
+        });
+    }
 
     // Filtrar por solicitante para Operarios y Jefes de Área
     if (user && user.role !== 'Admin' && user.role !== 'Planificador') {
@@ -4299,6 +4387,7 @@ function renderPartRequests() {
         const userRole = state.currentUser?.role;
         const isApprover = ['Admin', 'Planificador', 'Jefe de Area'].includes(userRole);
         const isWarehouse = ['Admin', 'Planificador', 'Almacén'].includes(userRole);
+        const isRequester = state.currentUser?.username === r.requester;
 
         if (r.status === 'Pendiente' && isApprover) {
             actions += `<button class="btn btn-xs btn-outline-info me-1" onclick="updatePartRequestStatus('${r.fb_id}', 'Aprobado')"><i class="fas fa-check me-1"></i>Aprobar</button>`;
@@ -4309,13 +4398,30 @@ function renderPartRequests() {
             actions += `<button class="btn btn-xs btn-success me-1" onclick="showDeliveryModal('${r.fb_id}')"><i class="fas fa-box-open me-1"></i>Entregar</button>`;
         }
 
-        const delivered = r.deliveredQuantity || 0;
-        const qtyDisplay = delivered > 0 ? `${delivered} / ${r.quantity}` : r.quantity;
+        if (r.status === 'En Despacho' && (isRequester || isApprover)) {
+             actions += `<button class="btn btn-xs btn-outline-primary me-1" onclick="showConfirmReceiptModal('${r.fb_id}')"><i class="fas fa-check-double me-1"></i>Recibir</button>`;
+        }
+
+        if (r.status === 'Recibido' || r.status === 'Entregado') {
+             actions += `<button class="btn btn-xs btn-outline-danger me-1" onclick="generatePartRequestGroupPDF('${r.fb_id}')"><i class="fas fa-file-pdf me-1"></i>PDF</button>`;
+        }
+
+        let description = r.description;
+        let qtyDisplay = r.deliveredQuantity > 0 ? `${r.deliveredQuantity} / ${r.quantity}` : r.quantity;
+
+        if (r.items && Array.isArray(r.items)) {
+            description = r.items.map(i => i.description).join(', ');
+            if (description.length > 50) description = description.substring(0, 47) + '...';
+
+            const totalQty = r.items.reduce((sum, i) => sum + i.quantity, 0);
+            const totalDelivered = r.items.reduce((sum, i) => sum + (i.deliveredQuantity || 0), 0);
+            qtyDisplay = totalDelivered > 0 ? `${totalDelivered} / ${totalQty}` : totalQty;
+        }
 
         tr.innerHTML = `
             <td>${date.toLocaleDateString()}</td>
             <td>${r.workOrderId || 'N/A'}</td>
-            <td>${r.description}</td>
+            <td>${description}</td>
             <td>${qtyDisplay}</td>
             <td class="${urgencyClass}">${r.urgency}</td>
             <td>${r.requester}</td>
@@ -4330,6 +4436,35 @@ window.updatePartRequestStatus = async function(fbId, newStatus) {
     const request = state.partRequests.find(r => r.fb_id === fbId);
     if (!request) return;
 
+    if (newStatus === 'Rechazado') {
+        const reason = prompt('Por favor, ingrese el motivo del rechazo:');
+        if (!reason) return;
+
+        showLoading(true);
+        try {
+            const docRef = doc(state.collections.partRequests, fbId);
+            const updates = {
+                status: 'Rechazado',
+                rejectedBy: state.currentUser?.username,
+                rejectionReason: reason,
+                processedDate: new Date().toISOString()
+            };
+            if (request.items) {
+                updates.items = request.items.map(item => ({ ...item, status: 'Rechazado' }));
+            }
+            await updateDoc(docRef, updates);
+            await updateRTDBMirror('partRequests', { ...request, ...updates }, fbId);
+            showToast('Solicitud rechazada.', 'info');
+            return;
+        } catch (e) {
+            console.error(e);
+            showToast('Error al rechazar.', 'error');
+            return;
+        } finally {
+            showLoading(false);
+        }
+    }
+
     showLoading(true);
     try {
         const docRef = doc(state.collections.partRequests, fbId);
@@ -4339,7 +4474,23 @@ window.updatePartRequestStatus = async function(fbId, newStatus) {
             processedBy: state.currentUser?.username,
             processedDate: new Date().toISOString()
         };
+
+        if (newStatus === 'Aprobado') {
+            updates.approvedBy = state.currentUser?.username;
+            updates.approvedSignature = state.currentUser?.signature || null;
+            if (request.items) {
+                updates.items = request.items.map(item => ({ ...item, status: 'Aprobado' }));
+            }
+        }
+
+        if (newStatus === 'En Despacho') {
+            if (request.items) {
+                updates.items = request.items.map(item => ({ ...item, status: 'En Despacho' }));
+            }
+        }
+
         await updateDoc(docRef, updates);
+        await updateRTDBMirror('partRequests', { ...request, ...updates }, fbId);
         const detailedAction = updates.status ? `Solicitud Repuesto: ${updates.status}` : 'Actualización Solicitud Repuesto';
         await recordAuditLog('partRequests', request.workOrderId || fbId, 'UPDATE', oldRequest, { ...request, ...updates }, detailedAction);
 
@@ -4348,7 +4499,7 @@ window.updatePartRequestStatus = async function(fbId, newStatus) {
         }
 
         let displayStatus = newStatus;
-        if (newStatus === 'Pedido') displayStatus = 'Aprobada';
+        if (newStatus === 'Pedido' || newStatus === 'Aprobado') displayStatus = 'Aprobada';
         if (newStatus === 'Recibido') displayStatus = 'Entregada';
         showToast(`Solicitud marcada como ${displayStatus}.`, 'success');
     } catch (error) {
@@ -4359,39 +4510,86 @@ window.updatePartRequestStatus = async function(fbId, newStatus) {
     }
 };
 
-async function handlePartRequestReceived(request) {
-    let part = state.parts.find(p => p.description.toLowerCase() === request.description.toLowerCase());
+window.showConfirmReceiptModal = function(fbId) {
+    document.getElementById('receipt-request-id').value = fbId;
+    document.getElementById('receipt-password').value = '';
+    state.modals.confirmReceipt.show();
+};
 
-    if (part) {
-        const partRef = doc(state.collections.parts, part.id);
-        const newStock = (part.stock || 0) + request.quantity;
-        await updateDoc(partRef, { stock: newStock });
-        await recordPartMovement(part.id, request.quantity, 'Entrada Solicitud', { details: `Solicitud OT: ${request.workOrderId}` });
+async function handleConfirmReceiptSubmit() {
+    const fbId = document.getElementById('receipt-request-id').value;
+    const password = document.getElementById('receipt-password').value;
 
-        if (state.odoo) {
-            syncPartStockToOdoo(part.id, { ...part, stock: newStock }).catch(err =>
-                console.warn("[Odoo Sync] Error actualizando stock desde solicitud:", err)
-            );
-        }
+    if (!password) {
+        showToast('Ingrese su contraseña para firmar.', 'warning');
+        return;
+    }
+
+    const request = state.partRequests.find(r => r.fb_id === fbId);
+    if (!request) return;
+
+    const hashedPassword = await hashPassword(password);
+    let isValid = false;
+    if (state.currentUser.passwordIsHashed) {
+        isValid = state.currentUser.password === hashedPassword;
     } else {
-        const newId = 'REQ-' + Math.random().toString(36).substr(2, 5).toUpperCase();
-        const newPart = {
-            id: newId,
-            description: request.description,
-            classification: 'repuesto',
-            stock: request.quantity,
-            minStock: 1,
-            cost: 0,
-            machineIds: request.machineId ? [request.machineId] : [],
-            location: 'Recibido por Solicitud'
-        };
-        await setDoc(doc(state.collections.parts, newId), newPart);
-        await recordPartMovement(newId, request.quantity, 'Entrada Solicitud (Nuevo)', { details: `Solicitud OT: ${request.workOrderId}` });
+        isValid = state.currentUser.password === password;
+    }
 
-        if (state.odoo) {
-            syncPartStockToOdoo(newId, newPart).catch(err =>
-                console.warn("[Odoo Sync] Error sincronizando nuevo repuesto desde solicitud:", err)
-            );
+    if (!isValid) {
+        showToast('Contraseña incorrecta.', 'error');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const docRef = doc(state.collections.partRequests, fbId);
+        const updates = {
+            status: 'Recibido',
+            receivedBy: state.currentUser?.username,
+            receivedSignature: state.currentUser?.signature || null,
+            receivedDate: new Date().toISOString()
+        };
+
+        if (request.items) {
+            updates.items = request.items.map(item => ({ ...item, status: 'Recibido' }));
+        }
+
+        await updateDoc(docRef, updates);
+        await updateRTDBMirror('partRequests', { ...request, ...updates }, fbId);
+        await handlePartRequestReceived({ ...request, ...updates });
+
+        state.modals.confirmReceipt.hide();
+        showToast('Recepción confirmada y firmada.', 'success');
+    } catch (e) {
+        console.error(e);
+        showToast('Error al confirmar recepción.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function handlePartRequestReceived(request) {
+    const itemsToProcess = request.items || [{
+        description: request.description,
+        quantity: request.quantity
+    }];
+
+    for (const item of itemsToProcess) {
+        let part = state.parts.find(p => p.description.toLowerCase() === item.description.toLowerCase());
+        if (part) {
+            const partRef = doc(state.collections.parts, part.id);
+            const newStock = (part.stockActual || 0) + item.quantity;
+            await updateDoc(partRef, { stockActual: newStock });
+            await recordPartMovement(part.id, item.quantity, 'Entrada Solicitud', {
+                details: `Solicitud OT: ${request.workOrderId}`,
+                orderId: request.workOrderFbId,
+                orderHumanId: request.workOrderId
+            });
+
+            await updateRTDBMirror('parts', { ...part, stockActual: newStock }, part.fb_id);
+        } else {
+            console.log("Part not found in inventory for receipt recording:", item.description);
         }
     }
 }
@@ -10681,6 +10879,10 @@ async function generateMaterialOutPDF(data) {
     let finalY = doc.autoTable.previous.finalY + 30;
 
     // Signatures
+    const deliverer = state.technicians.find(t => t.username === data.deliveryUser);
+    if (deliverer && deliverer.signature) {
+        try { doc.addImage(deliverer.signature, 'PNG', margin, finalY - 30, 50, 25); } catch(e){}
+    }
     doc.line(margin, finalY, margin + 60, finalY);
     doc.text('Firma Entrega (Almacén)', margin, finalY + 5);
     doc.setFontSize(8);
@@ -10712,6 +10914,110 @@ async function generateMaterialOutPDF(data) {
 
         doc.save(`Salida_Material_${data.fb_id.substring(0, 8)}.pdf`);
     }, 500);
+}
+
+async function generatePartRequestGroupPDF(fbId) {
+    const request = state.partRequests.find(r => r.fb_id === fbId);
+    if (!request) return;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const margin = 20;
+    const logoBase64 = typeof GLOBAL_LOGO !== 'undefined' ? GLOBAL_LOGO : "";
+
+    // Header
+    if (logoBase64) {
+        try { doc.addImage(logoBase64, 'PNG', margin, 10, 50, 15); } catch(e){}
+    }
+
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text('REPORTE DE SOLICITUD DE REPUESTOS', 105, 35, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Solicitud N°: REQ-${request.fb_id.substring(0, 8).toUpperCase()}`, 190, 15, { align: 'right' });
+    doc.text(`Fecha: ${new Date(request.date).toLocaleString()}`, 190, 20, { align: 'right' });
+
+    // General Data
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, 45, 170, 35, 'F');
+
+    doc.setFont(undefined, 'bold');
+    doc.text('INFORMACIÓN DE LA SOLICITUD', margin + 5, 52);
+    doc.setFont(undefined, 'normal');
+
+    const machine = state.machines.find(m => m.id === request.machineId);
+    const area = machine ? machine.location : 'N/A';
+
+    doc.text(`Área: ${area}`, margin + 5, 60);
+    doc.text(`Solicitante: ${request.requester}`, margin + 5, 67);
+    doc.text(`Equipo: ${request.machineId || 'N/A'} - ${machine ? machine.name : ''}`, margin + 5, 74);
+
+    doc.text(`OT Relacionada: ${request.workOrderId || 'N/A'}`, 110, 60);
+    doc.text(`Estado Global: ${request.status}`, 110, 67);
+    doc.text(`Urgencia: ${request.urgency}`, 110, 74);
+
+    // Items Table
+    const items = request.items || [{
+        description: request.description,
+        quantity: request.quantity,
+        status: request.status,
+        deliveredQuantity: request.deliveredQuantity || 0
+    }];
+
+    const tableData = items.map(item => [
+        item.description,
+        item.quantity,
+        item.deliveredQuantity || 0,
+        item.status
+    ]);
+
+    doc.autoTable({
+        startY: 85,
+        head: [['Descripción', 'Cant. Solicitada', 'Cant. Entregada', 'Estado']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [44, 62, 80] },
+        margin: { left: margin, right: margin }
+    });
+
+    let finalY = doc.autoTable.previous.finalY + 40;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const sigWidth = 50;
+    const sigHeight = 25;
+
+    // Approver Signature (Area Head)
+    if (request.approvedSignature) {
+        try { doc.addImage(request.approvedSignature, 'PNG', margin, finalY - 30, sigWidth, sigHeight); } catch(e){}
+    }
+    doc.line(margin, finalY, margin + sigWidth, finalY);
+    doc.setFontSize(8);
+    doc.text('Aprobado por (Jefe Área)', margin, finalY + 5);
+    doc.text(request.approvedBy || 'N/A', margin, finalY + 10);
+
+    // Deliverer Signature (Warehouse)
+    // In this system, warehouse signature is usually per MaterialOut, but if this request is finished, we show the processedBy
+    doc.line(80, finalY, 80 + sigWidth, finalY);
+    doc.text('Despachado por (Almacén)', 80, finalY + 5);
+    doc.text(request.processedBy || 'N/A', 80, finalY + 10);
+
+    // Receiver Signature (Operator)
+    if (request.receivedSignature) {
+        try { doc.addImage(request.receivedSignature, 'PNG', 140, finalY - 30, sigWidth, sigHeight); } catch(e){}
+    }
+    doc.line(140, finalY, 140 + sigWidth, finalY);
+    doc.text('Recibido por (Operario)', 140, finalY + 5);
+    doc.text(request.receivedBy || 'N/A', 140, finalY + 10);
+
+    if (request.status === 'Rechazado') {
+        doc.setTextColor(200, 0, 0);
+        doc.setFontSize(12);
+        doc.text(`MOTIVO DE RECHAZO: ${request.rejectionReason || 'No especificado'}`, margin, finalY + 25);
+        doc.text(`Denegado por: ${request.rejectedBy || 'N/A'}`, margin, finalY + 32);
+    }
+
+    doc.save(`Solicitud_${request.workOrderId || request.fb_id.substring(0, 8)}.pdf`);
 }
 
 function generateGlobalReport() {
@@ -14902,28 +15208,62 @@ function showDeliveryModal(fbId) {
     if (!request) return;
 
     document.getElementById('delivery-request-fb-id').value = fbId;
-    document.getElementById('delivery-material-desc').value = request.description;
-
-    const delivered = request.deliveredQuantity || 0;
-    const pending = request.quantity - delivered;
-
-    document.getElementById('delivery-pending-qty').value = pending;
-    document.getElementById('delivery-quantity').value = pending;
     document.getElementById('delivery-notes').value = '';
+
+    const itemSelect = document.getElementById('delivery-item-index');
+    const singleInfo = document.getElementById('single-item-delivery-info');
+    const multiInfo = document.getElementById('delivery-items-selection');
+
+    if (request.items && Array.isArray(request.items)) {
+        multiInfo.style.display = 'block';
+        singleInfo.style.display = 'none';
+
+        let html = '';
+        request.items.forEach((item, index) => {
+            const pending = item.quantity - (item.deliveredQuantity || 0);
+            if (pending > 0) {
+                html += `<option value="${index}">${item.description} (Pte: ${pending})</option>`;
+            }
+        });
+        itemSelect.innerHTML = html;
+        handleDeliveryItemChange();
+    } else {
+        multiInfo.style.display = 'none';
+        singleInfo.style.display = 'block';
+        document.getElementById('delivery-material-desc').value = request.description;
+        const pending = request.quantity - (request.deliveredQuantity || 0);
+        document.getElementById('delivery-pending-qty').value = pending;
+        document.getElementById('delivery-quantity').value = pending;
+    }
 
     // Poblado de repuestos
     const select = document.getElementById('delivery-part-id');
-    let html = '<option value="">Seleccione un repuesto...</option>';
+    let partHtml = '<option value="">Seleccione un repuesto...</option>';
     state.parts.forEach(p => {
-        html += `<option value="${p.id}">${p.id} - ${p.description} (Stock: ${p.stock})</option>`;
+        partHtml += `<option value="${p.id}">${p.id} - ${p.description} (Stock: ${p.stockActual || 0})</option>`;
     });
-    select.innerHTML = html;
-
-    // Intentar pre-seleccionar si hay coincidencia de ID o descripción
-    const bestMatch = state.parts.find(p => p.id === request.description || p.description.toLowerCase().includes(request.description.toLowerCase()));
-    if (bestMatch) select.value = bestMatch.id;
+    select.innerHTML = partHtml;
 
     state.modals.materialDelivery.show();
+}
+
+function handleDeliveryItemChange() {
+    const fbId = document.getElementById('delivery-request-fb-id').value;
+    const request = state.partRequests.find(r => r.fb_id === fbId);
+    if (!request || !request.items) return;
+
+    const index = parseInt(document.getElementById('delivery-item-index').value);
+    const item = request.items[index];
+    if (!item) return;
+
+    const pending = item.quantity - (item.deliveredQuantity || 0);
+    document.getElementById('delivery-pending-qty').value = pending;
+    document.getElementById('delivery-quantity').value = pending;
+
+    // Intentar pre-seleccionar repuesto
+    const select = document.getElementById('delivery-part-id');
+    const bestMatch = state.parts.find(p => p.id === item.description || p.description.toLowerCase().includes(item.description.toLowerCase()));
+    if (bestMatch) select.value = bestMatch.id;
 }
 
 async function handleMaterialDeliverySubmit(e) {
@@ -14936,8 +15276,19 @@ async function handleMaterialDeliverySubmit(e) {
     const partId = document.getElementById('delivery-part-id').value;
     const notes = document.getElementById('delivery-notes').value;
 
-    const deliveredSoFar = request.deliveredQuantity || 0;
-    const pending = request.quantity - deliveredSoFar;
+    let pending = 0;
+    let deliveredSoFar = 0;
+    let itemIndex = -1;
+
+    if (request.items) {
+        itemIndex = parseInt(document.getElementById('delivery-item-index').value);
+        const item = request.items[itemIndex];
+        deliveredSoFar = item.deliveredQuantity || 0;
+        pending = item.quantity - deliveredSoFar;
+    } else {
+        deliveredSoFar = request.deliveredQuantity || 0;
+        pending = request.quantity - deliveredSoFar;
+    }
 
     if (deliveryQty > pending) {
         showToast(`No puede entregar más de la cantidad pendiente (${pending}).`, 'error');
@@ -14945,7 +15296,7 @@ async function handleMaterialDeliverySubmit(e) {
     }
 
     const part = state.parts.find(p => p.id === partId);
-    if (!part || part.stock < deliveryQty) {
+    if (!part || (part.stockActual || 0) < deliveryQty) {
         showToast('Stock insuficiente para realizar la entrega.', 'error');
         return;
     }
@@ -14981,7 +15332,7 @@ async function handleMaterialDeliverySubmit(e) {
             // 2. Descontar Stock y Registrar Kardex
             const partRef = doc(state.collections.parts, part.fb_id);
             batch.update(partRef, {
-                stock: part.stock - deliveryQty,
+                stockActual: (part.stockActual || 0) - deliveryQty,
                 lastModified: now
             });
 
@@ -14997,25 +15348,41 @@ async function handleMaterialDeliverySubmit(e) {
             });
 
             // 3. Actualizar Solicitud de Material
-            const newDeliveredQty = deliveredSoFar + deliveryQty;
-            const newStatus = (newDeliveredQty >= request.quantity) ? 'Entregado' : 'En Despacho';
-
             const requestRef = doc(state.collections.partRequests, fbId);
-            batch.update(requestRef, {
-                deliveredQuantity: newDeliveredQty,
-                status: newStatus,
-                lastModified: now
-            });
+            let updates = {
+                lastModified: now,
+                processedBy: state.currentUser.username
+            };
+
+            if (request.items) {
+                const newItems = [...request.items];
+                newItems[itemIndex].deliveredQuantity = (newItems[itemIndex].deliveredQuantity || 0) + deliveryQty;
+                if (newItems[itemIndex].deliveredQuantity >= newItems[itemIndex].quantity) {
+                    newItems[itemIndex].status = 'Entregado';
+                }
+                updates.items = newItems;
+
+                const allDelivered = newItems.every(i => i.status === 'Entregado' || i.status === 'Recibido');
+                updates.status = allDelivered ? 'Entregado' : 'En Despacho';
+            } else {
+                const newDeliveredQty = deliveredSoFar + deliveryQty;
+                updates.deliveredQuantity = newDeliveredQty;
+                updates.status = (newDeliveredQty >= request.quantity) ? 'Entregado' : 'En Despacho';
+            }
+
+            batch.update(requestRef, updates);
 
             await batch.commit();
+            await updateRTDBMirror('partRequests', { ...request, ...updates }, fbId);
+            await updateRTDBMirror('parts', { ...part, stockActual: (part.stockActual || 0) - deliveryQty }, part.fb_id);
 
             // Log Auditoría
-            await recordAuditLog('partRequests', fbId, 'UPDATE', request, { ...request, status: newStatus, deliveredQuantity: newDeliveredQty }, `ENTREGA DE MATERIAL (${deliveryQty})`);
+            await recordAuditLog('materialOut', materialOutRef.id, 'CREATE', null, materialOutData, 'Nueva Salida de Material');
 
-            showToast('Entrega registrada correctamente.', 'success');
             state.modals.materialDelivery.hide();
+            showToast('Entrega realizada con éxito.', 'success');
 
-            // Generar PDF Automáticamente
+            // 4. Generar PDF Automático
             generateMaterialOutPDF(materialOutData);
 
         } catch (error) {
