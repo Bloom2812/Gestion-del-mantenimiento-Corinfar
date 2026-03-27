@@ -2024,9 +2024,6 @@ async function switchTab(tabName) {
     if (tabName === 'repuestos') renderParts();
     if (tabName === 'monitoreo-inteligente') renderSmartMonitoring();
     if (tabName === 'solicitudes-repuestos') renderPartRequests();
-}
-
-window.renderPartRequests = renderPartRequests;
     if (tabName === 'inventario-dashboard') updateInventoryDashboard();
     if (tabName === 'trabajo-activo') {
         const monthFilter = document.getElementById('kanban-month-filter');
@@ -15648,3 +15645,6 @@ async function handleDecommissionSubmit(e) {
         showLoading(false);
     }
 }
+window.renderPartRequests = renderPartRequests;
+window.generatePartRequestGroupPDF = generatePartRequestGroupPDF;
+window.showConfirmReceiptModal = showConfirmReceiptModal;
