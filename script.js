@@ -78,12 +78,14 @@ const state = {
         auditLogs: collection(db, `/artifacts/${appId}/public/data/auditLogs`),
         monitoringConfigs: collection(db, `/artifacts/${appId}/public/data/monitoringConfigs`),
         equipmentStatusHistory: collection(db, `/artifacts/${appId}/public/data/equipmentStatusHistory`),
+        materialOut: collection(db, `/artifacts/${appId}/public/data/materialOut`),
     },
     monitoringConfigs: [],
     currentMonitoringConfig: null,
     activeMonitoringVar: null,
     partMovements: [],
     partRequests: [],
+    materialOut: [],
         auditLogs: [],
     equipmentStatusHistory: [],
     rtdbMonitoring: {},
@@ -662,6 +664,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.modals.invitationLink = new bootstrap.Modal(document.getElementById('invitation-link-modal'));
     state.modals.pauseStatus = new bootstrap.Modal(document.getElementById('pause-status-modal'));
     state.modals.decommission = new bootstrap.Modal(document.getElementById('decommission-modal'));
+    state.modals.stockAdjustment = new bootstrap.Modal(document.getElementById('stock-adjustment-modal'));
+    state.modals.materialDelivery = new bootstrap.Modal(document.getElementById('material-delivery-modal'));
     
     setupEventListeners();
 
@@ -840,6 +844,7 @@ function setupRealtimeListeners() {
     
     const debouncedPartsUpdate = debounce((requiresCostUpdate) => {
         renderParts();
+        if (state.currentTab === 'inventario-dashboard') updateInventoryDashboard();
         if (requiresCostUpdate) updateDashboardData();
     }, 300);
 
@@ -1034,6 +1039,21 @@ function setupRealtimeListeners() {
             else if (change.type === "modified") { if (index > -1) state.equipmentStatusHistory[index] = data; }
             else if (change.type === "removed") { if (index > -1) state.equipmentStatusHistory.splice(index, 1); }
         });
+    });
+
+    // Listener for MaterialOut
+    onSnapshot(query(state.collections.materialOut), snapshot => {
+        let changed = false;
+        snapshot.docChanges().forEach(change => {
+            changed = true;
+            const data = { fb_id: change.doc.id, ...change.doc.data() };
+            const index = state.materialOut?.findIndex(m => m.fb_id === change.doc.id);
+            if (!state.materialOut) state.materialOut = [];
+            if (change.type === "added") { if (index === -1) state.materialOut.push(data); }
+            else if (change.type === "modified") { if (index > -1) state.materialOut[index] = data; }
+            else if (change.type === "removed") { if (index > -1) state.materialOut.splice(index, 1); }
+        });
+        if (changed && state.currentTab === 'inventario-dashboard') updateInventoryDashboard();
     });
 
     if (state.currentUser) {
@@ -1234,6 +1254,9 @@ function setupEventListeners() {
     const historyPartsMobile = document.getElementById('btn-part-history-mobile');
     if (historyPartsMobile) historyPartsMobile.addEventListener('click', () => showPartHistoryModal(null));
     document.getElementById('part-form').addEventListener('submit', handlePartSubmit);
+    document.getElementById('btn-adjust-stock').addEventListener('click', showStockAdjustmentModal);
+    document.getElementById('stock-adjustment-form').addEventListener('submit', handleStockAdjustmentSubmit);
+    document.getElementById('material-delivery-form').addEventListener('submit', handleMaterialDeliverySubmit);
 
     document.getElementById('add-part-doc-btn').addEventListener('click', () => {
         document.getElementById('part-doc-file').click();
@@ -1884,10 +1907,13 @@ function applyUserPermissions() {
 
     switch (role) {
         case 'Admin':
-            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'equipos-baja', 'repuestos', 'proveedores', 'tecnicos', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'auditoria', 'solicitudes', 'evaluation-criteria', 'solicitudes-repuestos', 'configuracion'];
+            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'equipos-baja', 'repuestos', 'proveedores', 'tecnicos', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'auditoria', 'solicitudes', 'evaluation-criteria', 'solicitudes-repuestos', 'inventario-dashboard', 'configuracion'];
             break;
         case 'Planificador':
-            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'equipos-baja', 'repuestos', 'proveedores', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'solicitudes', 'ordenes-asignadas', 'solicitudes-repuestos'];
+            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'equipos-baja', 'repuestos', 'proveedores', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'solicitudes', 'ordenes-asignadas', 'solicitudes-repuestos', 'inventario-dashboard'];
+            break;
+        case 'Almacén':
+            visibleTabs = ['monitoreo-inteligente', 'repuestos', 'proveedores', 'solicitudes-repuestos', 'inventario-dashboard', 'reportes'];
             break;
         case 'Jefe de Area':
             visibleTabs = ['monitoreo-inteligente', ...(permissions || [])];
@@ -1988,6 +2014,7 @@ async function switchTab(tabName) {
     if (tabName === 'repuestos') renderParts();
     if (tabName === 'monitoreo-inteligente') renderSmartMonitoring();
     if (tabName === 'solicitudes-repuestos') renderPartRequests();
+    if (tabName === 'inventario-dashboard') updateInventoryDashboard();
     if (tabName === 'trabajo-activo') {
         const monthFilter = document.getElementById('kanban-month-filter');
         if (monthFilter && !monthFilter.value) {
@@ -2355,7 +2382,7 @@ function initCharts() {
 function createPartRowHTML(part, status) {
     let actionsHTML = '';
     const userRole = state.currentUser?.role;
-    if(userRole === 'Admin' || userRole === 'Planificador') {
+    if(userRole === 'Admin' || userRole === 'Planificador' || userRole === 'Almacén') {
         actionsHTML = `
             <div class="btn-group btn-group-sm">
                 <button class="btn btn-outline-info view-part-detail" data-id="${part.id}" title="Ver Detalle">
@@ -2398,7 +2425,8 @@ function createPartRowHTML(part, status) {
         mecanico: { label: 'Mecánico', class: 'bg-secondary' },
         electrico: { label: 'Eléctrico', class: 'bg-warning text-dark' },
         neumatico: { label: 'Neumático', class: 'bg-primary text-white' },
-        repuesto: { label: 'Repuesto', class: 'bg-secondary' }
+        repuesto: { label: 'Repuesto', class: 'bg-secondary' },
+        critico: { label: 'Crítico', class: 'bg-danger text-white' }
     };
     const classInfo = classificationMap[part.classification] || classificationMap['repuesto'];
     const classificationBadge = classInfo.class;
@@ -3256,6 +3284,21 @@ function renderPartDetailHTML(part, movements) {
                         </div>
                         <h2 class="h3 fw-bold mb-2">${part.description}</h2>
                         <p class="text-muted small mb-4">${part.location ? `Ubicado en ${part.location}. ` : ''}Clasificado como ${classInfo.label}.</p>
+
+                        <div class="d-flex gap-3 mb-4">
+                            <div class="p-2 border rounded bg-light text-center" style="min-width: 80px;">
+                                <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.6rem;">Stock Mín</small>
+                                <span class="fw-bold">${part.minStock || 0}</span>
+                            </div>
+                            <div class="p-2 border rounded bg-light text-center" style="min-width: 80px;">
+                                <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.6rem;">Stock Máx</small>
+                                <span class="fw-bold">${part.maxStock || 0}</span>
+                            </div>
+                            <div class="p-2 border rounded bg-light text-center" style="min-width: 80px;">
+                                <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.6rem;">Pto Reorden</small>
+                                <span class="fw-bold text-primary">${part.reorderPoint || 0}</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Stock Badge -->
@@ -3265,7 +3308,7 @@ function renderPartDetailHTML(part, movements) {
                         </div>
                         <div>
                             <p class="text-uppercase fw-bold text-primary-custom mb-0" style="font-size: 0.65rem; letter-spacing: 0.1em;">Stock Disponible</p>
-                            <p class="h2 fw-bold mb-0">${part.stock} <span class="h5 fw-medium opacity-50 mb-0">unidades</span></p>
+                            <p class="h2 fw-bold mb-0">${part.stock} <span class="h5 fw-medium opacity-50 mb-0">${part.uom || 'unidades'}</span></p>
                         </div>
                     </div>
                 </div>
@@ -3273,7 +3316,7 @@ function renderPartDetailHTML(part, movements) {
 
             <!-- Info Grid -->
             <section class="row g-3 mb-4">
-                <div class="col-sm-4">
+                <div class="col-sm-3">
                     <div class="bg-white p-3 rounded-3 border d-flex gap-3 h-100 shadow-sm">
                         <i class="fas fa-store text-primary-custom mt-1"></i>
                         <div>
@@ -3282,7 +3325,7 @@ function renderPartDetailHTML(part, movements) {
                         </div>
                     </div>
                 </div>
-                <div class="col-sm-4">
+                <div class="col-sm-3">
                     <div class="bg-white p-3 rounded-3 border d-flex gap-3 h-100 shadow-sm">
                         <i class="fas fa-location-dot text-primary-custom mt-1"></i>
                         <div>
@@ -3291,12 +3334,21 @@ function renderPartDetailHTML(part, movements) {
                         </div>
                     </div>
                 </div>
-                <div class="col-sm-4">
+                <div class="col-sm-3">
                     <div class="bg-white p-3 rounded-3 border d-flex gap-3 h-100 shadow-sm">
                         <i class="fas fa-tag text-primary-custom mt-1"></i>
                         <div>
-                            <p class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.65rem;">Clasificación</p>
-                            <p class="fw-bold mb-0 small">${classInfo.label}</p>
+                            <p class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.65rem;">Categoría ABC</p>
+                            <p class="fw-bold mb-0 small">Clase ${part.abc || 'C'}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="bg-white p-3 rounded-3 border d-flex gap-3 h-100 shadow-sm">
+                        <i class="fas fa-ruler-combined text-primary-custom mt-1"></i>
+                        <div>
+                            <p class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.65rem;">U. Medida</p>
+                            <p class="fw-bold mb-0 small">${part.uom || 'Unidades'}</p>
                         </div>
                     </div>
                 </div>
@@ -4222,11 +4274,15 @@ function renderPartRequests() {
         if (r.status === 'Pendiente') {
             statusLabel = 'Solicitado';
         }
-        if (r.status === 'Pedido') {
-            statusClass = 'bg-warning text-dark';
+        if (r.status === 'Pedido' || r.status === 'Aprobado') {
+            statusClass = 'bg-info text-white';
             statusLabel = 'Aprobado';
         }
-        if (r.status === 'Recibido') {
+        if (r.status === 'En Despacho') {
+            statusClass = 'bg-warning text-dark';
+            statusLabel = 'En Despacho';
+        }
+        if (r.status === 'Recibido' || r.status === 'Entregado') {
             statusClass = 'bg-success';
             statusLabel = 'Entregado';
         }
@@ -4241,23 +4297,26 @@ function renderPartRequests() {
 
         let actions = '';
         const userRole = state.currentUser?.role;
-        const canManage = ['Admin', 'Planificador'].includes(userRole);
+        const isApprover = ['Admin', 'Planificador', 'Jefe de Area'].includes(userRole);
+        const isWarehouse = ['Admin', 'Planificador', 'Almacén'].includes(userRole);
 
-        if (canManage && r.status !== 'Recibido' && r.status !== 'Rechazado') {
-            if (r.status === 'Pendiente') {
-                actions += `<button class="btn btn-xs btn-outline-warning me-1" onclick="updatePartRequestStatus('${r.fb_id}', 'Pedido')">Aprobar</button>`;
-            }
-            if (r.status === 'Pedido' || r.status === 'Pendiente') {
-                actions += `<button class="btn btn-xs btn-outline-success me-1" onclick="updatePartRequestStatus('${r.fb_id}', 'Recibido')">Entregar</button>`;
-            }
-            actions += `<button class="btn btn-xs btn-outline-danger" onclick="updatePartRequestStatus('${r.fb_id}', 'Rechazado')">Rechazar</button>`;
+        if (r.status === 'Pendiente' && isApprover) {
+            actions += `<button class="btn btn-xs btn-outline-info me-1" onclick="updatePartRequestStatus('${r.fb_id}', 'Aprobado')"><i class="fas fa-check me-1"></i>Aprobar</button>`;
+            actions += `<button class="btn btn-xs btn-outline-danger me-1" onclick="updatePartRequestStatus('${r.fb_id}', 'Rechazado')"><i class="fas fa-times me-1"></i>Rechazar</button>`;
+        } else if (r.status === 'Aprobado' && isWarehouse) {
+            actions += `<button class="btn btn-xs btn-outline-warning me-1" onclick="updatePartRequestStatus('${r.fb_id}', 'En Despacho')"><i class="fas fa-truck me-1"></i>Despachar</button>`;
+        } else if (r.status === 'En Despacho' && isWarehouse) {
+            actions += `<button class="btn btn-xs btn-success me-1" onclick="showDeliveryModal('${r.fb_id}')"><i class="fas fa-box-open me-1"></i>Entregar</button>`;
         }
+
+        const delivered = r.deliveredQuantity || 0;
+        const qtyDisplay = delivered > 0 ? `${delivered} / ${r.quantity}` : r.quantity;
 
         tr.innerHTML = `
             <td>${date.toLocaleDateString()}</td>
             <td>${r.workOrderId || 'N/A'}</td>
             <td>${r.description}</td>
-            <td>${r.quantity}</td>
+            <td>${qtyDisplay}</td>
             <td class="${urgencyClass}">${r.urgency}</td>
             <td>${r.requester}</td>
             <td><span class="badge ${statusClass}">${statusLabel}</span></td>
@@ -4454,6 +4513,8 @@ function showPartModal(partId = null) {
     
     if (partId) {
         document.getElementById('part-modal-title').textContent = 'Editar Repuesto';
+        document.getElementById('part-stock').setAttribute('readonly', true);
+        document.getElementById('btn-adjust-stock').classList.remove('d-none');
         const part = state.parts.find(p => p.id === partId);
         if (part) {
             document.getElementById('part-id-hidden').value = part.id;
@@ -4471,7 +4532,11 @@ function showPartModal(partId = null) {
             document.getElementById('part-cost').value = part.cost;
             document.getElementById('part-stock').value = part.stock;
             document.getElementById('part-criticidad').value = part.criticality || 'Bajo';
-            document.getElementById('part-minStock').value = part.minStock;
+            document.getElementById('part-minStock').value = part.minStock || 0;
+            document.getElementById('part-maxStock').value = part.maxStock || 0;
+            document.getElementById('part-reorderPoint').value = part.reorderPoint || 0;
+            document.getElementById('part-uom').value = part.uom || 'Unidades';
+            document.getElementById('part-abc').value = part.abc || 'C';
             document.getElementById('part-location').value = part.location || '';
 
             document.getElementById('part-image-url').value = part.imageUrl || '';
@@ -4490,6 +4555,8 @@ function showPartModal(partId = null) {
         document.getElementById('part-modal-title').textContent = 'Añadir Repuesto';
         document.getElementById('part-id-hidden').value = '';
         idInput.removeAttribute('readonly');
+        document.getElementById('part-stock').removeAttribute('readonly');
+        document.getElementById('btn-adjust-stock').classList.add('d-none');
         document.getElementById('part-classification').value = 'insumo';
     }
     state.modals.part.show();
@@ -4542,6 +4609,10 @@ async function handlePartSubmit(e) {
             stock: parseInt(document.getElementById('part-stock').value) || 0,
             criticality: document.getElementById('part-criticidad').value,
             minStock: parseInt(document.getElementById('part-minStock').value) || 0,
+            maxStock: parseInt(document.getElementById('part-maxStock').value) || 0,
+            reorderPoint: parseInt(document.getElementById('part-reorderPoint').value) || 0,
+            uom: document.getElementById('part-uom').value,
+            abc: document.getElementById('part-abc').value,
             location: document.getElementById('part-location').value,
             imageUrl: imageUrl,
             technicalDocs: updatedDocs
@@ -4585,17 +4656,7 @@ async function handlePartSubmit(e) {
 }
 
 function deletePart(partId) {
-    showConfirmation('Eliminar Repuesto', `¿Está seguro de que desea eliminar el repuesto ${partId}?`, async () => {
-        try { 
-            const existingPart = state.parts.find(p => p.fb_id === partId);
-            await deleteDoc(doc(state.collections.parts, partId)); 
-            await recordAuditLog('parts', partId, 'DELETE', existingPart, null, 'Eliminación Repuesto');
-            showToast('Repuesto eliminado correctamente', 'success');
-        } catch (error) { 
-            console.error("Error deleting part: ", error);
-            showToast('Error al eliminar el repuesto', 'error');
-        }
-    });
+    showToast('La eliminación de registros no está permitida por políticas de trazabilidad (ISO 55000 / 21 CFR Part 11).', 'warning');
 }
 
 // --- CRUD Proveedor Functions ---
@@ -10562,6 +10623,97 @@ async function generateSingleWorkOrderReport(explicitWoId = null) {
     }, 500);
 }
 
+async function generateMaterialOutPDF(data) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const margin = 20;
+    const logoBase64 = typeof GLOBAL_LOGO !== 'undefined' ? GLOBAL_LOGO : "";
+
+    // Header
+    if (logoBase64) {
+        try { doc.addImage(logoBase64, 'PNG', margin, 10, 50, 15); } catch(e){}
+    }
+
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text('REGISTRO DE SALIDA DE MATERIAL', 105, 35, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Documento N°: OUT-${data.fb_id.substring(0, 8).toUpperCase()}`, 190, 15, { align: 'right' });
+    doc.text(`Fecha: ${new Date(data.date).toLocaleString()}`, 190, 20, { align: 'right' });
+
+    // General Data
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, 45, 170, 35, 'F');
+
+    doc.setFont(undefined, 'bold');
+    doc.text('DATOS GENERALES', margin + 5, 52);
+    doc.setFont(undefined, 'normal');
+
+    const machine = state.machines.find(m => m.id === data.machineId);
+    const area = machine ? machine.location : 'N/A';
+
+    doc.text(`Área: ${area}`, margin + 5, 60);
+    doc.text(`Operario / Recibe: ${data.recipientUser}`, margin + 5, 67);
+    doc.text(`Equipo / Máquina: ${data.machineId || 'N/A'} - ${machine ? machine.name : ''}`, margin + 5, 74);
+
+    doc.text(`OT Relacionada: ${data.workOrderId || 'N/A'}`, 110, 60);
+    doc.text(`Despachado por: ${data.deliveryUser}`, 110, 67);
+    doc.text(`Motivo: ${data.notes || 'Entrega de material solicitado'}`, 110, 74);
+
+    // Table
+    const tableData = data.items.map(item => [
+        item.partId,
+        item.description,
+        item.quantity
+    ]);
+
+    doc.autoTable({
+        startY: 85,
+        head: [['Código', 'Descripción', 'Cantidad Entregada']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [44, 62, 80] },
+        margin: { left: margin, right: margin }
+    });
+
+    let finalY = doc.autoTable.previous.finalY + 30;
+
+    // Signatures
+    doc.line(margin, finalY, margin + 60, finalY);
+    doc.text('Firma Entrega (Almacén)', margin, finalY + 5);
+    doc.setFontSize(8);
+    doc.text(`Digitalmente por: ${data.deliveryUser}`, margin, finalY + 10);
+
+    doc.line(130, finalY, 130 + 60, finalY);
+    doc.setFontSize(10);
+    doc.text('Firma Recibe (Operario)', 130, finalY + 5);
+    doc.setFontSize(8);
+    doc.text(`Responsable: ${data.recipientUser}`, 130, finalY + 10);
+
+    // QR Code
+    const qrContainer = document.createElement('div');
+    const qr = new QRCode(qrContainer, {
+        text: `CORINFAR-OUT-${data.fb_id}`,
+        width: 100,
+        height: 100
+    });
+
+    // Wait a bit for QR to generate
+    setTimeout(() => {
+        const qrCanvas = qrContainer.querySelector('canvas');
+        if (qrCanvas) {
+            const qrDataUrl = qrCanvas.toDataURL('image/png');
+            doc.addImage(qrDataUrl, 'PNG', 160, 240, 30, 30);
+            doc.setFontSize(7);
+            doc.text('Validación Interna QR', 175, 272, { align: 'center' });
+        }
+
+        doc.save(`Salida_Material_${data.fb_id.substring(0, 8)}.pdf`);
+    }, 500);
+}
+
 function generateGlobalReport() {
     const month = parseInt(document.getElementById('report-global-month').value);
     const year = parseInt(document.getElementById('report-global-year').value);
@@ -12478,6 +12630,11 @@ window.handleForgotPasswordRequest = handleForgotPasswordRequest;
 window.showDecommissionModal = showDecommissionModal;
 window.renderDecommissionedMachines = renderDecommissionedMachines;
 window.handleDecommissionSubmit = handleDecommissionSubmit;
+window.showStockAdjustmentModal = showStockAdjustmentModal;
+window.handleStockAdjustmentSubmit = handleStockAdjustmentSubmit;
+window.showDeliveryModal = showDeliveryModal;
+window.handleMaterialDeliverySubmit = handleMaterialDeliverySubmit;
+window.updateInventoryDashboard = updateInventoryDashboard;
 
 async function generateTokenLink(fbId, type, showModal = true) {
     const tech = state.technicians.find(t => t.fb_id === fbId);
@@ -14675,6 +14832,325 @@ async function renderPublicMachineReport(machineId) {
 }
 
 // --- Decommissioning Functions ---
+
+function showStockAdjustmentModal() {
+    const partId = document.getElementById('part-id').value;
+    if (!partId) return;
+    const part = state.parts.find(p => p.id === partId);
+    if (!part) return;
+
+    document.getElementById('adjustment-part-id').value = part.id;
+    document.getElementById('adjustment-current-stock').value = part.stock;
+    document.getElementById('adjustment-new-stock').value = part.stock;
+    document.getElementById('adjustment-reason').value = '';
+    document.getElementById('adjustment-notes').value = '';
+
+    state.modals.stockAdjustment.show();
+}
+
+async function handleStockAdjustmentSubmit(e) {
+    e.preventDefault();
+    const partId = document.getElementById('adjustment-part-id').value;
+    const newStock = parseInt(document.getElementById('adjustment-new-stock').value);
+    const reason = document.getElementById('adjustment-reason').value;
+    const notes = document.getElementById('adjustment-notes').value;
+
+    if (isNaN(newStock) || newStock < 0) {
+        showToast('El stock no puede ser negativo.', 'error');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const part = state.parts.find(p => p.id === partId);
+        const oldStock = part.stock;
+        const delta = newStock - oldStock;
+
+        if (delta === 0) {
+            state.modals.stockAdjustment.hide();
+            showLoading(false);
+            return;
+        }
+
+        const partRef = doc(state.collections.parts, partId);
+        await updateDoc(partRef, { stock: newStock, lastModified: new Date().toISOString() });
+
+        await recordPartMovement(partId, delta, 'AJUSTE', {
+            details: `${reason}: ${notes}`.trim(),
+            adjustmentReason: reason
+        });
+
+        await recordAuditLog('parts', partId, 'UPDATE', { stock: oldStock }, { stock: newStock }, `AJUSTE DE STOCK: ${reason}`);
+
+        showToast('Stock ajustado correctamente.', 'success');
+        state.modals.stockAdjustment.hide();
+
+        // Actualizar el input en el modal de repuesto si sigue abierto
+        const stockInput = document.getElementById('part-stock');
+        if (stockInput) stockInput.value = newStock;
+
+    } catch (error) {
+        console.error("Error adjusting stock:", error);
+        showToast('Error al ajustar el stock.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+function showDeliveryModal(fbId) {
+    const request = state.partRequests.find(r => r.fb_id === fbId);
+    if (!request) return;
+
+    document.getElementById('delivery-request-fb-id').value = fbId;
+    document.getElementById('delivery-material-desc').value = request.description;
+
+    const delivered = request.deliveredQuantity || 0;
+    const pending = request.quantity - delivered;
+
+    document.getElementById('delivery-pending-qty').value = pending;
+    document.getElementById('delivery-quantity').value = pending;
+    document.getElementById('delivery-notes').value = '';
+
+    // Poblado de repuestos
+    const select = document.getElementById('delivery-part-id');
+    let html = '<option value="">Seleccione un repuesto...</option>';
+    state.parts.forEach(p => {
+        html += `<option value="${p.id}">${p.id} - ${p.description} (Stock: ${p.stock})</option>`;
+    });
+    select.innerHTML = html;
+
+    // Intentar pre-seleccionar si hay coincidencia de ID o descripción
+    const bestMatch = state.parts.find(p => p.id === request.description || p.description.toLowerCase().includes(request.description.toLowerCase()));
+    if (bestMatch) select.value = bestMatch.id;
+
+    state.modals.materialDelivery.show();
+}
+
+async function handleMaterialDeliverySubmit(e) {
+    e.preventDefault();
+    const fbId = document.getElementById('delivery-request-fb-id').value;
+    const request = state.partRequests.find(r => r.fb_id === fbId);
+    if (!request) return;
+
+    const deliveryQty = parseInt(document.getElementById('delivery-quantity').value);
+    const partId = document.getElementById('delivery-part-id').value;
+    const notes = document.getElementById('delivery-notes').value;
+
+    const deliveredSoFar = request.deliveredQuantity || 0;
+    const pending = request.quantity - deliveredSoFar;
+
+    if (deliveryQty > pending) {
+        showToast(`No puede entregar más de la cantidad pendiente (${pending}).`, 'error');
+        return;
+    }
+
+    const part = state.parts.find(p => p.id === partId);
+    if (!part || part.stock < deliveryQty) {
+        showToast('Stock insuficiente para realizar la entrega.', 'error');
+        return;
+    }
+
+    // Paso de Firma Digital (Warehouse & Technician)
+    requestSignature(async () => {
+        showLoading(true);
+        try {
+            const batch = writeBatch(db);
+            const now = new Date().toISOString();
+
+            // 1. Crear Registro de Salida (MaterialOut)
+            const materialOutRef = doc(collection(db, `/artifacts/${appId}/public/data/materialOut`));
+            const materialOutData = {
+                fb_id: materialOutRef.id,
+                requestId: fbId,
+                workOrderId: request.workOrderId || null,
+                machineId: request.machineId || null,
+                date: now,
+                deliveryUser: state.currentUser.username,
+                recipientUser: request.requester,
+                notes: notes,
+                items: [
+                    {
+                        partId: partId,
+                        description: part.description,
+                        quantity: deliveryQty
+                    }
+                ]
+            };
+            batch.set(materialOutRef, materialOutData);
+
+            // 2. Descontar Stock y Registrar Kardex
+            const partRef = doc(state.collections.parts, part.fb_id);
+            batch.update(partRef, {
+                stock: part.stock - deliveryQty,
+                lastModified: now
+            });
+
+            const movementRef = doc(collection(db, `/artifacts/${appId}/public/data/partMovements`));
+            batch.set(movementRef, {
+                partId: partId,
+                quantity: -deliveryQty,
+                type: 'SALIDA_MATERIAL',
+                date: now,
+                user: state.currentUser.username,
+                orderHumanId: request.workOrderId || 'SOL-' + fbId.substring(0,5),
+                details: `Entrega material solicitud ${fbId}`
+            });
+
+            // 3. Actualizar Solicitud de Material
+            const newDeliveredQty = deliveredSoFar + deliveryQty;
+            const newStatus = (newDeliveredQty >= request.quantity) ? 'Entregado' : 'En Despacho';
+
+            const requestRef = doc(state.collections.partRequests, fbId);
+            batch.update(requestRef, {
+                deliveredQuantity: newDeliveredQty,
+                status: newStatus,
+                lastModified: now
+            });
+
+            await batch.commit();
+
+            // Log Auditoría
+            await recordAuditLog('partRequests', fbId, 'UPDATE', request, { ...request, status: newStatus, deliveredQuantity: newDeliveredQty }, `ENTREGA DE MATERIAL (${deliveryQty})`);
+
+            showToast('Entrega registrada correctamente.', 'success');
+            state.modals.materialDelivery.hide();
+
+            // Generar PDF Automáticamente
+            generateMaterialOutPDF(materialOutData);
+
+        } catch (error) {
+            console.error("Error confirming delivery:", error);
+            showToast('Error al registrar la entrega.', 'error');
+        } finally {
+            showLoading(false);
+        }
+    }, () => {
+        showToast('Entrega cancelada: se requiere firma (contraseña) para confirmar.', 'info');
+    });
+}
+
+function updateInventoryDashboard() {
+    if (state.currentTab !== 'inventario-dashboard' && initialLoadComplete) return;
+
+    // 1. Calcular Estadísticas Básicas
+    const totalValue = state.parts.reduce((sum, p) => sum + (p.stock * (p.cost || 0)), 0);
+    const criticalCount = state.parts.filter(p => p.stock === 0).length;
+    const reorderCount = state.parts.filter(p => p.stock > 0 && p.stock <= (p.reorderPoint || 0)).length;
+
+    const now = new Date();
+    const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const deliveriesMonth = (state.materialOut || []).filter(m => m.date >= firstDayMonth).length;
+
+    document.getElementById('inv-stat-total-value').textContent = formatCurrency(totalValue);
+    document.getElementById('inv-stat-critical').textContent = criticalCount;
+    document.getElementById('inv-stat-reorder').textContent = reorderCount;
+    document.getElementById('inv-stat-deliveries').textContent = deliveriesMonth;
+
+    // 2. Tabla de Alertas
+    const alertsTable = document.getElementById('inv-reorder-alerts-list');
+    const alertParts = state.parts
+        .filter(p => p.stock <= (p.reorderPoint || 0))
+        .sort((a,b) => a.stock - b.stock);
+
+    alertsTable.innerHTML = alertParts.map(p => `
+        <tr>
+            <td><span class="badge bg-light text-dark border">${p.id}</span></td>
+            <td>${p.description}</td>
+            <td class="fw-bold ${p.stock === 0 ? 'text-danger' : 'text-warning'}">${p.stock}</td>
+            <td>${p.reorderPoint || 0}</td>
+            <td><span class="text-primary">Pedir ${Math.max(0, (p.maxStock || 0) - p.stock)}</span></td>
+            <td>
+                <button class="btn btn-xs btn-outline-primary" onclick="showPartModal('${p.id}')">
+                    <i class="fas fa-shopping-cart"></i> Solicitar
+                </button>
+            </td>
+        </tr>
+    `).join('') || '<tr><td colspan="6" class="text-center text-muted py-4">No hay alertas de reposición</td></tr>';
+
+    // 3. Gráfico Top Consumidos
+    const consumptionMap = {};
+    (state.materialOut || []).filter(m => m.date >= firstDayMonth).forEach(m => {
+        (m.items || []).forEach(item => {
+            consumptionMap[item.description] = (consumptionMap[item.description] || 0) + item.quantity;
+        });
+    });
+
+    const topConsumed = Object.entries(consumptionMap)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5);
+
+    renderInvChart('invTopConsumedChart', {
+        labels: topConsumed.map(x => x[0]),
+        datasets: [{
+            label: 'Cantidad Consumida',
+            data: topConsumed.map(x => x[1]),
+            backgroundColor: '#3498db'
+        }]
+    }, 'bar');
+
+    // 4. Gráfico Consumo por Tipo de Mantenimiento
+    const typeMap = {};
+    (state.materialOut || []).forEach(m => {
+        const workOrder = state.workOrders.find(wo => wo.id === m.workOrderId);
+        const type = workOrder?.type || 'No Vinculado';
+        const cost = (m.items || []).reduce((sum, item) => {
+            const part = state.parts.find(p => p.id === item.partId);
+            return sum + (item.quantity * (part?.cost || 0));
+        }, 0);
+        typeMap[type] = (typeMap[type] || 0) + cost;
+    });
+
+    renderInvChart('invTypeConsumptionChart', {
+        labels: Object.keys(typeMap),
+        datasets: [{
+            data: Object.values(typeMap),
+            backgroundColor: ['#1abc9c', '#3498db', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c']
+        }]
+    }, 'doughnut');
+
+    // 5. Gráfico Consumo por Máquina
+    const machineMap = {};
+    (state.materialOut || []).forEach(m => {
+        if (!m.machineId) return;
+        const machine = state.machines.find(mac => mac.id === m.machineId);
+        const name = machine ? `${machine.id} - ${machine.name}` : m.machineId;
+        const cost = (m.items || []).reduce((sum, item) => {
+            const part = state.parts.find(p => p.id === item.partId);
+            return sum + (item.quantity * (part?.cost || 0));
+        }, 0);
+        machineMap[name] = (machineMap[name] || 0) + cost;
+    });
+
+    const topMachines = Object.entries(machineMap)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5);
+
+    renderInvChart('invMachineConsumptionChart', {
+        labels: topMachines.map(x => x[0]),
+        datasets: [{
+            label: 'Costo Total (Lps)',
+            data: topMachines.map(x => x[1]),
+            backgroundColor: '#e67e22'
+        }]
+    }, 'bar');
+}
+
+function renderInvChart(canvasId, data, type) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (state.charts[canvasId]) state.charts[canvasId].destroy();
+
+    state.charts[canvasId] = new Chart(ctx, {
+        type: type,
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: type === 'doughnut', position: 'bottom' }
+            }
+        }
+    });
+}
 
 function renderDecommissionedMachines() {
     if (state.currentTab !== 'equipos-baja' && initialLoadComplete) return;

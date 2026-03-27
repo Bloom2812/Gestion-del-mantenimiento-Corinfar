@@ -154,6 +154,7 @@
 <a class="nav-tab" data-tab="tecnicos" href="#"><i class="fas fa-users-cog"></i> Usuarios</a>
 <a class="nav-tab" data-tab="solicitudes" href="#"><i class="fas fa-bullhorn"></i> Solicitudes</a>
 <a class="nav-tab" data-tab="solicitudes-repuestos" href="#"><i class="fas fa-shopping-cart"></i> Solicitudes de Repuestos</a>
+<a class="nav-tab" data-tab="inventario-dashboard" href="#"><i class="fas fa-warehouse"></i> Dashboard de Inventario</a>
 <a class="nav-tab" data-tab="trabajo-activo" href="#"><i class="fas fa-tasks"></i> Trabajo Activo</a>
 <a class="nav-tab" data-tab="ordenes-asignadas" href="#"><i class="fas fa-user-clock"></i> Órdenes Asignadas</a>
 <a class="nav-tab" data-tab="planificador" href="#"><i class="fas fa-calendar-alt"></i> Planificador</a>
@@ -671,6 +672,92 @@
 </div>
 </div>
 </div>
+<div class="tab-content d-none" id="inventario-dashboard">
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card-centered bg-primary text-white border-0 shadow-sm">
+                <div class="stat-card-content">
+                    <div class="small opacity-75">Valor Total Inventario</div>
+                    <div class="h4 font-weight-bold" id="inv-stat-total-value">L 0.00</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card-centered bg-danger text-white border-0 shadow-sm">
+                <div class="stat-card-content">
+                    <div class="small opacity-75">Materiales en Crítico (Stock 0)</div>
+                    <div class="h4 font-weight-bold" id="inv-stat-critical">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card-centered bg-warning text-dark border-0 shadow-sm">
+                <div class="stat-card-content">
+                    <div class="small opacity-75">Bajo Punto Reorden</div>
+                    <div class="h4 font-weight-bold" id="inv-stat-reorder">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card-centered bg-success text-white border-0 shadow-sm">
+                <div class="stat-card-content">
+                    <div class="small opacity-75">Entregas Realizadas (Mes)</div>
+                    <div class="h4 font-weight-bold" id="inv-stat-deliveries">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white fw-bold">Top 5 Materiales (Cant.)</div>
+                <div class="card-body" style="height: 250px;">
+                    <canvas id="invTopConsumedChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white fw-bold">Costo por Tipo Mant.</div>
+                <div class="card-body" style="height: 250px;">
+                    <canvas id="invTypeConsumptionChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white fw-bold">Top 5 Activos (Costo)</div>
+                <div class="card-body" style="height: 250px;">
+                    <canvas id="invMachineConsumptionChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold">Alertas de Reposición Urgente</div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Stock Actual</th>
+                                <th>Punto Reorden</th>
+                                <th>Sugerencia</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inv-reorder-alerts-list">
+                            <!-- Inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="tab-content d-none" id="solicitudes-repuestos">
     <div class="card">
         <div class="card-body">
@@ -1699,6 +1786,8 @@
                                 <label for="part-classification" class="form-label fw-bold small text-muted text-uppercase mb-1">Clasificación</label>
                                 <select class="form-select border-0 shadow-sm" id="part-classification" required>
                                     <option value="insumo">Insumo</option>
+                                    <option value="repuesto">Repuesto</option>
+                                    <option value="critico">Crítico</option>
                                     <option value="mecanico">Mecánico</option>
                                     <option value="electrico">Eléctrico</option>
                                     <option value="neumatico">Neumático</option>
@@ -1730,12 +1819,42 @@
                             </div>
                             <div class="col-6 mb-3">
                                 <label for="part-stock" class="form-label fw-bold small text-muted text-uppercase mb-1">Stock Actual</label>
-                                <input type="number" class="form-control border-0 shadow-sm fw-bold text-primary" id="part-stock" required>
+                                <div class="input-group">
+                                    <input type="number" class="form-control border-0 shadow-sm fw-bold text-primary" id="part-stock" readonly>
+                                    <button class="btn btn-outline-secondary btn-sm" type="button" id="btn-adjust-stock" title="Ajuste de Inventario">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3 col-6 mb-3">
+                                <label for="part-minStock" class="form-label fw-bold small text-muted text-uppercase mb-1">Stock Mínimo</label>
+                                <input type="number" class="form-control border-0 shadow-sm" id="part-minStock" required>
+                            </div>
+                            <div class="col-md-3 col-6 mb-3">
+                                <label for="part-maxStock" class="form-label fw-bold small text-muted text-uppercase mb-1">Stock Máximo</label>
+                                <input type="number" class="form-control border-0 shadow-sm" id="part-maxStock" required>
+                            </div>
+                            <div class="col-md-3 col-6 mb-3">
+                                <label for="part-reorderPoint" class="form-label fw-bold small text-muted text-uppercase mb-1">Punto Reorden</label>
+                                <input type="number" class="form-control border-0 shadow-sm" id="part-reorderPoint" required>
+                            </div>
+                            <div class="col-md-3 col-6 mb-3">
+                                <label for="part-uom" class="form-label fw-bold small text-muted text-uppercase mb-1">U. de Medida</label>
+                                <select id="part-uom" class="form-select border-0 shadow-sm">
+                                    <option value="Unidades">Unidades</option>
+                                    <option value="Metros">Metros</option>
+                                    <option value="Litros">Litros</option>
+                                    <option value="Kg">Kg</option>
+                                    <option value="Galones">Galones</option>
+                                    <option value="Juegos">Juegos</option>
+                                </select>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-6 mb-3">
-                                <label for="part-criticidad" class="form-label fw-bold small text-muted text-uppercase mb-1">Criticidad</label>
+                                <label for="part-criticidad" class="form-label fw-bold small text-muted text-uppercase mb-1">Impacto/Criticidad</label>
                                 <select id="part-criticidad" class="form-select border-0 shadow-sm">
                                     <option value="Bajo">Bajo</option>
                                     <option value="Medio">Medio</option>
@@ -1744,8 +1863,12 @@
                                 </select>
                             </div>
                             <div class="col-6 mb-3">
-                                <label for="part-minStock" class="form-label fw-bold small text-muted text-uppercase mb-1">Stock Mínimo</label>
-                                <input type="number" class="form-control border-0 shadow-sm" id="part-minStock" required>
+                                <label for="part-abc" class="form-label fw-bold small text-muted text-uppercase mb-1">Categoría ABC</label>
+                                <select id="part-abc" class="form-select border-0 shadow-sm">
+                                    <option value="A">Clase A (Alto valor)</option>
+                                    <option value="B">Clase B (Medio valor)</option>
+                                    <option value="C" selected>Clase C (Bajo valor)</option>
+                                </select>
                             </div>
                         </div>
                         <div class="mb-0">
@@ -1865,6 +1988,7 @@
 <option value="Admin">Admin</option>
 <option value="Jefe de Area">Jefe de Area</option>
 <option value="Planificador">Planificador</option>
+<option value="Almacén">Almacén</option>
 <option value="Técnico">Técnico</option>
 <option value="Operario">Operario</option>
 <option value="Invitado">Invitado</option>
@@ -2834,6 +2958,99 @@
                 </button>
             </div>
         </footer>
+    </div>
+</div>
+
+<!-- Modal para Ajuste de Inventario -->
+<div class="modal fade" id="stock-adjustment-modal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold"><i class="fas fa-adjust me-2"></i>Ajuste de Stock</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="stock-adjustment-form">
+                    <input type="hidden" id="adjustment-part-id">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Stock Actual</label>
+                        <input type="number" class="form-control bg-light" id="adjustment-current-stock" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="adjustment-new-stock" class="form-label small fw-bold">Nuevo Stock</label>
+                        <input type="number" class="form-control" id="adjustment-new-stock" required min="0">
+                    </div>
+                    <div class="mb-3">
+                        <label for="adjustment-reason" class="form-label small fw-bold">Motivo del Ajuste</label>
+                        <select class="form-select" id="adjustment-reason" required>
+                            <option value="">Seleccione...</option>
+                            <option value="CONTEO_FISICO">Conteo Físico / Inventario</option>
+                            <option value="ERROR_INGRESO">Error de Ingreso Previo</option>
+                            <option value="DETERIORO">Deterioro / Daño</option>
+                            <option value="EXTRAVIO">Extravío</option>
+                            <option value="OTRO">Otro</option>
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label for="adjustment-notes" class="form-label small fw-bold">Notas Adicionales</label>
+                        <textarea class="form-control" id="adjustment-notes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="stock-adjustment-form" class="btn btn-warning btn-sm fw-bold">Confirmar Ajuste</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Entrega de Material -->
+<div class="modal fade" id="material-delivery-modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="fas fa-box-open me-2"></i>Entregar Material</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="material-delivery-form">
+                    <input type="hidden" id="delivery-request-fb-id">
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Material Solicitado</label>
+                        <input type="text" class="form-control bg-light" id="delivery-material-desc" readonly>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label small fw-bold">Cantidad Pendiente</label>
+                            <input type="number" class="form-control bg-light" id="delivery-pending-qty" readonly>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label for="delivery-quantity" class="form-label small fw-bold">Cantidad a Entregar</label>
+                            <input type="number" class="form-control" id="delivery-quantity" required min="1">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="delivery-part-id" class="form-label small fw-bold">Vincular con Repuesto en Inventario</label>
+                        <select class="form-select" id="delivery-part-id" required>
+                            <!-- Poblado dinámicamente -->
+                        </select>
+                    </div>
+
+                    <div class="mb-0">
+                        <label for="delivery-notes" class="form-label small fw-bold">Notas de Entrega</label>
+                        <textarea class="form-control" id="delivery-notes" rows="2" placeholder="Opcional..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="material-delivery-form" class="btn btn-success fw-bold px-4">Confirmar Entrega</button>
+            </div>
+        </div>
     </div>
 </div>
 
