@@ -86,6 +86,7 @@ const state = {
     partMovements: [],
     partRequests: [],
     requestCart: [],
+    tempSolicitudItems: [],
     materialOut: [],
         auditLogs: [],
     equipmentStatusHistory: [],
@@ -1198,10 +1199,57 @@ function setupEventListeners() {
     document.getElementById('solicitud-type').addEventListener('change', (e) => {
         const type = e.target.value;
         const isInsumos = type === 'insumos';
+
         document.getElementById('solicitud-extra-fields').classList.toggle('d-none', !isInsumos);
+        document.getElementById('solicitud-multi-items-section').classList.toggle('d-none', !isInsumos);
+        document.getElementById('solicitud-description-container').classList.toggle('d-none', isInsumos);
+        document.getElementById('solicitud-quantity-container').classList.toggle('d-none', isInsumos);
+
         document.getElementById('solicitud-machine').required = !isInsumos;
+        document.getElementById('solicitud-description').required = !isInsumos;
+
         document.getElementById('solicitud-machine-label').innerHTML = isInsumos ? 'Máquina (Opcional)' : 'Máquina';
         document.getElementById('solicitud-description-label').innerHTML = isInsumos ? 'Descripción de lo solicitado' : 'Descripción del Problema';
+
+        if (isInsumos) {
+            populateSolicitudItemSelector();
+        }
+    });
+
+    document.getElementById('solicitud-add-item-btn').addEventListener('click', () => {
+        const partSelect = document.getElementById('solicitud-item-part-select');
+        const manualDesc = document.getElementById('solicitud-item-description').value.trim();
+        const quantity = parseInt(document.getElementById('solicitud-item-quantity').value);
+
+        if (isNaN(quantity) || quantity < 1) {
+            showToast('Indique una cantidad válida.', 'warning');
+            return;
+        }
+
+        let description = '';
+        if (partSelect.value) {
+            const part = state.parts.find(p => p.fb_id === partSelect.value);
+            description = part ? part.name : '';
+        } else if (manualDesc) {
+            description = manualDesc;
+        } else {
+            showToast('Seleccione un insumo o escriba una descripción.', 'warning');
+            return;
+        }
+
+        state.tempSolicitudItems.push({
+            description: description,
+            quantity: quantity,
+            partId: partSelect.value || null,
+            deliveredQuantity: 0,
+            status: 'Pendiente'
+        });
+
+        document.getElementById('solicitud-item-description').value = '';
+        document.getElementById('solicitud-item-part-select').value = '';
+        document.getElementById('solicitud-item-quantity').value = 1;
+
+        renderSolicitudItems();
     });
     
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
@@ -5600,8 +5648,16 @@ function renderSolicitudes() {
 }
 function showSolicitudModal(prefillData = null) {
     document.getElementById('solicitud-form').reset();
+    state.tempSolicitudItems = [];
+    renderSolicitudItems();
+
     document.getElementById('solicitud-extra-fields').classList.add('d-none');
+    document.getElementById('solicitud-multi-items-section').classList.add('d-none');
+    document.getElementById('solicitud-description-container').classList.remove('d-none');
+    document.getElementById('solicitud-quantity-container').classList.remove('d-none');
+
     document.getElementById('solicitud-machine').required = true;
+    document.getElementById('solicitud-description').required = true;
     document.getElementById('solicitud-machine-label').innerHTML = 'Máquina';
     document.getElementById('solicitud-description-label').innerHTML = 'Descripción del Problema';
 
@@ -5647,11 +5703,10 @@ async function handleSolicitudSubmit(e) {
     const description = document.getElementById('solicitud-description').value;
 
     if (type === 'insumos') {
-        const quantity = parseInt(document.getElementById('solicitud-quantity').value);
         const urgency = document.getElementById('solicitud-urgency').value;
 
-        if (!description || isNaN(quantity) || quantity < 1) {
-            showToast('Descripción y cantidad son obligatorias.', 'warning');
+        if (state.tempSolicitudItems.length === 0) {
+            showToast('Agregue al menos un ítem a la solicitud.', 'warning');
             showLoading(false);
             return;
         }
@@ -5663,32 +5718,33 @@ async function handleSolicitudSubmit(e) {
                 workOrderId: '',
                 machineId: machineId || 'General',
                 requester: state.currentUser?.username || 'Desconocido',
-                description: description,
-                quantity: quantity,
+                items: state.tempSolicitudItems,
                 urgency: urgency,
                 status: 'Pendiente',
-                isDirectRequest: true // Para distinguir de las de OT
+                isDirectRequest: true
             };
             const docRef = await addDoc(state.collections.partRequests, requestData);
+            await updateRTDBMirror('partRequests', requestData, docRef.id);
             await recordAuditLog('partRequests', docRef.id, 'CREATE', null, requestData, 'Creación Solicitud Insumos');
             showToast('Solicitud de insumos enviada correctamente', 'success');
             state.modals.solicitud.hide();
 
             // --- Notificación Telegram ---
+            let itemsText = requestData.items.map(i => `- ${i.description} (${i.quantity})`).join('\n');
             const msg = `📦 *Nueva Solicitud de Insumos / Repuestos*\n\n` +
-                        `*Descripción:* ${requestData.description}\n` +
-                        `*Cantidad:* ${requestData.quantity}\n` +
+                        `*Items:* \n${itemsText}\n\n` +
                         `*Urgencia:* ${requestData.urgency}\n` +
                         `*Solicitante:* ${requestData.requester}\n` +
                         `*Equipo Ref:* ${requestData.machineId}`;
             sendTelegramNotification(msg).catch(err => console.warn("[Telegram Notification Error]", err));
+            showLoading(false);
+            return;
         } catch (error) {
             console.error("Error submitting supply request:", error);
             showToast('Error al enviar la solicitud.', 'error');
-        } finally {
             showLoading(false);
+            return;
         }
-        return;
     }
 
     // Caso Mantenimiento (Existente)
@@ -15648,3 +15704,42 @@ async function handleDecommissionSubmit(e) {
 window.renderPartRequests = renderPartRequests;
 window.generatePartRequestGroupPDF = generatePartRequestGroupPDF;
 window.showConfirmReceiptModal = showConfirmReceiptModal;
+
+function populateSolicitudItemSelector() {
+    const select = document.getElementById('solicitud-item-part-select');
+    if (!select) return;
+
+    const insumos = state.parts.filter(p => p.classification === 'insumo');
+    let html = '<option value="">-- Seleccionar Insumo --</option>';
+    insumos.sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
+        html += `<option value="${p.fb_id}">${p.name} (Stock: ${p.currentStock})</option>`;
+    });
+    select.innerHTML = html;
+}
+
+function renderSolicitudItems() {
+    const tbody = document.getElementById('solicitud-items-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    state.tempSolicitudItems.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="small">${item.description}</td>
+            <td class="small text-center">${item.quantity}</td>
+            <td class="text-center">
+                <button type="button" class="btn btn-xs btn-outline-danger" onclick="removeTempSolicitudItem(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function removeTempSolicitudItem(index) {
+    state.tempSolicitudItems.splice(index, 1);
+    renderSolicitudItems();
+}
+
+window.removeTempSolicitudItem = removeTempSolicitudItem;
