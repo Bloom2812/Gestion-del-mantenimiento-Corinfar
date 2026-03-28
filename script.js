@@ -96,7 +96,8 @@ const state = {
     searchTimeouts: {},
     signaturePad: null,
     currentTheme: 'light',
-    lastNotifiedMachineStatus: {}
+    lastNotifiedMachineStatus: {},
+    reopenMachineDetail: null
 };
 window.state = state;
 let currentPartDocs = [];
@@ -1273,6 +1274,13 @@ function setupEventListeners() {
     document.getElementById('add-machine-btn').addEventListener('click', () => showMachineModal());
     document.getElementById('search-decommissioned-input').addEventListener('input', debounce(renderDecommissionedMachines, 300));
     document.getElementById('decommission-form').addEventListener('submit', handleDecommissionSubmit);
+    document.getElementById('decommission-modal').addEventListener('hidden.bs.modal', () => {
+        if (state.reopenMachineDetail) {
+            const machineId = state.reopenMachineDetail;
+            state.reopenMachineDetail = null;
+            showMachineDetail(machineId);
+        }
+    });
     document.getElementById('sync-all-machines-odoo-btn').addEventListener('click', () => syncAllMachinesToOdoo());
     document.getElementById('machine-form').addEventListener('submit', handleMachineSubmit);
     document.getElementById('search-machine-input').addEventListener('input', debounce(renderMachines, 300));
@@ -15628,6 +15636,15 @@ function showDecommissionModal(machineFbId) {
     });
     replacementSelect.innerHTML = html;
 
+    // Logic to close machine detail if open
+    const machineDetailEl = document.getElementById('machine-detail-modal');
+    if (machineDetailEl && machineDetailEl.classList.contains('show')) {
+        state.reopenMachineDetail = machine.id;
+        state.modals.machineDetail.hide();
+    } else {
+        state.reopenMachineDetail = null;
+    }
+
     state.modals.decommission.show();
 }
 
@@ -15688,6 +15705,7 @@ async function handleDecommissionSubmit(e) {
         await recordAuditLog('machines', machine.id, 'UPDATE', oldData, { ...machine, ...decommissionData }, 'BAJA DE EQUIPO');
 
         showToast('Equipo dado de baja correctamente.', 'success');
+        state.reopenMachineDetail = null;
         state.modals.decommission.hide();
         state.modals.machineDetail.hide();
 
