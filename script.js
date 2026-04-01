@@ -6209,8 +6209,11 @@ async function handleEvaluationSubmit(e) {
         const hasJefe = allEvaluations.some(ev => ev.evaluatorRole === 'Jefe de Area');
 
         if (hasOperario && hasJefe) {
-            // Solo si están ambas, pasamos a Completado
-            await updateDoc(doc(state.collections.workOrders, workOrderFbId), { status: 'Completado' });
+            // Solo si están ambas, pasamos a Completado y limpiamos flag de expiración
+            await updateDoc(doc(state.collections.workOrders, workOrderFbId), {
+                status: 'Completado',
+                isExpired: false
+            });
             await completeLinkedPlanExecution(workOrderFbId, now, 'Completado');
             showToast('Evaluación guardada. Orden de trabajo completada al recibir ambas evaluaciones.', 'success');
         } else {
@@ -7589,7 +7592,8 @@ function renderActiveWorkView() {
             }
 
             // Si no está terminada o está expirada y es de un mes anterior, lo consideramos "No Ejecutada"
-            if ((wo.status !== 'Completado' && wo.status !== 'Cancelado' && wo.status !== 'Rechazado') || wo.isExpired) {
+            // Exceptuamos órdenes que ya fueron enviadas a evaluación por el técnico
+            if (((wo.status !== 'Completado' && wo.status !== 'Cancelado' && wo.status !== 'Rechazado' && wo.status !== 'Pendiente de Evaluación' && wo.status !== 'Pendiente de Aprobación')) || wo.isExpired) {
                 const woDate = new Date(d.getFullYear(), d.getMonth(), 1);
                 if (woDate < currentMonthObj) return true;
             }
@@ -7635,7 +7639,11 @@ function renderActiveWorkView() {
         const woMirror = state.liveWorkOrders?.[cleanId];
         const currentStatus = woMirror?.status || wo.status;
 
-        if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado' || wo.isExpired) {
+        if (currentStatus === 'Completado') {
+            if (completedContainer) completedContainer.appendChild(card);
+        } else if (currentStatus === 'Pendiente de Evaluación' || currentStatus === 'Pendiente de Aprobación') {
+            if (evaluationContainer) evaluationContainer.appendChild(card);
+        } else if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado' || wo.isExpired) {
             if (cancelledContainer) cancelledContainer.appendChild(card);
         } else if (currentStatus === 'Pendiente' || currentStatus === 'Planificada') {
             plannedContainer.appendChild(card);
@@ -7649,8 +7657,6 @@ function renderActiveWorkView() {
             }
         } else if (currentStatus === 'Pausado') {
             pausedContainer.appendChild(card);
-        } else if (currentStatus === 'Pendiente de Evaluación' || currentStatus === 'Pendiente de Aprobación') {
-            if (evaluationContainer) evaluationContainer.appendChild(card);
         } else if (currentStatus === 'Completado') {
             if (completedContainer) completedContainer.appendChild(card);
         }
@@ -12472,8 +12478,27 @@ async function handleExpiredWorkOrders() {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
 
+    // 1. Recover orders that were incorrectly marked as expired but are in a finished/evaluation state
+    const ordersToRecover = state.workOrders.filter(wo =>
+        wo.isExpired &&
+        (wo.status === 'Pendiente de Evaluación' || wo.status === 'Pendiente de Aprobación' || wo.status === 'Completado')
+    );
+
+    for (const order of ordersToRecover) {
+        try {
+            await updateDoc(doc(state.collections.workOrders, order.fb_id), { isExpired: false });
+            console.log(`Orden ${order.id} recuperada de estado expirado.`);
+        } catch (e) { console.error(e); }
+    }
+
+    // 2. Process new expirations
     const ordersToProcess = state.workOrders.filter(wo =>
-        wo.status !== 'Completado' && wo.status !== 'Cancelado' && wo.status !== 'Rechazado' && !wo.isExpired
+        wo.status !== 'Completado' &&
+        wo.status !== 'Cancelado' &&
+        wo.status !== 'Rechazado' &&
+        wo.status !== 'Pendiente de Evaluación' &&
+        wo.status !== 'Pendiente de Aprobación' &&
+        !wo.isExpired
     );
 
     for (const order of ordersToProcess) {
@@ -12482,36 +12507,7 @@ async function handleExpiredWorkOrders() {
         let isExpired = false;
         let note = '';
 
-        if (order.status === 'Pendiente de Evaluación' || order.status === 'Pendiente de Aprobación') {
-            const finishDate = order.fechaFinalizacionReal ? new Date(order.fechaFinalizacionReal) : null;
-            if (!finishDate) continue;
-
-            const fYear = finishDate.getFullYear();
-            const fMonth = finishDate.getMonth();
-            const fDay = finishDate.getDate();
-
-            const lastDayOfFMonth = new Date(fYear, fMonth + 1, 0).getDate();
-            const isLastDay = fDay === lastDayOfFMonth;
-
-            // Deadline logic for evaluations
-            let deadline;
-            if (isLastDay) {
-                // 2 days grace period: expires at the start of the 3rd day of the next month
-                deadline = new Date(fYear, fMonth + 1, 3, 0, 0, 0);
-            } else {
-                // Expires at the start of the 1st day of the next month
-                deadline = new Date(fYear, fMonth + 1, 1, 0, 0, 0);
-            }
-
-            if (now >= deadline) {
-                shouldUpdate = true;
-                nextStatus = 'Cancelado';
-                isExpired = true;
-                note = isLastDay
-                    ? 'Cancelada automáticamente tras 2 días de gracia (fin de mes) sin ser evaluada.'
-                    : 'Cancelada automáticamente al término del mes de ejecución sin ser evaluada.';
-            }
-        } else {
+        {
             // Pending/Planned/In Progress/Paused orders
             const scheduledDateStr = order.originalDate || order.date;
             if (!scheduledDateStr) continue;
