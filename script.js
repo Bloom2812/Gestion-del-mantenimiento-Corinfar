@@ -32,12 +32,11 @@ const rtdb = getDatabase(app);
 const storage = getStorage(app);
 
 // Export for verification
-window.state = window.state || {};
 const auth = getAuth(app);
 setPersistence(auth, inMemoryPersistence);
 
 // --- App State ---
-const state = {
+const state = window.state = {
     odoo: null, // Instancia del conector de Odoo
     storage: storage,
     rtdb: rtdb,
@@ -1460,15 +1459,17 @@ function setupEventListeners() {
         saveWorkOrder({ status: 'Pausado', machineStatusOnPause });
     });
     document.getElementById('wo-resume-btn').addEventListener('click', () => saveWorkOrder({ status: 'En Proceso' }));
-    document.getElementById('wo-complete-btn').addEventListener('click', () => saveWorkOrder({ status: 'Pendiente de Evaluación' }));
+    document.getElementById('wo-complete-btn').addEventListener('click', () => saveWorkOrder({ status: 'Completado' }));
     document.getElementById('wo-validate-btn').addEventListener('click', async () => {
         const fbId = document.getElementById('wo-fb-id-hidden').value;
         const now = new Date().toISOString();
+        // Cambiamos a Completado directamente para que los datos queden registrados para auditorías
         await saveWorkOrder({
-            status: 'Pendiente de Evaluación',
+            status: 'Completado',
+            isExpired: false,
             validatedBy: state.currentUser.username
         });
-        await completeLinkedPlanExecution(fbId, now, 'Pendiente de Evaluación', state.currentUser.username);
+        await completeLinkedPlanExecution(fbId, now, 'Completado', state.currentUser.username);
     });
     document.getElementById('wo-reject-btn').addEventListener('click', async () => {
         const fbId = document.getElementById('wo-fb-id-hidden').value;
@@ -6209,15 +6210,15 @@ async function handleEvaluationSubmit(e) {
         const hasJefe = allEvaluations.some(ev => ev.evaluatorRole === 'Jefe de Area');
 
         if (hasOperario && hasJefe) {
-            // Solo si están ambas, pasamos a Completado y limpiamos flag de expiración
+            // Solo si están ambas, pasamos a Completado y limpiamos flag de expiración (aunque ya lo esté por el nuevo flujo)
             await updateDoc(doc(state.collections.workOrders, workOrderFbId), {
                 status: 'Completado',
                 isExpired: false
             });
             await completeLinkedPlanExecution(workOrderFbId, now, 'Completado');
-            showToast('Evaluación guardada. Orden de trabajo completada al recibir ambas evaluaciones.', 'success');
+            showToast('Evaluación guardada. Orden de trabajo calificada por completo.', 'success');
         } else {
-            showToast(`Evaluación de ${evaluatingRole} guardada. Pendiente de la otra evaluación para completar la OT.`, 'info');
+            showToast(`Evaluación de ${evaluatingRole} guardada. Pendiente de la otra evaluación para calificar por completo la OT.`, 'info');
         }
 
         state.modals.evaluation.hide();
@@ -7640,7 +7641,16 @@ function renderActiveWorkView() {
         const currentStatus = woMirror?.status || wo.status;
 
         if (currentStatus === 'Completado') {
-            if (completedContainer) completedContainer.appendChild(card);
+            // Unificamos lógica: si es Completado pero falta alguna evaluación, va a la columna de Evaluación
+            const evs = state.technicianEvaluations.filter(ev => ev.workOrderFbId === wo.fb_id);
+            const hasOp = evs.some(e => e.evaluatorRole === 'Operario');
+            const hasJf = evs.some(e => e.evaluatorRole === 'Jefe de Area');
+
+            if (hasOp && hasJf) {
+                if (completedContainer) completedContainer.appendChild(card);
+            } else {
+                if (evaluationContainer) evaluationContainer.appendChild(card);
+            }
         } else if (currentStatus === 'Pendiente de Evaluación' || currentStatus === 'Pendiente de Aprobación') {
             if (evaluationContainer) evaluationContainer.appendChild(card);
         } else if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado' || wo.isExpired) {
@@ -7759,14 +7769,16 @@ function createWorkOrderCard(order) {
 
     if (order.isExpired) {
         footerContent = `<p class="text-muted text-center mb-0 small"><i class="fas fa-lock me-1"></i>Expirada - Solo Lectura</p>`;
-    } else if (order.status === 'Pendiente de Evaluación') {
+    } else if (order.status === 'Pendiente de Evaluación' || (order.status === 'Completado' && (!hasOp || !hasJf))) {
         if (canEvaluate) {
             const label = (hasOp || hasJf) ? 'Completar Evaluación' : 'Evaluar';
-            const badge = (hasOp || hasJf) ? '<div class="text-center mb-1"><span class="badge bg-info text-dark" style="font-size: 0.7rem;">Evaluación Parcial</span></div>' : '';
-            footerContent = `${badge}<button class="btn btn-sm btn-info evaluate-task-btn w-100"><i class="fas fa-star-half-alt me-2"></i>${label}</button>`;
+            const pendingBadge = (order.status === 'Completado' && (!hasOp || !hasJf)) ? '<div class="text-center mb-1"><span class="badge bg-danger text-white pulse-animation" style="font-size: 0.7rem;"><i class="fas fa-exclamation-triangle me-1"></i>Evaluación Pendiente</span></div>' : '';
+            const partialBadge = (hasOp || hasJf) ? '<div class="text-center mb-1"><span class="badge bg-info text-dark" style="font-size: 0.7rem;">Evaluación Parcial</span></div>' : '';
+            footerContent = `${pendingBadge || partialBadge}<button class="btn btn-sm btn-info evaluate-task-btn w-100"><i class="fas fa-star-half-alt me-2"></i>${label}</button>`;
         } else {
             const missing = !hasOp ? 'Operario' : 'Jefe de Área';
-            footerContent = `<p class="text-muted text-center mb-0 small"><i class="fas fa-clock me-1"></i>Esperando a ${missing}</p>`;
+            const pendingText = (order.status === 'Completado') ? `<div class="text-center mb-1"><span class="badge bg-danger text-white" style="font-size: 0.7rem;"><i class="fas fa-exclamation-triangle me-1"></i>Falta Calificar</span></div>` : '';
+            footerContent = `${pendingText}<p class="text-muted text-center mb-0 small"><i class="fas fa-clock me-1"></i>Esperando a ${missing}</p>`;
         }
     } else if (order.status === 'Completado') {
         footerContent = `<button class="btn btn-sm btn-outline-primary view-evaluation-btn w-100"><i class="fas fa-eye me-2"></i>Ver Evaluación</button>`;
@@ -7855,13 +7867,13 @@ function createWorkOrderCard(order) {
              showConfirmation(
                 confirmTitle,
                 confirmMsg,
-                () => handleKanbanWorkOrderAction(order.fb_id, 'Pendiente de Evaluación')
+                () => handleKanbanWorkOrderAction(order.fb_id, 'Completado')
             );
         });
     }
 
     // Attach listener for evaluation action
-    if (order.status === 'Pendiente de Evaluación') {
+    if (order.status === 'Pendiente de Evaluación' || order.status === 'Completado') {
         card.querySelector('.evaluate-task-btn')?.addEventListener('click', () => showEvaluationModal(order.id));
     }
 
@@ -8059,7 +8071,7 @@ async function handleKanbanWorkOrderAction(workOrderFbId, newStatus) {
         // Si es de plan o viene de una solicitud y el técnico intenta completar sin validación, cambiar a Pendiente de Aprobación
         const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(orderData.type) || orderData.linkedPlanId;
         const hasRequest = orderData.solicitudId || orderData.sourceSolicitudId;
-        if (newStatus === 'Pendiente de Evaluación' && (isPlanOrder || hasRequest) && !orderData.validatedBy) {
+        if (newStatus === 'Completado' && (isPlanOrder || hasRequest) && !orderData.validatedBy) {
             finalStatus = 'Pendiente de Aprobación';
             updates.technicianFinished = true;
             showToast('Trabajo finalizado. Pendiente de validación por el Planificador.', 'info');
@@ -8327,7 +8339,7 @@ function createAssignedOrderCard(order) {
             showConfirmation(
                 'Finalizar Orden de Trabajo',
                 `¿Está seguro que desea marcar la orden ${order.id || `(${order.machineId})`} como finalizada?`,
-                () => handleKanbanWorkOrderAction(order.fb_id, 'Pendiente de Evaluación')
+                () => handleKanbanWorkOrderAction(order.fb_id, 'Completado')
             );
         });
         card.querySelector('.manage-parts-btn')?.addEventListener('click', () => showManagePartsModal(order.id));
@@ -9377,7 +9389,7 @@ async function saveWorkOrder(updates = {}) {
         // Si es de plan o viene de una solicitud y el técnico intenta completar sin validación, cambiar a Pendiente de Aprobación
         const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(orderData.type) || orderData.linkedPlanId;
         const hasRequest = orderData.solicitudId || orderData.sourceSolicitudId;
-        if (newStatus === 'Pendiente de Evaluación' && (isPlanOrder || hasRequest) && !orderData.validatedBy) {
+        if (newStatus === 'Completado' && (isPlanOrder || hasRequest) && !orderData.validatedBy) {
             newStatus = 'Pendiente de Aprobación';
             orderData.status = 'Pendiente de Aprobación';
             orderData.technicianFinished = true;
