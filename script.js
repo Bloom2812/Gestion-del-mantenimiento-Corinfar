@@ -470,7 +470,10 @@ async function updateRTDBMirror(collectionName, data, fbId) {
             const startIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
             const endIso = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
-            const monthOrders = state.workOrders.filter(o => o.date >= startIso && o.date <= endIso);
+            const monthOrders = state.workOrders.filter(o => {
+                if (o.status === 'Cancelado' || o.status === 'Rechazado' || o.isExpired) return false;
+                return o.date >= startIso && o.date <= endIso;
+            });
             counters.monthPreventive = monthOrders.filter(o => ['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(o.type)).length;
             counters.monthCorrective = monthOrders.filter(o => ['Correctivo', 'Emergencia'].includes(o.type)).length;
         }
@@ -7592,14 +7595,22 @@ function renderActiveWorkView() {
                 localMonthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             }
 
-            // Si no está terminada o está expirada y es de un mes anterior, lo consideramos "No Ejecutada"
-            // Exceptuamos órdenes que ya fueron enviadas a evaluación por el técnico
-            if (((wo.status !== 'Completado' && wo.status !== 'Cancelado' && wo.status !== 'Rechazado' && wo.status !== 'Pendiente de Evaluación' && wo.status !== 'Pendiente de Aprobación')) || wo.isExpired) {
-                const woDate = new Date(d.getFullYear(), d.getMonth(), 1);
-                if (woDate < currentMonthObj) return true;
+            // Si la orden es del mes seleccionado, se incluye siempre.
+            if (localMonthStr === selectedMonth) return true;
+
+            // Para órdenes de meses anteriores:
+            // 1. Si está marcada como expirada, se incluye (irá a la columna de Canceladas/No Ejecutadas).
+            if (wo.isExpired) return true;
+
+            // 2. Si está ACTIVA (Pendiente, En Proceso, Pausado, etc. y NO es de este mes),
+            // se incluye para que aparezca como arrastre (carry-over) en su columna correspondiente.
+            // Exceptuamos las que ya están terminadas, canceladas o rechazadas de meses previos.
+            if (wo.status !== 'Completado' && wo.status !== 'Cancelado' && wo.status !== 'Rechazado') {
+                const woMonthDate = new Date(d.getFullYear(), d.getMonth(), 1);
+                if (woMonthDate < currentMonthObj) return true;
             }
 
-            return localMonthStr === selectedMonth;
+            return false;
         });
     }
 
@@ -7653,10 +7664,6 @@ function renderActiveWorkView() {
             }
         } else if (currentStatus === 'Pendiente de Evaluación' || currentStatus === 'Pendiente de Aprobación') {
             if (evaluationContainer) evaluationContainer.appendChild(card);
-        } else if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado' || wo.isExpired) {
-            if (cancelledContainer) cancelledContainer.appendChild(card);
-        } else if (currentStatus === 'Pendiente' || currentStatus === 'Planificada') {
-            plannedContainer.appendChild(card);
         } else if (currentStatus === 'En Proceso') {
             inProgressContainer.appendChild(card);
             if (wo.workIntervals) {
@@ -7667,6 +7674,10 @@ function renderActiveWorkView() {
             }
         } else if (currentStatus === 'Pausado') {
             pausedContainer.appendChild(card);
+        } else if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado' || wo.isExpired) {
+            if (cancelledContainer) cancelledContainer.appendChild(card);
+        } else if (currentStatus === 'Pendiente' || currentStatus === 'Planificada') {
+            plannedContainer.appendChild(card);
         } else if (currentStatus === 'Completado') {
             if (completedContainer) completedContainer.appendChild(card);
         }
@@ -12070,6 +12081,10 @@ function updateStats(ordersThisPeriod, kpis) {
         const cleanId = (o.fb_id).toString().replace(/[.#$\[\]]/g, '_');
         const mirror = state.liveWorkOrders?.[cleanId];
         const currentType = mirror?.type || o.type;
+        const currentStatus = mirror?.status || o.status;
+
+        // Filtrar órdenes canceladas, rechazadas o expiradas del conteo del Dashboard
+        if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado' || o.isExpired) return;
 
         if (['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(currentType)) preventiveCount++;
         else if (['Correctivo', 'Emergencia'].includes(currentType)) correctiveCount++;
@@ -12081,13 +12096,8 @@ function updateStats(ordersThisPeriod, kpis) {
     const currentMonthLabel = `${now.toLocaleDateString('es-ES', { month: 'long' })} ${now.getFullYear()}`;
     const isCurrentMonth = periodLabel.toLowerCase() === currentMonthLabel.toLowerCase();
 
-    document.getElementById('stat-preventivos').textContent = (isCurrentMonth && lc.monthPreventive !== undefined)
-        ? lc.monthPreventive
-        : preventiveCount;
-
-    document.getElementById('stat-correctivos').textContent = (isCurrentMonth && lc.monthCorrective !== undefined)
-        ? lc.monthCorrective
-        : correctiveCount;
+    document.getElementById('stat-preventivos').textContent = preventiveCount;
+    document.getElementById('stat-correctivos').textContent = correctiveCount;
     
     const f = new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' });
 
@@ -12096,9 +12106,10 @@ function updateStats(ordersThisPeriod, kpis) {
 }
 
 function calculateKpisForPeriod(ordersInPeriod, startDate, endDate, machineId = 'all') {
-    const periodOrders = machineId === 'all'
+    const periodOrders = (machineId === 'all'
         ? ordersInPeriod
-        : ordersInPeriod.filter(wo => wo.machineId === machineId);
+        : ordersInPeriod.filter(wo => wo.machineId === machineId))
+        .filter(wo => wo.status !== 'Cancelado' && wo.status !== 'Rechazado' && !wo.isExpired);
 
     const kpis = {
         mtbf: null,
@@ -12273,6 +12284,12 @@ function updateCharts(ordersForPeriod) {
         const mirror = state.liveWorkOrders?.[cleanId];
         const currentType = mirror?.type || o.type;
         const currentStatus = mirror?.status || o.status;
+
+        // Excluir canceladas, rechazadas o expiradas de los gráficos principales de volumen y tipo
+        if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado' || o.isExpired) {
+            if (statusCounts.hasOwnProperty('Cancelado')) statusCounts['Cancelado']++;
+            return;
+        }
 
         if (['Preventivo', 'Predictivo', 'Calibración', 'Mecanizado'].includes(currentType)) preventiveCount++;
         else if (['Correctivo', 'Emergencia'].includes(currentType)) correctiveCount++;
@@ -12490,15 +12507,37 @@ async function handleExpiredWorkOrders() {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
 
-    // 1. Recover orders that were incorrectly marked as expired but are in a finished/evaluation state
-    const ordersToRecover = state.workOrders.filter(wo =>
-        wo.isExpired &&
-        (wo.status === 'Pendiente de Evaluación' || wo.status === 'Pendiente de Aprobación' || wo.status === 'Completado')
-    );
+    // 1. Recover orders that were incorrectly marked as expired but are in a finished/evaluation state or active with extension
+    const ordersToRecover = state.workOrders.filter(wo => {
+        if (!wo.isExpired) return false;
+
+        // Siempre recuperar si están en estados finales o de evaluación
+        if (wo.status === 'Pendiente de Evaluación' || wo.status === 'Pendiente de Aprobación' || wo.status === 'Completado') return true;
+
+        // Recuperar si están activas (o fueron canceladas automáticamente) y aún están dentro del plazo de prórroga
+        const scheduledDateStr = wo.originalDate || wo.date;
+        if (!scheduledDateStr) return false;
+
+        const sDate = new Date(scheduledDateStr + 'T12:00:00');
+        const sYear = sDate.getFullYear();
+        const sMonth = sDate.getMonth();
+
+        const wasAutoCancelled = wo.status === 'Cancelado' && wo.observaciones?.includes('Nota del Sistema: Cancelada y marcada como expirada automáticamente');
+
+        if (wo.status === 'En Proceso' || wo.status === 'Pausado' || wasAutoCancelled) {
+            let deadline = new Date(sYear, sMonth + 2, 1, 0, 0, 0); // Plazo con prórroga: fin del siguiente mes
+            if (now < deadline) return true;
+        }
+
+        return false;
+    });
 
     for (const order of ordersToRecover) {
         try {
-            await updateDoc(doc(state.collections.workOrders, order.fb_id), { isExpired: false });
+            const updates = { isExpired: false };
+            // Si fue cancelada automáticamente pero merece recuperación, podríamos intentar devolver el estado,
+            // pero para seguridad solo quitamos el flag de expiración por ahora.
+            await updateDoc(doc(state.collections.workOrders, order.fb_id), updates);
             console.log(`Orden ${order.id} recuperada de estado expirado.`);
         } catch (e) { console.error(e); }
     }
@@ -12531,12 +12570,9 @@ async function handleExpiredWorkOrders() {
             let hasExtension = order.hadPauseExtension;
 
             // Robust check: if the order is currently In Progress or Paused,
-            // and it was scheduled for this month or earlier, we check if it started in its month.
+            // it automatically gets an extension to avoid premature cancellation of active work.
             if (!hasExtension && (order.status === 'En Proceso' || order.status === 'Pausado')) {
-                const startDate = order.fechaInicioReal ? new Date(order.fechaInicioReal) : null;
-                if (startDate && startDate.getMonth() === sMonth && startDate.getFullYear() === sYear) {
-                    hasExtension = true;
-                }
+                hasExtension = true;
             }
 
             let deadline;
