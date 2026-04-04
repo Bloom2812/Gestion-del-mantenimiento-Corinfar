@@ -109,6 +109,74 @@
     </div>
 </div>
 
+<!-- Modal para Resultados de IA -->
+<div class="modal fade" id="ai-results-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white border-bottom-0">
+                <h5 class="modal-title fw-bold">
+                    <i class="fas fa-robot me-2"></i>Asistente de Inteligencia Artificial
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="ai-loading" class="text-center py-5 d-none">
+                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                    <p class="text-muted fw-bold">El experto en mantenimiento está analizando los datos...</p>
+                </div>
+                <div id="ai-content" class="d-none">
+                    <div class="row g-4">
+                        <div class="col-md-7">
+                            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-search me-2"></i>Análisis del Experto</h6>
+                            <p id="ai-analisis-detallado" class="small text-muted mb-4"></p>
+
+                            <h6 class="fw-bold text-danger mb-3"><i class="fas fa-exclamation-triangle me-2"></i>Problemas Detectados</h6>
+                            <ul id="ai-problemas-list" class="small mb-4"></ul>
+
+                            <h6 class="fw-bold text-success mb-3"><i class="fas fa-check-circle me-2"></i>Acciones Recomendadas</h6>
+                            <ul id="ai-acciones-list" class="small mb-0"></ul>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="card bg-light border-0 rounded-4 p-3 mb-3">
+                                <h6 class="fw-bold mb-2">Prioridad Sugerida</h6>
+                                <div id="ai-prioridad-badge" class="mb-0"></div>
+                            </div>
+
+                            <div class="card border-primary rounded-4 shadow-sm h-100">
+                                <div class="card-header bg-primary text-white small fw-bold">
+                                    PROPUESTA DE ORDEN DE TRABAJO
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-2">
+                                        <label class="x-small text-muted text-uppercase fw-bold">Tipo</label>
+                                        <div id="ai-ot-tipo" class="fw-bold"></div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="x-small text-muted text-uppercase fw-bold">Descripción</label>
+                                        <div id="ai-ot-descripcion" class="small"></div>
+                                    </div>
+                                    <div class="mb-0">
+                                        <label class="x-small text-muted text-uppercase fw-bold">Tiempo Estimado</label>
+                                        <div id="ai-ot-tiempo" class="fw-bold text-primary"></div>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-white border-top-0 p-3">
+                                    <button class="btn btn-primary w-100 fw-bold btn-sm" id="btn-create-wo-from-ai">
+                                        Usar esta sugerencia
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="invitation-link-modal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
