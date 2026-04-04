@@ -11411,7 +11411,7 @@ async function generateExecutionReportPDF() {
                     measurement = (task.fields || []).map((f, i) => {
                         const val = task.multiValues ? task.multiValues[i] || '' : '';
                         return f ? `${f}: ${val}` : val;
-                    }).join(', ') + ` ${task.unit || ''}`;
+                    }).join('\n') + ` ${task.unit || ''}`;
                 }
 
                 return [
@@ -11425,8 +11425,14 @@ async function generateExecutionReportPDF() {
                 startY: taskY,
                 head: [['Tarea', 'Medición', 'Resultado']],
                 body: body,
-                theme: 'striped',
+                theme: 'grid',
                 headStyles: { fillColor: [108, 117, 125] },
+                styles: {
+                    cellPadding: 4,
+                    fontSize: 9,
+                    valign: 'middle',
+                    overflow: 'linebreak'
+                },
                 didDrawCell: (data) => {
                     if (data.column.index === 2 && data.cell.section === 'body') {
                         const status = data.cell.text[0];
