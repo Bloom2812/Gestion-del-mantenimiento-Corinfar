@@ -1634,6 +1634,29 @@ function setupEventListeners() {
     const testTelegramBtn = document.getElementById('test-telegram-btn');
     if (testTelegramBtn) testTelegramBtn.addEventListener('click', testTelegramConnection);
 
+    // AI Settings Listeners
+    const aiConfigForm = document.getElementById('ai-config-form');
+    if (aiConfigForm) aiConfigForm.addEventListener('submit', handleAIConfigSubmit);
+
+    const testAiBtn = document.getElementById('test-ai-btn');
+    if (testAiBtn) testAiBtn.addEventListener('click', testAIConnection);
+
+    const toggleAiKeyBtn = document.getElementById('toggle-ai-key');
+    if (toggleAiKeyBtn) toggleAiKeyBtn.addEventListener('click', () => {
+        const input = document.getElementById('ai-apikey');
+        const icon = toggleAiKeyBtn.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.replace('fa-eye', 'fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.replace('fa-eye-slash', 'fa-eye');
+        }
+    });
+
+    const refreshAiUsageBtn = document.getElementById('refresh-ai-usage-btn');
+    if (refreshAiUsageBtn) refreshAiUsageBtn.addEventListener('click', loadAIUsage);
+
     const confirmReceiptSubmit = document.getElementById('confirm-receipt-submit');
     if (confirmReceiptSubmit) confirmReceiptSubmit.addEventListener('click', handleConfirmReceiptSubmit);
 
@@ -2069,6 +2092,10 @@ async function switchTab(tabName) {
     }
     
     state.currentTab = tabName;
+    if (tabName === 'ai-settings') {
+        loadAIConfig();
+        loadAIUsage();
+    }
 
     document.getElementById('dashboard-date-filter').classList.toggle('d-none', tabName !== 'dashboard');
 
@@ -13054,6 +13081,10 @@ window.handleStockAdjustmentSubmit = handleStockAdjustmentSubmit;
 window.showDeliveryModal = showDeliveryModal;
 window.handleMaterialDeliverySubmit = handleMaterialDeliverySubmit;
 window.updateInventoryDashboard = updateInventoryDashboard;
+window.loadAIConfig = loadAIConfig;
+window.saveAIConfig = saveAIConfig;
+window.loadAIUsage = loadAIUsage;
+window.testAIConnection = testAIConnection;
 
 async function generateTokenLink(fbId, type, showModal = true) {
     const tech = state.technicians.find(t => t.fb_id === fbId);
@@ -15888,3 +15919,151 @@ function renderAIResults(data, assetId) {
 }
 
 window.analyzeAssetWithAI = analyzeAssetWithAI;
+
+// --- AI Module Logic ---
+
+async function loadAIConfig() {
+    try {
+        const response = await fetch('http://localhost:3000/api/settings/ai-config');
+        if (!response.ok) throw new Error('Error al cargar configuración de IA');
+
+        const config = await response.json();
+        document.getElementById('ai-apikey').value = config.apiKey || '';
+        document.getElementById('ai-budget-limit').value = config.monthlyBudget || 30;
+    } catch (error) {
+        console.error("Load AI Config Error:", error);
+    }
+}
+
+async function handleAIConfigSubmit(e) {
+    e.preventDefault();
+    const apiKey = document.getElementById('ai-apikey').value.trim();
+    const budget = document.getElementById('ai-budget-limit').value;
+
+    if (!apiKey) {
+        showToast('La API Key es obligatoria', 'warning');
+        return;
+    }
+
+    saveAIConfig(apiKey, budget);
+}
+
+async function saveAIConfig(apiKey, monthlyBudget) {
+    showLoading(true);
+    try {
+        const response = await fetch('http://localhost:3000/api/settings/ai-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey, monthlyBudget })
+        });
+
+        if (!response.ok) throw new Error('Error al guardar configuración');
+
+        showToast('Configuración de IA guardada correctamente', 'success');
+        loadAIConfig(); // Reload to get masked key
+    } catch (error) {
+        console.error("Save AI Config Error:", error);
+        showToast('Error al guardar la configuración de IA', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function loadAIUsage() {
+    const listBody = document.getElementById('ai-usage-daily-list');
+    try {
+        const response = await fetch('http://localhost:3000/api/settings/ai-usage');
+        if (!response.ok) throw new Error('Error al cargar uso de IA');
+
+        const usage = await response.json();
+
+        // Update stats
+        document.getElementById('ai-stat-tokens').textContent = usage.tokens.toLocaleString();
+        document.getElementById('ai-stat-requests').textContent = usage.requests.toLocaleString();
+        document.getElementById('ai-stat-cost').textContent = `$${usage.estimated_cost.toFixed(2)}`;
+
+        // Update Budget UI
+        const budgetLabel = document.getElementById('ai-budget-label');
+        const progressBar = document.getElementById('ai-budget-progress');
+        const badge = document.getElementById('ai-budget-status-badge');
+        const alert = document.getElementById('ai-budget-alert');
+
+        const percentage = Math.min(100, usage.usage_percentage || 0);
+        budgetLabel.textContent = `Presupuesto: $${usage.estimated_cost.toFixed(2)} / $${usage.limit.toFixed(2)}`;
+        progressBar.style.width = `${percentage}%`;
+
+        if (percentage > 90) {
+            progressBar.className = 'progress-bar bg-danger';
+            badge.className = 'badge bg-danger';
+            badge.textContent = 'Crítico';
+            alert.classList.remove('d-none');
+            alert.className = 'alert alert-danger py-2 px-3 small';
+            alert.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i> Has superado el 90% de tu presupuesto. El servicio podría interrumpirse.';
+        } else if (percentage > 70) {
+            progressBar.className = 'progress-bar bg-warning';
+            badge.className = 'badge bg-warning text-dark';
+            badge.textContent = 'Atención';
+            alert.classList.remove('d-none');
+            alert.className = 'alert alert-warning py-2 px-3 small';
+            alert.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i> Has superado el 70% de tu presupuesto mensual.';
+        } else {
+            progressBar.className = 'progress-bar bg-success';
+            badge.className = 'badge bg-success';
+            badge.textContent = 'Excelente';
+            alert.classList.add('d-none');
+        }
+
+        // Render daily list
+        if (usage.daily && Object.keys(usage.daily).length > 0) {
+            const sortedDays = Object.keys(usage.daily).sort().reverse();
+            listBody.innerHTML = sortedDays.map(day => `
+                <tr>
+                    <td class="px-4 py-3 small fw-bold">${day}</td>
+                    <td class="py-3 small">${usage.daily[day].tokens.toLocaleString()}</td>
+                    <td class="py-3 small">${usage.daily[day].requests}</td>
+                </tr>
+            `).join('');
+        } else {
+            listBody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted small">No hay datos de uso para este mes.</td></tr>';
+        }
+
+    } catch (error) {
+        console.error("Load AI Usage Error:", error);
+        listBody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-danger small">Error al cargar datos de uso.</td></tr>';
+    }
+}
+
+async function testAIConnection() {
+    const resultDiv = document.getElementById('ai-test-result');
+    const messageSpan = document.getElementById('ai-test-message');
+    const icon = document.getElementById('ai-test-icon');
+    const durationSpan = document.getElementById('ai-test-duration');
+
+    resultDiv.classList.remove('d-none');
+    messageSpan.textContent = 'Probando conexión...';
+    icon.className = 'fas fa-circle-notch fa-spin me-2 text-primary';
+    durationSpan.textContent = '';
+
+    try {
+        const response = await fetch('http://localhost:3000/api/settings/ai-test-connection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'connected') {
+            icon.className = 'fas fa-check-circle me-2 text-success';
+            messageSpan.textContent = 'Conexión exitosa. El asistente de IA está listo.';
+            durationSpan.textContent = data.duration;
+            showToast('Conexión con IA establecida correctamente', 'success');
+        } else {
+            throw new Error(data.error || 'Error desconocido');
+        }
+    } catch (error) {
+        console.error("Test AI Error:", error);
+        icon.className = 'fas fa-times-circle me-2 text-danger';
+        messageSpan.textContent = 'Error de conexión: ' + error.message;
+        showToast('Error al probar conexión con IA', 'error');
+    }
+}
