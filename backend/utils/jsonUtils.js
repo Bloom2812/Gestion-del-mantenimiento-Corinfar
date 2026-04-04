@@ -1,0 +1,53 @@
+const logger = require('./logger');
+
+const VALID_PRIORITIES = ["ALTA", "MEDIA", "BAJA"];
+
+const safeParseJSON = (text) => {
+    try {
+        // Remove potential markdown code blocks if AI returns them
+        const cleanText = text.replace(/```json\n?|```/g, '').trim();
+        return JSON.parse(cleanText);
+    } catch (error) {
+        logger.error(`[ai_error] Invalid JSON response: ${text.substring(0, 200)}...`, error);
+        return null;
+    }
+};
+
+const normalizeAIResponse = (data) => {
+    const defaultResponse = {
+        problemas: [],
+        acciones: [],
+        prioridad: "MEDIA",
+        sugerencia_ot: {
+            descripcion: "",
+            tipo: "",
+            tiempo_estimado: ""
+        }
+    };
+
+    if (!data || typeof data !== 'object') return defaultResponse;
+
+    // Ensure mandatory fields exist
+    const normalized = {
+        problemas: Array.isArray(data.problemas) ? data.problemas : defaultResponse.problemas,
+        acciones: Array.isArray(data.acciones) ? data.acciones : defaultResponse.acciones,
+        prioridad: VALID_PRIORITIES.includes(String(data.prioridad).toUpperCase())
+            ? String(data.prioridad).toUpperCase()
+            : defaultResponse.prioridad,
+        sugerencia_ot: (data.sugerencia_ot && typeof data.sugerencia_ot === 'object')
+            ? {
+                descripcion: String(data.sugerencia_ot.descripcion || ""),
+                tipo: String(data.sugerencia_ot.tipo || ""),
+                tiempo_estimado: String(data.sugerencia_ot.tiempo_estimado || "")
+            }
+            : defaultResponse.sugerencia_ot,
+        analisis_detallado: data.analisis_detallado || "No se proporcionó análisis detallado."
+    };
+
+    return normalized;
+};
+
+module.exports = {
+    safeParseJSON,
+    normalizeAIResponse
+};
