@@ -672,6 +672,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.modals.stockAdjustment = new bootstrap.Modal(document.getElementById('stock-adjustment-modal'));
     state.modals.materialDelivery = new bootstrap.Modal(document.getElementById('material-delivery-modal'));
     state.modals.confirmReceipt = new bootstrap.Modal(document.getElementById('confirm-receipt-modal'));
+    state.modals.aiResults = new bootstrap.Modal(document.getElementById('ai-results-modal'));
 
     setupEventListeners();
 
@@ -2907,6 +2908,7 @@ function showMachineDetail(machineId) {
     const canDecommission = ['Admin', 'Planificador'].includes(state.currentUser?.role);
 
     actionsTop.innerHTML = `
+        ${!isDecommissioned ? `<button class="btn btn-sm btn-outline-primary me-2" onclick="analyzeAssetWithAI('${machine.id}')"><i class="fas fa-robot me-1"></i>Analizar con IA</button>` : ''}
         ${!isDecommissioned && canDecommission ? `<button class="btn btn-sm btn-outline-danger me-2" onclick="showDecommissionModal('${machine.fb_id}')"><i class="fas fa-archive me-1"></i>Dar de Baja</button>` : ''}
         <button class="btn btn-sm btn-outline-secondary me-2 edit-machine-from-detail" data-id="${machine.id}"><i class="fas fa-edit me-1"></i>Editar</button>
         <button class="btn btn-sm btn-outline-secondary me-2 print-machine-label"><i class="fas fa-print me-1"></i>Imprimir</button>
@@ -15811,3 +15813,78 @@ function removeTempSolicitudItem(index) {
 }
 
 window.removeTempSolicitudItem = removeTempSolicitudItem;
+
+// --- AI Assistant Integration Functions ---
+
+async function analyzeAssetWithAI(assetId) {
+    const aiModal = state.modals.aiResults;
+    const loading = document.getElementById('ai-loading');
+    const content = document.getElementById('ai-content');
+
+    aiModal.show();
+    loading.classList.remove('d-none');
+    content.classList.add('d-none');
+
+    try {
+        const response = await fetch('http://localhost:3000/api/ai/analizar-activo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assetId: assetId })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Fallo en la comunicación con el backend de IA');
+        }
+
+        const result = await response.json();
+        renderAIResults(result, assetId);
+
+    } catch (error) {
+        console.error("AI Analysis Error:", error);
+        showToast('Error al conectar con el asistente de IA. Asegúrese de que el backend esté corriendo.', 'error');
+        aiModal.hide();
+    } finally {
+        loading.classList.add('d-none');
+    }
+}
+
+function renderAIResults(data, assetId) {
+    const content = document.getElementById('ai-content');
+    content.classList.remove('d-none');
+
+    document.getElementById('ai-analisis-detallado').textContent = data.analisis_detallado || 'Análisis técnico no disponible.';
+
+    const problemasList = document.getElementById('ai-problemas-list');
+    problemasList.innerHTML = (data.problemas || []).map(p => `<li>${p}</li>`).join('') || '<li>No se detectaron problemas críticos inmediatos.</li>';
+
+    const accionesList = document.getElementById('ai-acciones-list');
+    accionesList.innerHTML = (data.acciones || []).map(a => `<li>${a}</li>`).join('') || '<li>Siga el plan de mantenimiento preventivo estándar.</li>';
+
+    const priBadge = document.getElementById('ai-prioridad-badge');
+    const priMap = {
+        'alta': 'bg-danger',
+        'media': 'bg-warning text-dark',
+        'baja': 'bg-success'
+    };
+    const priClass = priMap[data.prioridad?.toLowerCase()] || 'bg-secondary';
+    priBadge.innerHTML = `<span class="badge ${priClass} w-100 py-2 fs-6 fw-bold text-uppercase">${data.prioridad || 'Desconocida'}</span>`;
+
+    const suggestion = data.sugerencia_ot || {};
+    document.getElementById('ai-ot-tipo').textContent = suggestion.tipo || 'Preventivo';
+    document.getElementById('ai-ot-descripcion').textContent = suggestion.descripcion || 'Sin descripción sugerida.';
+    document.getElementById('ai-ot-tiempo').textContent = suggestion.tiempo_estimado || 'Por definir';
+
+    // Evento para el botón de usar sugerencia
+    const btnUseSuggestion = document.getElementById('btn-create-wo-from-ai');
+    btnUseSuggestion.onclick = async () => {
+        state.modals.aiResults.hide();
+        state.modals.machineDetail.hide(); // Opcional, cerrar detalle para ver la OT
+
+        await showWorkOrderModal(null, suggestion.tipo || 'Preventivo', assetId);
+        document.getElementById('wo-description').value = suggestion.descripcion || '';
+        showToast('Sugerencia de IA aplicada a la nueva Orden de Trabajo.', 'success');
+    };
+}
+
+window.analyzeAssetWithAI = analyzeAssetWithAI;

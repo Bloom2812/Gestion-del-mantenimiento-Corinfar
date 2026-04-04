@@ -7,3 +7,7 @@ __pycache__/
 
 # Testing
 .pytest_cache/
+
+# Node
+node_modules/
+.env
