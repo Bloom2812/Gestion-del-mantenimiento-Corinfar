@@ -19,6 +19,8 @@ import {
 import { OdooConnector } from "./odoo-connector.js";
 import { apiRequest } from './api.js';
 
+console.log("Script IA cargado");
+
 // --- Firebase Config (placeholders will be populated by environment) ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-cmms-app';
@@ -2939,7 +2941,7 @@ function showMachineDetail(machineId) {
     const canDecommission = ['Admin', 'Planificador'].includes(state.currentUser?.role);
 
     actionsTop.innerHTML = `
-        ${!isDecommissioned ? `<button class="btn btn-sm btn-outline-primary me-2" onclick="analyzeAssetWithAI(currentAsset)"><i class="fas fa-robot me-1"></i>Analizar con IA</button>` : ''}
+        ${!isDecommissioned ? `<button id="analyze-ai-btn" class="btn btn-sm btn-outline-primary me-2"><i class="fas fa-robot me-1"></i>Analizar con IA</button>` : ''}
         ${!isDecommissioned && canDecommission ? `<button class="btn btn-sm btn-outline-danger me-2" onclick="showDecommissionModal('${machine.fb_id}')"><i class="fas fa-archive me-1"></i>Dar de Baja</button>` : ''}
         <button class="btn btn-sm btn-outline-secondary me-2 edit-machine-from-detail" data-id="${machine.id}"><i class="fas fa-edit me-1"></i>Editar</button>
         <button class="btn btn-sm btn-outline-secondary me-2 print-machine-label"><i class="fas fa-print me-1"></i>Imprimir</button>
@@ -3206,6 +3208,16 @@ function showMachineDetail(machineId) {
     `;
 
     // Re-attach listeners for buttons inside the modal
+    document.getElementById('analyze-ai-btn')?.addEventListener('click', () => {
+        console.log("Click en botón IA");
+        // Using local machine object from showMachineDetail scope
+        if (!machine) {
+            console.error("No hay activo seleccionado");
+            return;
+        }
+        analyzeAssetWithAI(machine);
+    });
+
     actionsTop.querySelector('.edit-machine-from-detail')?.addEventListener('click', () => {
         state.modals.machineDetail.hide();
         showMachineModal(machine.id);
@@ -15850,7 +15862,7 @@ function removeTempSolicitudItem(index) {
 window.removeTempSolicitudItem = removeTempSolicitudItem;
 
 async function analyzeAssetWithAI(asset) {
-    console.log("Asset enviado:", asset);
+    console.log("Enviando asset:", asset);
 
     if (!asset) {
         showToast("Error: No se proporcionó el activo para el análisis.", "error");
