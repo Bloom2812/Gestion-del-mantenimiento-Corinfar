@@ -10,33 +10,33 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-console.log("CORS middleware cargado correctamente");
+console.log("🚀 SERVER INICIADO - VERSION DEBUG CORS");
 
-// Log para debug en cada request
+// Log de requests entrantes para debug en producción
 app.use((req, res, next) => {
-    console.log("Request origin:", req.headers.origin);
+    console.log("Incoming request:", req.method, req.url);
+    console.log("Origin:", req.headers.origin);
     next();
 });
 
-// FORZAR CORS GLOBAL (DEBUG MODE)
+// FORZAR CORS MANUALMENTE (SIN LIBRERÍA) - ANTES DE TODAS LAS RUTAS
 app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    next();
-});
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-// MANEJO EXPLÍCITO DE OPTIONS (CRÍTICO)
-app.options("*", (req, res) => {
-    res.sendStatus(200);
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(200);
+    }
+    next();
 });
 
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Endpoint de salud
+// Endpoint de salud actualizado para diagnóstico
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok' });
+    res.json({ status: "ok", cors: "enabled" });
 });
 
 // Rutas de la API
