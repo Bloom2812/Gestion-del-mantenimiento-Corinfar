@@ -17,6 +17,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 import { OdooConnector } from "./odoo-connector.js";
+import { apiRequest } from './api.js';
 
 // --- Firebase Config (placeholders will be populated by environment) ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
@@ -15845,10 +15846,6 @@ function removeTempSolicitudItem(index) {
 
 window.removeTempSolicitudItem = removeTempSolicitudItem;
 
-// --- AI Assistant Integration Functions ---
-
-const AI_BACKEND_URL = ''; // Empty for relative paths
-
 async function analyzeAssetWithAI(assetId) {
     const aiModal = state.modals.aiResults;
     const loading = document.getElementById('ai-loading');
@@ -15859,23 +15856,16 @@ async function analyzeAssetWithAI(assetId) {
     content.classList.add('d-none');
 
     try {
-        const response = await fetch(`${AI_BACKEND_URL}/api/ai/analizar-activo`, {
+        const result = await apiRequest('/api/ai/analizar-activo', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ assetId: assetId })
         });
 
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error || 'Fallo en la comunicación con el backend de IA');
-        }
-
-        const result = await response.json();
         renderAIResults(result, assetId);
 
     } catch (error) {
         console.error("AI Analysis Error:", error);
-        showToast('Error al conectar con el asistente de IA. Asegúrese de que el backend esté corriendo.', 'error');
+        showToast(`Error de IA: ${error.message}`, 'error');
         aiModal.hide();
     } finally {
         loading.classList.add('d-none');
@@ -15926,10 +15916,7 @@ window.analyzeAssetWithAI = analyzeAssetWithAI;
 
 async function loadAIConfig() {
     try {
-        const response = await fetch(`${AI_BACKEND_URL}/api/settings/ai-config`);
-        if (!response.ok) throw new Error('Error al cargar configuración de IA');
-
-        const config = await response.json();
+        const config = await apiRequest('/api/settings/ai-config');
         document.getElementById('ai-apikey').value = config.apiKey || '';
         document.getElementById('ai-budget-limit').value = config.monthlyBudget || 30;
     } catch (error) {
@@ -15953,19 +15940,16 @@ async function handleAIConfigSubmit(e) {
 async function saveAIConfig(apiKey, monthlyBudget) {
     showLoading(true);
     try {
-        const response = await fetch(`${AI_BACKEND_URL}/api/settings/ai-config`, {
+        await apiRequest('/api/settings/ai-config', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ apiKey, monthlyBudget })
         });
-
-        if (!response.ok) throw new Error('Error al guardar configuración');
 
         showToast('Configuración de IA guardada correctamente', 'success');
         loadAIConfig(); // Reload to get masked key
     } catch (error) {
         console.error("Save AI Config Error:", error);
-        showToast('Error al guardar la configuración de IA', 'error');
+        showToast(`Error al guardar configuración: ${error.message}`, 'error');
     } finally {
         showLoading(false);
     }
@@ -15974,10 +15958,7 @@ async function saveAIConfig(apiKey, monthlyBudget) {
 async function loadAIUsage() {
     const listBody = document.getElementById('ai-usage-daily-list');
     try {
-        const response = await fetch(`${AI_BACKEND_URL}/api/settings/ai-usage`);
-        if (!response.ok) throw new Error('Error al cargar uso de IA');
-
-        const usage = await response.json();
+        const usage = await apiRequest('/api/settings/ai-usage');
 
         // Update stats
         document.getElementById('ai-stat-tokens').textContent = usage.tokens.toLocaleString();
@@ -16047,12 +16028,9 @@ async function testAIConnection() {
     durationSpan.textContent = '';
 
     try {
-        const response = await fetch(`${AI_BACKEND_URL}/api/settings/ai-test-connection`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+        const data = await apiRequest('/api/settings/ai-test-connection', {
+            method: 'POST'
         });
-
-        const data = await response.json();
 
         if (data.status === 'connected') {
             icon.className = 'fas fa-check-circle me-2 text-success';
