@@ -1,5 +1,5 @@
 {
-  "apiKey": "",
+  "apiKey": "new-test-key",
   "provider": "gemini",
-  "monthlyBudget": 30
+  "monthlyBudget": 50
 }
