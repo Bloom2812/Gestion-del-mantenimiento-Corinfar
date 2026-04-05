@@ -101,6 +101,7 @@ const state = window.state = {
 };
 window.state = state;
 let currentPartDocs = [];
+let currentAsset = null;
 
 const FICHA_MAESTRA_TEMPLATE = `
 <!DOCTYPE html>
@@ -2879,6 +2880,8 @@ function showMachineDetail(machineId) {
     const machine = state.machines.find(m => m.id === machineId);
     if (!machine) return;
 
+    currentAsset = machine;
+
     const container = document.getElementById('machine-detail-view-container');
     const actionsTop = document.getElementById('machine-detail-actions-top');
 
@@ -2936,7 +2939,7 @@ function showMachineDetail(machineId) {
     const canDecommission = ['Admin', 'Planificador'].includes(state.currentUser?.role);
 
     actionsTop.innerHTML = `
-        ${!isDecommissioned ? `<button class="btn btn-sm btn-outline-primary me-2" onclick="analyzeAssetWithAI('${machine.id}')"><i class="fas fa-robot me-1"></i>Analizar con IA</button>` : ''}
+        ${!isDecommissioned ? `<button class="btn btn-sm btn-outline-primary me-2" onclick="analyzeAssetWithAI(currentAsset)"><i class="fas fa-robot me-1"></i>Analizar con IA</button>` : ''}
         ${!isDecommissioned && canDecommission ? `<button class="btn btn-sm btn-outline-danger me-2" onclick="showDecommissionModal('${machine.fb_id}')"><i class="fas fa-archive me-1"></i>Dar de Baja</button>` : ''}
         <button class="btn btn-sm btn-outline-secondary me-2 edit-machine-from-detail" data-id="${machine.id}"><i class="fas fa-edit me-1"></i>Editar</button>
         <button class="btn btn-sm btn-outline-secondary me-2 print-machine-label"><i class="fas fa-print me-1"></i>Imprimir</button>
@@ -15846,7 +15849,14 @@ function removeTempSolicitudItem(index) {
 
 window.removeTempSolicitudItem = removeTempSolicitudItem;
 
-async function analyzeAssetWithAI(assetId) {
+async function analyzeAssetWithAI(asset) {
+    console.log("Asset enviado:", asset);
+
+    if (!asset) {
+        showToast("Error: No se proporcionó el activo para el análisis.", "error");
+        throw new Error("No asset provided from frontend");
+    }
+
     const aiModal = state.modals.aiResults;
     const loading = document.getElementById('ai-loading');
     const content = document.getElementById('ai-content');
@@ -15856,18 +15866,17 @@ async function analyzeAssetWithAI(assetId) {
     content.classList.add('d-none');
 
     try {
-        const activo = state.machines.find(m => m.id === assetId || m.fb_id === assetId);
-        const ordenes = state.workOrders.filter(wo => wo.machineId === (activo?.id || assetId));
+        const ordenes = state.workOrders.filter(wo => wo.machineId === asset.id);
 
         const result = await apiRequest('/api/ai/analizar-activo', {
             method: 'POST',
             body: JSON.stringify({
-                asset: activo,
-                historial: ordenes
+                asset: asset,
+                historial: ordenes || []
             })
         });
 
-        renderAIResults(result, assetId);
+        renderAIResults(result, asset.id);
 
     } catch (error) {
         console.error("AI Analysis Error:", error);
