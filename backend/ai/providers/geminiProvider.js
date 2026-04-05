@@ -38,6 +38,7 @@ class GeminiProvider {
         }
 
         // Definimos modelos a probar en orden de prioridad (Producción)
+        // Usamos gemini-2.5-flash y 2.5-flash-lite según requerimiento
         const models = [
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
@@ -54,8 +55,8 @@ class GeminiProvider {
             const isFallback = attempt > 1;
 
             try {
-                // Usamos v1 según requerimiento de producción
-                const apiVersion = "v1";
+                // Volvemos a v1beta porque v1 NO soporta responseMimeType
+                const apiVersion = "v1beta";
 
                 const generationConfig = {
                     maxOutputTokens: 400,
@@ -139,7 +140,7 @@ class GeminiProvider {
                     throw new Error("Invalid Gemini API Key");
                 }
 
-                logger.error(`[ai_error] Fallo con modelo ${modelName} (v1):`, error.message);
+                logger.error(`[ai_error] Fallo con modelo ${modelName} (${attempt > 1 ? 'fallback' : 'principal'}):`, error.message);
             }
         }
 
