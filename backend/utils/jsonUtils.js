@@ -3,14 +3,33 @@ const logger = require('./logger');
 const VALID_PRIORITIES = ["alta", "media", "baja"];
 
 const safeParseJSON = (text) => {
+    if (!text || typeof text !== 'string') return null;
+
     try {
-        // Remove potential markdown code blocks if AI returns them
-        const cleanText = text.replace(/```json\n?|```/g, '').trim();
+        // Extract the first JSON object block using regex
+        const jsonMatch = text.match(/{[\s\S]*}/);
+        if (!jsonMatch) {
+            logger.error(`[ai_error] No se encontró bloque JSON en la respuesta: ${text.substring(0, 200)}...`);
+            return null;
+        }
+
+        const cleanText = jsonMatch[0].trim();
         return JSON.parse(cleanText);
     } catch (error) {
-        logger.error(`[ai_error] Invalid JSON response: ${text.substring(0, 200)}...`, error);
+        logger.error(`[ai_error] Error al parsear JSON: ${error.message}. Texto: ${text.substring(0, 200)}...`);
         return null;
     }
+};
+
+const isValidAIResponse = (data) => {
+    return !!(
+        data &&
+        typeof data.analisis === "string" &&
+        Array.isArray(data.problemas) &&
+        Array.isArray(data.acciones) &&
+        data.sugerencia_ot &&
+        typeof data.sugerencia_ot === "object"
+    );
 };
 
 const normalizeAIResponse = (data) => {
@@ -52,5 +71,6 @@ const normalizeAIResponse = (data) => {
 
 module.exports = {
     safeParseJSON,
+    isValidAIResponse,
     normalizeAIResponse
 };

@@ -1,6 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const logger = require('../../utils/logger');
 const aiSettingsService = require('../../services/aiSettingsService');
+const { safeParseJSON, isValidAIResponse } = require('../../utils/jsonUtils');
 require('dotenv').config();
 
 class GeminiProvider {
@@ -53,9 +54,8 @@ class GeminiProvider {
             const isFallback = attempt > 1;
 
             try {
-                // Usamos v1beta para soportar responseMimeType: application/json
-                // El endpoint v1 suele dar error con responseMimeType
-                const apiVersion = "v1beta";
+                // Usamos v1 según requerimiento de producción
+                const apiVersion = "v1";
 
                 const generationConfig = {
                     maxOutputTokens: 400,
@@ -71,32 +71,58 @@ class GeminiProvider {
                     { apiVersion: apiVersion }
                 );
 
-                const result = await model.generateContent({
-                    contents: [{
-                        role: "user",
-                        parts: [{ text: `${systemPrompt}\n\nUser request: ${userPrompt}` }]
-                    }]
-                });
+                // Función interna para realizar la petición y validar
+                const getAndValidate = async (customPrompt = null) => {
+                    const finalPrompt = customPrompt || `${systemPrompt}\n\nUser request: ${userPrompt}`;
 
-                const response = await result.response;
-                const text = response.text();
-                const responseTime = Date.now() - startTime;
+                    const result = await model.generateContent({
+                        contents: [{
+                            role: "user",
+                            parts: [{ text: finalPrompt }]
+                        }]
+                    });
 
-                console.log("Modelo usado:", modelName);
-                console.log("Fallback activado:", isFallback);
-                console.log("Tiempo de respuesta:", `${responseTime}ms`);
+                    const response = await result.response;
+                    const text = response.text();
 
-                // Track usage
-                if (result.usageMetadata) {
-                    const totalTokens = result.usageMetadata.totalTokenCount;
-                    const promptTokens = result.usageMetadata.promptTokenCount;
-                    const candidatesTokens = result.usageMetadata.candidatesTokenCount;
+                    // Log respuesta cruda
+                    logger.info("Respuesta cruda IA", { responseText: text });
 
-                    aiSettingsService.trackUsage(totalTokens);
-                    logger.info(`[ai_usage] Model: ${modelName}, Total: ${totalTokens} (P:${promptTokens}/C:${candidatesTokens}), Time: ${responseTime}ms, Fallback: ${isFallback}`);
+                    // Track usage
+                    if (result.usageMetadata) {
+                        const totalTokens = result.usageMetadata.totalTokenCount;
+                        aiSettingsService.trackUsage(totalTokens);
+                    }
+
+                    const parsed = safeParseJSON(text);
+                    if (parsed && isValidAIResponse(parsed)) {
+                        return { text, parsed, usage: result.usageMetadata };
+                    }
+                    return { text, parsed: null, usage: result.usageMetadata };
+                };
+
+                // PRIMER INTENTO
+                let validatedResult = await getAndValidate();
+
+                // SMART RETRY: Si falla validación, reintentar con prompt reforzado
+                if (!validatedResult.parsed) {
+                    logger.warn(`[ai_retry] JSON inválido o incompleto con ${modelName}. Reintentando con prompt reforzado...`);
+
+                    const reinforcedPrompt = `${systemPrompt}\n\nUser request: ${userPrompt}\n\nIMPORTANTE: Responde SOLO JSON válido, sin texto adicional, cumpliendo con la estructura solicitada.`;
+
+                    validatedResult = await getAndValidate(reinforcedPrompt);
                 }
 
-                return text;
+                // Si después del reintento sigue siendo inválido, lanzamos error para que pase al siguiente modelo (fallback)
+                if (!validatedResult.parsed) {
+                    throw new Error(`JSON validation failed for model ${modelName} after retry`);
+                }
+
+                const responseTime = Date.now() - startTime;
+                logger.info(`[ai_success] Model: ${modelName}, Time: ${responseTime}ms, Fallback: ${isFallback}`);
+
+                return validatedResult.text;
+
             } catch (error) {
                 lastError = error;
 
@@ -113,7 +139,7 @@ class GeminiProvider {
                     throw new Error("Invalid Gemini API Key");
                 }
 
-                logger.error(`[ai_error] Fallo con modelo ${modelName} (v1beta):`, error.message);
+                logger.error(`[ai_error] Fallo con modelo ${modelName} (v1):`, error.message);
             }
         }
 
