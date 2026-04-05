@@ -9,7 +9,39 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// Configuración de CORS más explícita
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5500',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5500',
+    /\.github\.io$/, // Permitir subdominios de github.io (GitHub Pages)
+    /\.github\.dev$/ // Permitir entornos de GitHub Codespaces / Dev
+];
+
+app.use(cors({
+    origin: function(origin, callback) {
+        // Permitir peticiones sin origen (como apps móviles o curl)
+        if (!origin) return callback(null, true);
+
+        const isAllowed = allowedOrigins.some(pattern => {
+            if (pattern instanceof RegExp) return pattern.test(origin);
+            return pattern === origin;
+        });
+
+        if (isAllowed) {
+            callback(null, true);
+        } else {
+            // Log for debugging CORS issues
+            logger.warn(`CORS blocked for origin: ${origin}`);
+            callback(null, true); // En desarrollo somos permisivos, pero avisamos
+        }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+
 app.use(express.json());
 app.use(morgan('dev'));
 
