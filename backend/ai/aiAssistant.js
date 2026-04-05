@@ -8,7 +8,7 @@ const provider = AIProviderFactory.getProvider('gemini');
 
 const SYSTEM_PROMPT = `
 Actúa como un experto senior en mantenimiento industrial y sistemas CMMS.
-Tu objetivo es analizar activos y sus historiales de mantenimiento para proporcionar recomendaciones precisas.
+Tu objetivo es analizar activos y sus historiales de mantenimiento para proporcionar recomendaciones precisas y planes estructurados.
 REGLAS CRÍTICAS:
 1. Siempre debes responder en formato JSON válido.
 2. Si los datos están incompletos, indica las suposiciones basadas en mejores prácticas industriales.
@@ -16,24 +16,24 @@ REGLAS CRÍTICAS:
 4. Usa un tono profesional y técnico.
 FORMATO DE RESPUESTA OBLIGATORIO (JSON):
 {
+    "analisis": "Breve explicación técnica de tu razonamiento",
     "problemas": ["lista de problemas potenciales detectados"],
     "acciones": ["lista de acciones recomendadas"],
-    "prioridad": "ALTA | MEDIA | BAJA",
+    "prioridad": "alta | media | baja",
     "sugerencia_ot": {
         "descripcion": "Descripción detallada para una nueva orden de trabajo",
         "tipo": "Preventivo | Correctivo | Predictivo | Calibración",
         "tiempo_estimado": "Ej: 2 horas"
-    },
-    "analisis_detallado": "Breve explicación técnica de tu razonamiento"
+    }
 }
 `;
 
 const FALLBACK_RESPONSE = {
+    "analisis": "Error en servicio de IA",
     "problemas": ["No se pudo analizar el activo"],
     "acciones": ["Intentar nuevamente"],
-    "prioridad": "MEDIA",
-    "sugerencia_ot": null,
-    "analisis_detallado": "Error en servicio de IA"
+    "prioridad": "media",
+    "sugerencia_ot": null
 };
 
 /**
@@ -44,13 +44,14 @@ const reduceHistory = (history) => {
     return history.slice(-5).map(o => ({
         tipo: o.tipo || "N/A",
         falla: o.falla || "N/A",
-        fecha: o.fecha || "N/A"
+        fecha: o.fecha || "N/A",
+        descripcion: o.description || ""
     }));
 };
 
 const analizarActivo = async (asset, history) => {
     try {
-        const assetId = asset.id;
+        const assetId = asset.id || "unknown";
 
         // Check Cache
         const cachedResult = cache.get(assetId);
@@ -64,7 +65,7 @@ const analizarActivo = async (asset, history) => {
         // Context reduction
         const reducedHistory = reduceHistory(history);
 
-        const userPrompt = `Analiza el siguiente activo y su historial reciente:
+        const userPrompt = `Analiza el siguiente activo y su historial reciente en un contexto industrial:
         ACTIVO: ${JSON.stringify(asset, null, 2)}
         HISTORIAL DE ÓRDENES DE TRABAJO (últimos 5): ${JSON.stringify(reducedHistory, null, 2)}
         Basado en esta información, detecta patrones de falla, sugiere el siguiente paso de mantenimiento y evalúa el riesgo actual.`;
@@ -83,13 +84,15 @@ const analizarActivo = async (asset, history) => {
     }
 };
 
-const generarPlan = async (asset) => {
+const generarPlan = async (asset, history) => {
     try {
-        const cacheKey = `plan_${asset.id}`;
+        const cacheKey = `plan_${asset.id || "unknown"}`;
         const cached = cache.get(cacheKey);
         if (cached) return cached;
 
-        const userPrompt = `Genera un plan de mantenimiento preventivo anual estructurado para el activo: ${asset.name} (${asset.model}).`;
+        const reducedHistory = reduceHistory(history);
+        const userPrompt = `Genera un plan de mantenimiento preventivo anual estructurado para el activo: ${JSON.stringify(asset, null, 2)}.
+        Toma en cuenta el historial reciente: ${JSON.stringify(reducedHistory, null, 2)}`;
 
         const responseText = await provider.generateContent(SYSTEM_PROMPT, userPrompt);
         const parsed = safeParseJSON(responseText);

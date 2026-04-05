@@ -1,6 +1,6 @@
 const logger = require('./logger');
 
-const VALID_PRIORITIES = ["ALTA", "MEDIA", "BAJA"];
+const VALID_PRIORITIES = ["alta", "media", "baja"];
 
 const safeParseJSON = (text) => {
     try {
@@ -15,9 +15,10 @@ const safeParseJSON = (text) => {
 
 const normalizeAIResponse = (data) => {
     const defaultResponse = {
+        analisis: "No se proporcionó análisis detallado.",
         problemas: [],
         acciones: [],
-        prioridad: "MEDIA",
+        prioridad: "media",
         sugerencia_ot: {
             descripcion: "",
             tipo: "",
@@ -29,10 +30,11 @@ const normalizeAIResponse = (data) => {
 
     // Ensure mandatory fields exist
     const normalized = {
+        analisis: data.analisis || data.analisis_detallado || defaultResponse.analisis,
         problemas: Array.isArray(data.problemas) ? data.problemas : defaultResponse.problemas,
         acciones: Array.isArray(data.acciones) ? data.acciones : defaultResponse.acciones,
-        prioridad: VALID_PRIORITIES.includes(String(data.prioridad).toUpperCase())
-            ? String(data.prioridad).toUpperCase()
+        prioridad: VALID_PRIORITIES.includes(String(data.prioridad).toLowerCase())
+            ? String(data.prioridad).toLowerCase()
             : defaultResponse.prioridad,
         sugerencia_ot: (data.sugerencia_ot && typeof data.sugerencia_ot === 'object')
             ? {
@@ -40,8 +42,7 @@ const normalizeAIResponse = (data) => {
                 tipo: String(data.sugerencia_ot.tipo || ""),
                 tiempo_estimado: String(data.sugerencia_ot.tiempo_estimado || "")
             }
-            : defaultResponse.sugerencia_ot,
-        analisis_detallado: data.analisis_detallado || "No se proporcionó análisis detallado."
+            : defaultResponse.sugerencia_ot
     };
 
     return normalized;

@@ -15856,9 +15856,15 @@ async function analyzeAssetWithAI(assetId) {
     content.classList.add('d-none');
 
     try {
+        const activo = state.machines.find(m => m.id === assetId || m.fb_id === assetId);
+        const ordenes = state.workOrders.filter(wo => wo.machineId === (activo?.id || assetId));
+
         const result = await apiRequest('/api/ai/analizar-activo', {
             method: 'POST',
-            body: JSON.stringify({ assetId: assetId })
+            body: JSON.stringify({
+                asset: activo,
+                historial: ordenes
+            })
         });
 
         renderAIResults(result, assetId);
@@ -15876,7 +15882,7 @@ function renderAIResults(data, assetId) {
     const content = document.getElementById('ai-content');
     content.classList.remove('d-none');
 
-    document.getElementById('ai-analisis-detallado').textContent = data.analisis_detallado || 'Análisis técnico no disponible.';
+    document.getElementById('ai-analisis-detallado').textContent = data.analisis || data.analisis_detallado || 'Análisis técnico no disponible.';
 
     const problemasList = document.getElementById('ai-problemas-list');
     problemasList.innerHTML = (data.problemas || []).map(p => `<li>${p}</li>`).join('') || '<li>No se detectaron problemas críticos inmediatos.</li>';
