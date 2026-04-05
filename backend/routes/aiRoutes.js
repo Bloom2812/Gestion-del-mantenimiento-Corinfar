@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const aiAssistant = require('../ai/aiAssistant');
+const geminiProvider = require('../ai/providers/geminiProvider');
 const logger = require('../utils/logger');
 const authMiddleware = require('../middleware/authMiddleware');
 router.post('/analizar-activo', authMiddleware, async (req, res) => {
@@ -69,4 +70,16 @@ router.post('/chat', authMiddleware, async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
+// Endpoint temporal de prueba
+router.get('/test', async (req, res) => {
+    try {
+        const result = await geminiProvider.generateContent("Actúa como un experto en JSON", "Responde OK en JSON");
+        res.json({ ok: true, result });
+    } catch (error) {
+        logger.error('Error en /test:', error);
+        res.status(500).json({ ok: false, error: error.message });
+    }
+});
+
 module.exports = router;
