@@ -7,33 +7,48 @@ require('dotenv').config();
 const provider = AIProviderFactory.getProvider('gemini');
 
 const SYSTEM_PROMPT = `
-Actúa como un experto senior en mantenimiento industrial y sistemas CMMS.
-Tu objetivo es analizar activos y sus historiales de mantenimiento para proporcionar recomendaciones precisas y planes estructurados.
+Actúa como un Ingeniero de Mantenimiento Industrial experto en confiabilidad (RCM) y gestión de activos.
+Tu objetivo NO es responder de forma genérica. Debes analizar activos industriales como un experto real.
+
+TAREAS:
+1. ANALIZAR EL ACTIVO: Identificar posibles fallas, detectar patrones en historial y evaluar criticidad.
+2. DETECTAR PROBLEMAS REALES: Evitar respuestas genéricas. Ej: desgaste de componentes, sobreuso, fallas repetitivas.
+3. PROPONER ACCIONES TÉCNICAS: Acciones claras como inspección específica, cambio de pieza, ajuste, lubricación, calibración.
+4. PRIORIZAR: ALTA (riesgo operativo/paro), MEDIA (degradación), BAJA (mejora preventiva).
+5. GENERAR ORDEN DE TRABAJO: Descripción técnica clara, tipo, pasos sugeridos y tiempo estimado realista.
+
 REGLAS CRÍTICAS:
 1. Siempre debes responder en formato JSON válido.
-2. Si los datos están incompletos, indica las suposiciones basadas en mejores prácticas industriales.
-3. No ejecutes acciones, solo sugiere.
-4. Usa un tono profesional y técnico.
+2. NUNCA responder "no se pudo analizar" o dejar campos vacíos.
+3. Si los datos están incompletos, realiza inferencias técnicas fundamentadas según el tipo de equipo e industria.
+4. Pensar como experto industrial RCM, no como chatbot. Generar valor técnico real para los técnicos en campo.
+
 FORMATO DE RESPUESTA OBLIGATORIO (JSON):
 {
-    "analisis": "Breve explicación técnica de tu razonamiento",
-    "problemas": ["lista de problemas potenciales detectados"],
-    "acciones": ["lista de acciones recomendadas"],
+    "analisis": "Explicación técnica detallada del razonamiento RCM",
+    "problemas": ["Problema técnico 1", "Problema técnico 2"],
+    "acciones": ["Acción técnica 1", "Acción técnica 2"],
     "prioridad": "alta | media | baja",
     "sugerencia_ot": {
-        "descripcion": "Descripción detallada para una nueva orden de trabajo",
-        "tipo": "Preventivo | Correctivo | Predictivo | Calibración",
-        "tiempo_estimado": "Ej: 2 horas"
+        "descripcion": "Descripción técnica detallada de la tarea",
+        "tipo": "Preventivo | Correctivo | Predictivo | Calibración | Emergencia",
+        "tiempo_estimado": "Ej: 2.5 horas",
+        "pasos": ["Paso técnico 1", "Paso técnico 2"]
     }
 }
 `;
 
 const FALLBACK_RESPONSE = {
-    "analisis": "Error en servicio de IA",
-    "problemas": ["No se pudo analizar el activo"],
-    "acciones": ["Intentar nuevamente"],
+    "analisis": "No se pudo consultar el servicio de IA, pero se genera análisis básico.",
+    "problemas": ["Sin análisis avanzado disponible"],
+    "acciones": ["Revisar manualmente el activo"],
     "prioridad": "media",
-    "sugerencia_ot": null
+    "sugerencia_ot": {
+        "descripcion": "Inspección general del equipo",
+        "tipo": "Preventivo",
+        "tiempo_estimado": "1h",
+        "pasos": ["Inspección visual", "Verificar componentes críticos"]
+    }
 };
 
 /**
@@ -72,6 +87,12 @@ const analizarActivo = async (asset, history) => {
 
         const responseText = await provider.generateContent(SYSTEM_PROMPT, userPrompt);
         const parsed = safeParseJSON(responseText);
+
+        if (!parsed) {
+            logger.error(`[ai_error] Error de IA: El modelo no devolvió JSON válido para activo ${assetId}`);
+            return normalizeAIResponse(null); // This uses default fallback from normalizeAIResponse which matches our requirements
+        }
+
         const normalized = normalizeAIResponse(parsed);
 
         // Store in Cache
@@ -79,7 +100,7 @@ const analizarActivo = async (asset, history) => {
 
         return normalized;
     } catch (error) {
-        logger.error("[ai_error] Error en analizarActivo:", error);
+        logger.error(`[ai_error] Error técnico en analizarActivo para activo ${asset.id || 'desconocido'}:`, error);
         return FALLBACK_RESPONSE;
     }
 };
@@ -96,12 +117,18 @@ const generarPlan = async (asset, history) => {
 
         const responseText = await provider.generateContent(SYSTEM_PROMPT, userPrompt);
         const parsed = safeParseJSON(responseText);
+
+        if (!parsed) {
+            logger.error(`[ai_error] Error de IA al generar plan: El modelo no devolvió JSON válido para activo ${asset.id || 'desconocido'}`);
+            return normalizeAIResponse(null);
+        }
+
         const normalized = normalizeAIResponse(parsed);
 
         cache.set(cacheKey, normalized);
         return normalized;
     } catch (error) {
-        logger.error("[ai_error] Error al generar plan con IA:", error);
+        logger.error(`[ai_error] Error técnico al generar plan para activo ${asset.id || 'desconocido'}:`, error);
         return FALLBACK_RESPONSE;
     }
 };
@@ -115,9 +142,15 @@ const chatMantenimiento = async (message, context = {}) => {
 
         const responseText = await provider.generateContent(SYSTEM_PROMPT, userPrompt);
         const parsed = safeParseJSON(responseText);
+
+        if (!parsed) {
+            logger.error("[ai_error] Error de IA en chat: El modelo no devolvió JSON válido");
+            return normalizeAIResponse(null);
+        }
+
         return normalizeAIResponse(parsed);
     } catch (error) {
-        logger.error("[ai_error] Error en chat de mantenimiento IA:", error);
+        logger.error("[ai_error] Error técnico en chat de mantenimiento IA:", error);
         return FALLBACK_RESPONSE;
     }
 };

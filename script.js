@@ -15925,6 +15925,9 @@ function renderAIResults(data, assetId) {
     document.getElementById('ai-ot-descripcion').textContent = suggestion.descripcion || 'Sin descripción sugerida.';
     document.getElementById('ai-ot-tiempo').textContent = suggestion.tiempo_estimado || 'Por definir';
 
+    const pasosList = document.getElementById('ai-ot-pasos');
+    pasosList.innerHTML = (suggestion.pasos || []).map(p => `<li>${p}</li>`).join('') || '<li>No se especificaron pasos técnicos.</li>';
+
     // Evento para el botón de usar sugerencia
     const btnUseSuggestion = document.getElementById('btn-create-wo-from-ai');
     btnUseSuggestion.onclick = async () => {
@@ -15932,12 +15935,20 @@ function renderAIResults(data, assetId) {
         state.modals.machineDetail.hide(); // Opcional, cerrar detalle para ver la OT
 
         await showWorkOrderModal(null, suggestion.tipo || 'Preventivo', assetId);
-        document.getElementById('wo-description').value = suggestion.descripcion || '';
+
+        // Formatear descripción incluyendo pasos si existen
+        let fullDescription = suggestion.descripcion || '';
+        if (suggestion.pasos && suggestion.pasos.length > 0) {
+            fullDescription += "\n\nPasos técnicos sugeridos:\n" + suggestion.pasos.map((p, index) => `${index + 1}. ${p}`).join('\n');
+        }
+
+        document.getElementById('wo-description').value = fullDescription;
         showToast('Sugerencia de IA aplicada a la nueva Orden de Trabajo.', 'success');
     };
 }
 
 window.analyzeAssetWithAI = analyzeAssetWithAI;
+window.renderAIResults = renderAIResults;
 
 // --- AI Module Logic ---
 
