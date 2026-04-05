@@ -6,27 +6,30 @@ const path = require('path');
 const logger = require('./utils/logger');
 const aiRoutes = require('./routes/aiRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Log para debug en producción
+console.log("CORS middleware cargado correctamente");
+
+// Log para debug en cada request
 app.use((req, res, next) => {
-    console.log("Origin:", req.headers.origin);
+    console.log("Request origin:", req.headers.origin);
     next();
 });
 
-// Configuración simple y funcional de CORS
-app.use(cors({
-    origin: [
-        "http://localhost:3000",
-        "https://bloom2812.github.io"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-}));
+// FORZAR CORS GLOBAL (DEBUG MODE)
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    next();
+});
 
-// Manejo global de OPTIONS (preflight)
-app.options("*", cors());
+// MANEJO EXPLÍCITO DE OPTIONS (CRÍTICO)
+app.options("*", (req, res) => {
+    res.sendStatus(200);
+});
 
 app.use(express.json());
 app.use(morgan('dev'));
