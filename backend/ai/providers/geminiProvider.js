@@ -36,20 +36,38 @@ class GeminiProvider {
             throw new Error('AI Provider not initialized. Please check API Key.');
         }
 
-        const modelsToTry = ["gemini-1.5-flash-latest", "gemini-1.5-pro-latest"];
+        // Definimos combinaciones de modelo y versión de API a probar (priorizando -latest según requerimiento)
+        const combinations = [
+            { model: "gemini-1.5-flash-latest", version: "v1beta", useMime: true },
+            { model: "gemini-1.5-pro-latest", version: "v1beta", useMime: true },
+            { model: "gemini-1.5-flash", version: "v1beta", useMime: true },
+            { model: "gemini-1.5-pro", version: "v1beta", useMime: true },
+            { model: "gemini-1.5-flash", version: "v1", useMime: true },
+            { model: "gemini-1.5-pro", version: "v1", useMime: true }
+        ];
+
         let lastError = null;
 
-        for (const modelName of modelsToTry) {
+        for (const combo of combinations) {
             try {
-                console.log("Modelo usado:", modelName);
-                const model = this.genAI.getGenerativeModel({
-                    model: modelName,
-                    generationConfig: {
-                        maxOutputTokens: 400,
-                        temperature: 0.7,
-                        responseMimeType: "application/json"
-                    }
-                });
+                console.log(`Intentando modelo: ${combo.model} (${combo.version}, MIME: ${combo.useMime})`);
+
+                const generationConfig = {
+                    maxOutputTokens: 400,
+                    temperature: 0.7
+                };
+
+                if (combo.useMime) {
+                    generationConfig.responseMimeType = "application/json";
+                }
+
+                const model = this.genAI.getGenerativeModel(
+                    {
+                        model: combo.model,
+                        generationConfig
+                    },
+                    { apiVersion: combo.version }
+                );
 
                 const result = await model.generateContent({
                     contents: [{
@@ -60,7 +78,7 @@ class GeminiProvider {
 
                 const response = await result.response;
                 const text = response.text();
-                console.log("Respuesta Gemini OK");
+                console.log(`Respuesta Gemini OK con modelo ${combo.model}`);
 
                 // Track usage
                 if (result.usageMetadata) {
@@ -86,11 +104,19 @@ class GeminiProvider {
                     throw new Error("Invalid Gemini API Key");
                 }
 
-                logger.error(`[ai_error] Fallo con modelo ${modelName}, intentando fallback si está disponible:`, error.message);
+                logger.error(`[ai_error] Fallo con modelo ${combo.model} (${combo.version}):`, error.message);
+
+                // Si el error es por "responseMimeType" no soportado, intentamos la misma versión sin esa opción
+                if (combo.useMime && error.message && error.message.includes("responseMimeType")) {
+                    console.log(`Reintentando ${combo.model} sin responseMimeType...`);
+                    combo.useMime = false;
+                    // Retrocedemos el puntero para repetir este combo modificado
+                    combinations.splice(combinations.indexOf(combo) + 1, 0, { ...combo, useMime: false });
+                }
             }
         }
 
-        logger.error('[ai_error] Todos los modelos de Gemini fallaron');
+        logger.error('[ai_error] Todos los intentos de Gemini fallaron');
         throw lastError;
     }
 }

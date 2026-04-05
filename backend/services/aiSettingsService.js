@@ -47,8 +47,15 @@ class AISettingsService {
     }
 
     getApiKey() {
-        // Preference: Config file > Env Var
-        return this.config.apiKey || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+        // Preference: Env Var > Config file (standard for cloud deployments like Render)
+        // Also check if the key in config is a placeholder
+        const configKey = this.config.apiKey;
+        const envKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+
+        if (envKey) return envKey;
+        if (configKey && !configKey.includes("AIzaTest")) return configKey;
+
+        return configKey || null;
     }
 
     getUsage() {
