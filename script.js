@@ -15847,7 +15847,7 @@ window.removeTempSolicitudItem = removeTempSolicitudItem;
 
 // --- AI Assistant Integration Functions ---
 
-const AI_BACKEND_URL = 'http://localhost:3000'; // Default for local dev
+const AI_BACKEND_URL = ''; // Empty for relative paths
 
 async function analyzeAssetWithAI(assetId) {
     const aiModal = state.modals.aiResults;
