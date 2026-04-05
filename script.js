@@ -2001,10 +2001,10 @@ function applyUserPermissions() {
 
     switch (role) {
         case 'Admin':
-            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'equipos-baja', 'repuestos', 'proveedores', 'tecnicos', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'auditoria', 'solicitudes', 'evaluation-criteria', 'solicitudes-repuestos', 'inventario-dashboard', 'configuracion'];
+            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'equipos-baja', 'repuestos', 'proveedores', 'tecnicos', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'auditoria', 'solicitudes', 'evaluation-criteria', 'ai-settings', 'configuracion', 'solicitudes-repuestos', 'inventario-dashboard'];
             break;
         case 'Planificador':
-            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'equipos-baja', 'repuestos', 'proveedores', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'solicitudes', 'ordenes-asignadas', 'solicitudes-repuestos', 'inventario-dashboard'];
+            visibleTabs = ['monitoreo-inteligente', 'maquinaria', 'equipos-baja', 'repuestos', 'proveedores', 'trabajo-activo', 'planificador', 'planes-trabajo', 'reportes', 'solicitudes', 'ordenes-asignadas', 'solicitudes-repuestos', 'inventario-dashboard', 'ai-settings'];
             break;
         case 'Almacén':
             visibleTabs = ['monitoreo-inteligente', 'repuestos', 'proveedores', 'solicitudes-repuestos', 'inventario-dashboard', 'reportes'];
@@ -15847,6 +15847,8 @@ window.removeTempSolicitudItem = removeTempSolicitudItem;
 
 // --- AI Assistant Integration Functions ---
 
+const AI_BACKEND_URL = 'http://localhost:3000'; // Default for local dev
+
 async function analyzeAssetWithAI(assetId) {
     const aiModal = state.modals.aiResults;
     const loading = document.getElementById('ai-loading');
@@ -15857,7 +15859,7 @@ async function analyzeAssetWithAI(assetId) {
     content.classList.add('d-none');
 
     try {
-        const response = await fetch('http://localhost:3000/api/ai/analizar-activo', {
+        const response = await fetch(`${AI_BACKEND_URL}/api/ai/analizar-activo`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ assetId: assetId })
@@ -15924,7 +15926,7 @@ window.analyzeAssetWithAI = analyzeAssetWithAI;
 
 async function loadAIConfig() {
     try {
-        const response = await fetch('http://localhost:3000/api/settings/ai-config');
+        const response = await fetch(`${AI_BACKEND_URL}/api/settings/ai-config`);
         if (!response.ok) throw new Error('Error al cargar configuración de IA');
 
         const config = await response.json();
@@ -15951,7 +15953,7 @@ async function handleAIConfigSubmit(e) {
 async function saveAIConfig(apiKey, monthlyBudget) {
     showLoading(true);
     try {
-        const response = await fetch('http://localhost:3000/api/settings/ai-config', {
+        const response = await fetch(`${AI_BACKEND_URL}/api/settings/ai-config`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ apiKey, monthlyBudget })
@@ -15972,7 +15974,7 @@ async function saveAIConfig(apiKey, monthlyBudget) {
 async function loadAIUsage() {
     const listBody = document.getElementById('ai-usage-daily-list');
     try {
-        const response = await fetch('http://localhost:3000/api/settings/ai-usage');
+        const response = await fetch(`${AI_BACKEND_URL}/api/settings/ai-usage`);
         if (!response.ok) throw new Error('Error al cargar uso de IA');
 
         const usage = await response.json();
@@ -16045,7 +16047,7 @@ async function testAIConnection() {
     durationSpan.textContent = '';
 
     try {
-        const response = await fetch('http://localhost:3000/api/settings/ai-test-connection', {
+        const response = await fetch(`${AI_BACKEND_URL}/api/settings/ai-test-connection`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });

@@ -28,7 +28,12 @@ router.post('/ai-config', authMiddleware, (req, res) => {
         const { apiKey, monthlyBudget, provider } = req.body;
 
         const newConfig = {};
-        if (apiKey !== undefined) newConfig.apiKey = apiKey;
+
+        // Prevent saving masked keys (bug fix)
+        if (apiKey !== undefined && apiKey !== '' && !apiKey.includes('...') && apiKey !== '****') {
+            newConfig.apiKey = apiKey;
+        }
+
         if (monthlyBudget !== undefined) newConfig.monthlyBudget = parseFloat(monthlyBudget);
         if (provider !== undefined) newConfig.provider = provider;
 
