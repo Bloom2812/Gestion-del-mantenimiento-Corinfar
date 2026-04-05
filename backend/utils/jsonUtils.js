@@ -22,7 +22,8 @@ const normalizeAIResponse = (data) => {
         sugerencia_ot: {
             descripcion: "",
             tipo: "",
-            tiempo_estimado: ""
+            tiempo_estimado: "",
+            pasos: []
         }
     };
 
@@ -40,7 +41,8 @@ const normalizeAIResponse = (data) => {
             ? {
                 descripcion: String(data.sugerencia_ot.descripcion || ""),
                 tipo: String(data.sugerencia_ot.tipo || ""),
-                tiempo_estimado: String(data.sugerencia_ot.tiempo_estimado || "")
+                tiempo_estimado: String(data.sugerencia_ot.tiempo_estimado || ""),
+                pasos: Array.isArray(data.sugerencia_ot.pasos) ? data.sugerencia_ot.pasos : []
             }
             : defaultResponse.sugerencia_ot
     };
