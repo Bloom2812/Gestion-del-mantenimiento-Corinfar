@@ -1,31 +1,57 @@
 const express = require('express');
 const router = express.Router();
 const aiAssistant = require('../ai/aiAssistant');
-const assetService = require('../services/assetService');
-const woService = require('../services/woService');
 const logger = require('../utils/logger');
 const authMiddleware = require('../middleware/authMiddleware');
 router.post('/analizar-activo', authMiddleware, async (req, res) => {
     try {
-        const { assetId } = req.body;
-        if (!assetId) return res.status(400).json({ error: 'assetId es requerido' });
-        const asset = await assetService.getActivo(assetId);
-        if (!asset) return res.status(404).json({ error: 'Activo no encontrado' });
-        const history = await woService.getOrdenes(assetId);
-        const result = await aiAssistant.analizarActivo(asset, history);
+        const { asset, historial } = req.body;
+
+        if (!asset) {
+            return res.status(400).json({ error: "Asset is required" });
+        }
+
+        const safeAsset = {
+            id: asset.id || "unknown",
+            name: asset.name || "Activo",
+            status: asset.status || "Operativo",
+            ...asset
+        };
+
+        const safeHistorial = historial || [];
+
+        console.log("Asset recibido:", safeAsset.id);
+        console.log("Historial length:", safeHistorial.length);
+
+        const result = await aiAssistant.analizarActivo(safeAsset, safeHistorial);
         res.json(result);
     } catch (error) {
         logger.error('Error en /analizar-activo:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
 router.post('/generar-plan', authMiddleware, async (req, res) => {
     try {
-        const { assetId } = req.body;
-        if (!assetId) return res.status(400).json({ error: 'assetId es requerido' });
-        const asset = await assetService.getActivo(assetId);
-        if (!asset) return res.status(404).json({ error: 'Activo no encontrado' });
-        const result = await aiAssistant.generarPlan(asset);
+        const { asset, historial } = req.body;
+
+        if (!asset) {
+            return res.status(400).json({ error: "Asset is required" });
+        }
+
+        const safeAsset = {
+            id: asset.id || "unknown",
+            name: asset.name || "Activo",
+            status: asset.status || "Operativo",
+            ...asset
+        };
+
+        const safeHistorial = historial || [];
+
+        console.log("Asset recibido:", safeAsset.id);
+        console.log("Historial length:", safeHistorial.length);
+
+        const result = await aiAssistant.generarPlan(safeAsset, safeHistorial);
         res.json(result);
     } catch (error) {
         logger.error('Error en /generar-plan:', error);
