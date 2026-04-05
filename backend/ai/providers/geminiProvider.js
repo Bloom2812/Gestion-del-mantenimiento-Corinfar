@@ -24,14 +24,6 @@ class GeminiProvider {
         try {
             this.currentApiKey = apiKey;
             this.genAI = new GoogleGenerativeAI(apiKey);
-            this.model = this.genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
-                generationConfig: {
-                    maxOutputTokens: 400,
-                    temperature: 0.7,
-                    responseMimeType: "application/json"
-                }
-            });
             return true;
         } catch (error) {
             logger.error('[ai_error] Error initializing Gemini Provider:', error);
@@ -44,29 +36,62 @@ class GeminiProvider {
             throw new Error('AI Provider not initialized. Please check API Key.');
         }
 
-        try {
-            const result = await this.model.generateContent({
-                contents: [{
-                    role: "user",
-                    parts: [{ text: `${systemPrompt}\n\nUser request: ${userPrompt}` }]
-                }]
-            });
+        const modelsToTry = ["gemini-1.5-flash-latest", "gemini-1.5-pro-latest"];
+        let lastError = null;
 
-            const response = await result.response;
-            const text = response.text();
+        for (const modelName of modelsToTry) {
+            try {
+                console.log("Modelo usado:", modelName);
+                const model = this.genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: {
+                        maxOutputTokens: 400,
+                        temperature: 0.7,
+                        responseMimeType: "application/json"
+                    }
+                });
 
-            // Track usage
-            if (result.usageMetadata) {
-                const totalTokens = result.usageMetadata.totalTokenCount;
-                aiSettingsService.trackUsage(totalTokens);
-                logger.info(`[ai_usage] Total tokens: ${totalTokens}, Prompt: ${result.usageMetadata.promptTokenCount}, Completion: ${result.usageMetadata.candidatesTokenCount}`);
+                const result = await model.generateContent({
+                    contents: [{
+                        role: "user",
+                        parts: [{ text: `${systemPrompt}\n\nUser request: ${userPrompt}` }]
+                    }]
+                });
+
+                const response = await result.response;
+                const text = response.text();
+                console.log("Respuesta Gemini OK");
+
+                // Track usage
+                if (result.usageMetadata) {
+                    const totalTokens = result.usageMetadata.totalTokenCount;
+                    aiSettingsService.trackUsage(totalTokens);
+                    logger.info(`[ai_usage] Total tokens: ${totalTokens}, Prompt: ${result.usageMetadata.promptTokenCount}, Completion: ${result.usageMetadata.candidatesTokenCount}`);
+                }
+
+                return text;
+            } catch (error) {
+                lastError = error;
+
+                // Diferenciar error de modelo vs API key
+                const isApiKeyError = error.message && (
+                    error.message.includes("API_KEY_INVALID") ||
+                    error.message.includes("API key not valid") ||
+                    error.status === 403 ||
+                    (error.response && error.response.status === 403)
+                );
+
+                if (isApiKeyError) {
+                    logger.error('[ai_error] Error crítico de API Key:', error.message);
+                    throw new Error("Invalid Gemini API Key");
+                }
+
+                logger.error(`[ai_error] Fallo con modelo ${modelName}, intentando fallback si está disponible:`, error.message);
             }
-
-            return text;
-        } catch (error) {
-            logger.error('[ai_error] Gemini call failed:', error);
-            throw error;
         }
+
+        logger.error('[ai_error] Todos los modelos de Gemini fallaron');
+        throw lastError;
     }
 }
 
