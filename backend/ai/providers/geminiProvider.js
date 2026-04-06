@@ -41,9 +41,7 @@ class GeminiProvider {
         // Usamos gemini-2.5-flash y 2.5-flash-lite según requerimiento
         const models = [
             "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash"
+            "gemini-2.5-flash-lite"
         ];
 
         let lastError = null;
@@ -59,7 +57,7 @@ class GeminiProvider {
                 const apiVersion = "v1beta";
 
                 const generationConfig = {
-                    maxOutputTokens: 400,
+                    maxOutputTokens: 2048,
                     temperature: 0.7,
                     responseMimeType: "application/json"
                 };
