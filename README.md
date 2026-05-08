@@ -1,2 +1,5 @@
-# Gestion-del-mantenimiento-Corinfar
-gestion de mantenimiento de equipos en el area farmaceutica
+# Gestion-de-Mantenimiento-corinfar
+Mi primer aplicacion de gestion de mantenimiento
+
+## Recursos Adicionales
+* [Formatos de Gestión de Calidad](./FORMATO_CALIDAD.md)
