@@ -1368,22 +1368,20 @@ label[for="wo-real-end-time"] {
 }
 
 .execution-view-header {
-    background: linear-gradient(135deg, var(--sidebar-bg) 0%, #1a252f 100%);
+    background-color: var(--sidebar-bg);
     color: white;
-    padding: 1.25rem 2.5rem;
+    padding: 1rem 2rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     z-index: 10;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
 .execution-view-header h2 {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     font-weight: 800;
     letter-spacing: -0.5px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .execution-view-header .header-icon {
@@ -1416,10 +1414,8 @@ label[for="wo-real-end-time"] {
 .execution-section-header {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 2px solid var(--border-color);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 .execution-section-icon {
@@ -1494,24 +1490,24 @@ label[for="wo-real-end-time"] {
 }
 
 .btn-status.active.ok {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background-color: #10b981;
     color: white;
     border-color: #059669;
-    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2), 0 2px 4px -1px rgba(16, 185, 129, 0.06);
 }
 
 .btn-status.active.fallo {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    background-color: #ef4444;
     color: white;
     border-color: #dc2626;
-    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+    box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2), 0 2px 4px -1px rgba(239, 68, 68, 0.06);
 }
 
 .btn-status.active.alerta {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    background-color: #f59e0b;
     color: white;
     border-color: #d97706;
-    box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.2), 0 2px 4px -1px rgba(245, 158, 11, 0.06);
 }
 
 body.dark-mode .btn-status {
@@ -2920,111 +2916,4 @@ body.dark-mode #ai-settings .progress {
 
 #ai-test-result .alert {
     border-radius: 12px;
-}
-
-/* New Professional Plan Details Styles */
-.plan-details-card {
-    border-radius: 20px;
-    border: none;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-    overflow: hidden;
-    transition: transform 0.3s ease;
-}
-
-.plan-details-header {
-    background: linear-gradient(135deg, var(--primary-color) 0%, #2980b9 100%);
-    color: white;
-    padding: 1.5rem 2rem;
-}
-
-.plan-info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1.5rem;
-    padding: 1.5rem 2rem;
-    background: var(--card-bg);
-}
-
-.plan-info-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.plan-info-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #64748b;
-    font-weight: 700;
-}
-
-.plan-info-value {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--text-color);
-}
-
-.plan-objective-box {
-    margin: 0 2rem 1.5rem;
-    padding: 1.25rem;
-    background-color: #f8fafc;
-    border-radius: 15px;
-    border-left: 5px solid var(--primary-color);
-}
-
-body.dark-mode .plan-objective-box {
-    background-color: #1e293b;
-    border-left-color: #3498db;
-}
-
-.task-list-professional {
-    padding: 0 2rem 2rem;
-}
-
-.task-item-pro {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.task-item-pro:last-child {
-    border-bottom: none;
-}
-
-.task-icon-pro {
-    margin-top: 3px;
-    color: var(--primary-color);
-}
-
-.status-badge-pro {
-    font-size: 0.7rem;
-    padding: 0.35rem 0.75rem;
-    border-radius: 20px;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-/* Glassmorphism Effect for Header Cards */
-.glass-header {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 15px;
-    padding: 1rem;
-}
-
-.bg-primary-soft {
-    background-color: rgba(52, 152, 219, 0.1);
-}
-.fw-800 { font-weight: 800; }
-
-.transition-all {
-    transition: all 0.3s ease;
-}
-.list-group-item.active.transition-all {
-    transform: translateX(5px);
-    border-left: 4px solid var(--primary-color) !important;
 }
