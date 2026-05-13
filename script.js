@@ -688,6 +688,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.modals.manageParts = new bootstrap.Modal(document.getElementById('manage-parts-modal'));
     state.modals.solicitud = new bootstrap.Modal(document.getElementById('solicitud-modal'));
     state.modals.workPlan = new bootstrap.Modal(document.getElementById('work-plan-modal'));
+    state.modals.prettyExecutionReport = new bootstrap.Modal(document.getElementById('pretty-execution-report-modal'));
     state.modals.criteria = new bootstrap.Modal(document.getElementById('criteria-modal'));
     state.modals.evaluation = new bootstrap.Modal(document.getElementById('evaluation-modal'));
     state.modals.technicianProfile = new bootstrap.Modal(document.getElementById('technician-profile-modal'));
@@ -7167,17 +7168,33 @@ function renderWorkPlans() {
         const machine = state.machines.find(m => m.id === plan.machineId);
         const item = document.createElement('a');
         item.href = '#';
-        item.className = 'list-group-item list-group-item-action border-0 py-2 px-3';
+        item.className = 'list-group-item list-group-item-action border-0 py-3 px-3 transition-all';
         item.dataset.id = plan.fb_id;
         item.setAttribute('data-plan-id', plan.fb_id);
+
         const frequencyMap = { 'h': 'Hora(s)', 'd': 'Día(s)', 'w': 'Semana(s)', 'm': 'Mes(es)', 'y': 'Año(s)'};
         const frequencyText = `Cada ${plan.frequencyValue || 1} ${frequencyMap[plan.frequencyUnit] || 'Mes(es)'}`;
+
+        const lastDate = plan.lastExecutedAt ? new Date(plan.lastExecutedAt).toLocaleDateString() : 'Nunca';
+        const lastTech = plan.lastExecutedBy || 'N/A';
+
         item.innerHTML = `
-            <div class="d-flex w-100 justify-content-between align-items-center">
-                <h6 class="mb-0 small fw-bold text-primary">${plan.name}</h6>
-                <small class="text-muted" style="font-size: 0.7rem;">${frequencyText}</small>
+            <div class="d-flex w-100 justify-content-between align-items-start mb-1">
+                <h6 class="mb-0 fw-800 text-primary" style="font-size: 0.9rem;">${plan.name}</h6>
+                <span class="badge bg-primary-soft text-primary rounded-pill border-0" style="font-size: 0.65rem;">${frequencyText}</span>
             </div>
-            ${state.activeWorkPlanTab !== 'machine' ? `<p class="mb-0 small text-muted mt-1" style="font-size: 0.75rem;">${machine?.name || 'Máquina no encontrada'}</p>` : ''}
+            <div class="d-flex flex-column gap-1">
+                ${state.activeWorkPlanTab !== 'machine' ? `
+                    <div class="d-flex align-items-center text-muted" style="font-size: 0.75rem;">
+                        <i class="fas fa-microchip me-1 opacity-50"></i>
+                        <span>${machine?.name || 'Máquina no encontrada'}</span>
+                    </div>
+                ` : ''}
+                <div class="d-flex align-items-center justify-content-between mt-1 pt-1 border-top" style="font-size: 0.65rem; opacity: 0.8;">
+                    <span class="text-muted"><i class="fas fa-calendar-check me-1"></i>${lastDate}</span>
+                    <span class="text-muted"><i class="fas fa-user-check me-1"></i>${lastTech}</span>
+                </div>
+            </div>
         `;
         item.addEventListener('click', (e) => {
             e.preventDefault();
@@ -7276,44 +7293,99 @@ function renderWorkPlanDetails(planId) {
     const canEdit = userRole !== 'Operario' && userRole !== 'Invitado';
     const activeExecution = state.workPlanExecutions.find(ex => ex.planId === planId && (ex.status === 'En Proceso' || ex.status === 'Pausado'));
 
+    const freqMap = { 'h': 'Hora(s)', 'd': 'Día(s)', 'w': 'Semana(s)', 'm': 'Mes(es)', 'y': 'Año(s)'};
+    const freqText = `Cada ${plan.frequencyValue || 1} ${freqMap[plan.frequencyUnit] || 'Mes(es)'}`;
+    const nextDate = plan.nextDueDate ? new Date(plan.nextDueDate + 'T00:00:00').toLocaleDateString('es-ES') : 'N/A';
+    const lastDate = plan.lastExecutedAt ? new Date(plan.lastExecutedAt).toLocaleString('es-ES') : 'Nunca';
+
     detailsContainer.innerHTML = `
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">${plan.name}</h5>
+        <div class="plan-details-card mb-4">
+            <div class="plan-details-header d-flex justify-content-between align-items-center">
                 <div>
-                    <button class="btn btn-sm ${activeExecution ? 'btn-warning' : 'btn-info'} me-1" id="view-plan-btn" title="${activeExecution ? 'Ver Ejecución Activa' : 'Ver Tareas del Plan'}">
-                        <i class="fas ${activeExecution ? 'fa-external-link-alt' : 'fa-eye'}"></i> ${activeExecution ? 'Ver Ejecución' : 'Ver Plan'}
+                    <div class="execution-breadcrumb mb-1">
+                        <i class="fas fa-clipboard-list me-1"></i> PLAN DE MANTENIMIENTO
+                    </div>
+                    <h4 class="mb-0 fw-800">${plan.name}</h4>
+                </div>
+                <div class="glass-header d-flex gap-2">
+                    <button class="btn btn-sm ${activeExecution ? 'btn-warning' : 'btn-light'} fw-bold" id="view-plan-btn">
+                        <i class="fas ${activeExecution ? 'fa-play-circle' : 'fa-list-check'} me-1"></i>
+                        ${activeExecution ? 'Continuar Ejecución' : 'Ver Actividades'}
                     </button>
                     ${canEdit ? `
-                        <button class="btn btn-sm btn-outline-primary" id="edit-plan-btn" title="Editar Plan"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-outline-danger" id="delete-plan-btn" title="Eliminar Plan"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-sm btn-light" id="edit-plan-btn"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger" id="delete-plan-btn"><i class="fas fa-trash"></i></button>
                     ` : ''}
                 </div>
             </div>
-            <div class="card-body">
-                <p><strong>Máquina:</strong> ${machine?.name || 'N/A'}</p>
-                <p><strong>Técnico Responsable:</strong> ${technician?.username || 'N/A'}</p>
-                <p><strong>Frecuencia:</strong> Cada ${plan.frequencyValue || 1} ${ {'h': 'Hora(s)', 'd': 'Día(s)', 'w': 'Semana(s)', 'm': 'Mes(es)', 'y': 'Año(s)'}[plan.frequencyUnit] || 'Mes(es)'}</p>
-                 <p><strong>Próxima Ejecución Programada:</strong> ${plan.nextDueDate ? new Date(plan.nextDueDate + 'T00:00:00').toLocaleDateString('es-ES') : 'N/A'}</p>
-                 <p><strong>Última Ejecución:</strong> ${plan.lastExecutedAt ? new Date(plan.lastExecutedAt).toLocaleString('es-ES') : 'Nunca'}</p>
-                <hr>
-                <h6>Tareas a Realizar</h6>
-                ${(plan.taskGroups || []).map(group => `
-                    <div class="mb-3">
-                        <div class="d-flex align-items-center gap-2 mb-1">
-                            <span class="badge bg-secondary x-small">${group.layout === 'cards' ? 'Vista Tarjetas' : 'Vista Tabla'}</span>
-                            <strong>${group.name}</strong>
+
+            <div class="plan-info-grid">
+                <div class="plan-info-item">
+                    <span class="plan-info-label">Equipo</span>
+                    <span class="plan-info-value"><i class="fas fa-microchip text-primary me-1"></i> ${machine?.name || 'N/A'}</span>
+                </div>
+                <div class="plan-info-item">
+                    <span class="plan-info-label">Responsable</span>
+                    <span class="plan-info-value"><i class="fas fa-user-shield text-primary me-1"></i> ${technician?.username || 'N/A'}</span>
+                </div>
+                <div class="plan-info-item">
+                    <span class="plan-info-label">Frecuencia</span>
+                    <span class="plan-info-value"><i class="fas fa-sync text-primary me-1"></i> ${freqText}</span>
+                </div>
+                <div class="plan-info-item">
+                    <span class="plan-info-label">Próxima Fecha</span>
+                    <span class="plan-info-value"><i class="fas fa-calendar-plus text-primary me-1"></i> ${nextDate}</span>
+                </div>
+            </div>
+
+            <div class="plan-objective-box">
+                <span class="plan-info-label mb-2 d-block">Objetivo del Plan</span>
+                <p class="mb-0 text-dark" style="font-size: 0.9rem; line-height: 1.5;">${plan.description || 'No se ha definido un objetivo específico para este plan.'}</p>
+            </div>
+
+            <div class="px-4 py-2 mb-3">
+                <div class="card border-0 shadow-sm" style="border-radius: 12px; background: linear-gradient(to right, #f8fafc, #ffffff);">
+                    <div class="card-body py-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="plan-info-label">Último Resultado</span>
+                            <div class="plan-info-value mt-1">
+                                <i class="fas fa-history text-muted me-1"></i> ${lastDate}
+                                ${lastExecution ? `<span class="ms-2 badge ${lastExecution.status === 'Completado' ? 'bg-success' : 'bg-warning'}">${lastExecution.status}</span>` : ''}
+                            </div>
                         </div>
-                        <ul class="list-unstyled ms-3 x-small">
+                        ${lastExecution ? `
+                            <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="showPrettyExecutionReport('${lastExecution.id || lastExecution.fb_id}')">
+                                <i class="fas fa-file-invoice me-1"></i> Ver Informe
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+
+            <div class="task-list-professional">
+                <h6 class="plan-info-label mb-3 border-bottom pb-2">Actividades Programadas</h6>
+                ${(plan.taskGroups || []).map(group => `
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; font-size: 0.7rem;">
+                                <i class="fas ${group.layout === 'cards' ? 'fa-th-large' : 'fa-table'}"></i>
+                            </div>
+                            <span class="fw-bold text-dark">${group.name}</span>
+                        </div>
+                        <div class="ps-4">
                             ${group.tasks.map(task => `
-                                <li>
-                                    <i class="fas fa-check-circle text-secondary me-2"></i>
-                                    <strong>${task.description}</strong>
-                                    ${task.helperText ? `<span class="text-muted"> - ${task.helperText}</span>` : ''}
-                                    <span class="badge bg-light text-dark border ms-1">${task.type}</span>
-                                </li>
+                                <div class="task-item-pro">
+                                    <i class="fas fa-check-circle task-icon-pro"></i>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <span class="fw-bold text-dark" style="font-size: 0.85rem;">${task.description}</span>
+                                            <span class="status-badge-pro bg-light border text-muted">${task.type}</span>
+                                        </div>
+                                        ${task.helperText ? `<p class="mb-0 text-muted x-small mt-1">${task.helperText}</p>` : ''}
+                                    </div>
+                                </div>
                             `).join('')}
-                        </ul>
+                        </div>
                     </div>
                 `).join('')}
             </div>
@@ -7622,11 +7694,6 @@ function startWorkPlanExecution(execution, plan) {
     document.getElementById('app-wrapper').classList.add('d-none');
     document.getElementById('plan-execution-view').classList.remove('d-none');
 
-    const subtitle = document.getElementById('execution-view-subtitle');
-    if (subtitle) {
-        subtitle.textContent = `Máquina: ${plan.machineId} | Responsable: ${execution.executedBy || state.currentUser.username}`;
-    }
-
     renderWorkPlanExecution(state.currentExecution.execution, plan);
 }
 
@@ -7653,11 +7720,17 @@ function renderWorkPlanExecution(execution, plan) {
     if (subtitle) {
         const dateStr = execution.executedAt ? new Date(execution.executedAt).toLocaleString() : 'No iniciada';
         subtitle.innerHTML = `
-            <div class="d-flex flex-wrap gap-3 mt-1">
-                <span><i class="fas fa-microchip me-1"></i>Máquina: <strong>${plan.machineId}</strong></span>
-                <span><i class="fas fa-user-gear me-1"></i>Responsable: <strong>${execution.executedBy || 'Sin asignar'}</strong></span>
-                <span><i class="fas fa-calendar-day me-1"></i>Inicio: <strong>${dateStr}</strong></span>
-                <span><i class="fas fa-tag me-1"></i>Estado: <span class="badge bg-light text-primary">${execution.status}</span></span>
+            <div class="d-flex flex-column gap-2 mt-2">
+                <div class="d-flex flex-wrap gap-3 align-items-center glass-header">
+                    <span class="badge bg-primary px-3 py-2 rounded-pill"><i class="fas fa-microchip me-2"></i>${plan.machineId}</span>
+                    <span class="text-white opacity-75"><i class="fas fa-user-gear me-1"></i> ${execution.executedBy || 'Sin asignar'}</span>
+                    <span class="text-white opacity-75"><i class="fas fa-calendar-alt me-1"></i> ${dateStr}</span>
+                    <span class="badge bg-info ms-auto">${execution.status}</span>
+                </div>
+                <div class="alert alert-light border-0 shadow-sm mb-0 py-2 px-3" style="border-radius: 12px; background: rgba(255,255,255,0.05); color: white;">
+                    <i class="fas fa-bullseye me-2 text-info"></i> <small class="text-uppercase fw-bold opacity-50 me-2" style="font-size: 0.65rem;">Objetivo:</small>
+                    <span style="font-size: 0.85rem;">${plan.description || 'Cumplir con el cronograma de mantenimiento preventivo.'}</span>
+                </div>
             </div>
         `;
     }
