@@ -6469,7 +6469,10 @@ function showSolicitudModal(prefillData = null) {
     }
 
     let html = '<option value="">Seleccione una máquina...</option>';
-    machinesToDisplay.forEach(m => html += `<option value="${m.id}">${m.name}</option>`);
+    machinesToDisplay.forEach(m => {
+        const locationText = m.location ? ` | ${m.location}` : '';
+        html += `<option value="${m.id}">${m.id} - ${m.name}${locationText}</option>`;
+    });
     machineSelect.innerHTML = html;
 
     if (prefillData) {
@@ -7418,7 +7421,10 @@ function showWorkPlanModal(planId = null) {
 
     const machineSelect = document.getElementById('work-plan-machine');
     let mHtml = '<option value="">Seleccione una máquina...</option>';
-    state.machines.forEach(m => mHtml += `<option value="${m.id}">${m.name}</option>`);
+    state.machines.forEach(m => {
+        const locationText = m.location ? ` | ${m.location}` : '';
+        mHtml += `<option value="${m.id}">${m.id} - ${m.name}${locationText}</option>`;
+    });
     machineSelect.innerHTML = mHtml;
 
     const techSelect = document.getElementById('work-plan-responsible');
@@ -14466,7 +14472,8 @@ function populateWorkOrderMachineSelector(searchTerm = '') {
     } else {
         // If there are results, populate the selector.
         filteredMachines.forEach(machine => {
-            html += `<option value="${machine.id}">${machine.id} - ${machine.name}</option>`;
+            const locationText = machine.location ? ` | ${machine.location}` : '';
+            html += `<option value="${machine.id}">${machine.id} - ${machine.name}${locationText}</option>`;
         });
     }
     selector.innerHTML = html;
@@ -14969,7 +14976,8 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
 
                 machinesToPopulate.forEach(machine => {
                     if (machine.id && machine.name) {
-                        html += `<option value="${machine.id}">${machine.id} - ${machine.name}</option>`;
+                        const locationText = machine.location ? ` | ${machine.location}` : '';
+                        html += `<option value="${machine.id}">${machine.id} - ${machine.name}${locationText}</option>`;
                     }
                 });
             }
