@@ -14202,6 +14202,168 @@ function populateWorkOrderSelectors(searchTerm = '') {
     }
 }
 
+async function showPrettyExecutionReport(executionId) {
+    const execution = state.workPlanExecutions.find(e => e.fb_id === executionId || e.id === executionId);
+    if (!execution) {
+        showToast('Ejecución no encontrada.', 'error');
+        return;
+    }
+
+    const plan = state.workPlans.find(p => p.fb_id === execution.planId);
+    const machine = state.machines.find(m => m.id === plan?.machineId);
+
+    document.getElementById('pretty-report-title').textContent = `Reporte: ${plan?.name || 'Ejecución de Plan'}`;
+    document.getElementById('pretty-report-subtitle').textContent = `ID Ejecución: ${execution.fb_id} | Fecha: ${new Date(execution.executedAt).toLocaleString()}`;
+
+    const content = document.getElementById('pretty-report-content');
+    content.innerHTML = `
+        <div class="p-4">
+            <div class="row g-4 mb-4">
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h6 class="text-muted small text-uppercase fw-bold mb-3">Información del Activo</h6>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-primary text-white rounded-lg p-2">
+                                    <i class="fas fa-microchip fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0 fw-bold">${machine?.name || 'N/A'}</h5>
+                                    <p class="small text-muted mb-0">ID: ${machine?.id || 'N/A'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h6 class="text-muted small text-uppercase fw-bold mb-3">Ejecución</h6>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-success text-white rounded-lg p-2">
+                                    <i class="fas fa-user-check fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0 fw-bold">${execution.executedBy}</h5>
+                                    <p class="small text-muted mb-0">Responsable</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h6 class="text-muted small text-uppercase fw-bold mb-3">Estado Final</h6>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-info text-white rounded-lg p-2">
+                                    <i class="fas fa-flag-checkered fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0 fw-bold">${execution.status}</h5>
+                                    <p class="small text-muted mb-0">Duración: ${calculateExecutionDuration(execution)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 fw-bold text-primary">Resultados de las Actividades</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-4" style="width: 40%;">Tarea</th>
+                                    <th style="width: 20%;">Tipo</th>
+                                    <th style="width: 20%;">Resultado</th>
+                                    <th style="width: 20%;" class="text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(execution.taskGroups || []).map(group => `
+                                    <tr class="table-secondary">
+                                        <td colspan="4" class="ps-4 fw-bold small text-uppercase text-muted">${group.name}</td>
+                                    </tr>
+                                    ${group.tasks.map(task => `
+                                        <tr>
+                                            <td class="ps-4">
+                                                <div class="fw-bold text-dark" style="font-size: 0.9rem;">${task.description}</div>
+                                                ${task.helperText ? `<div class="x-small text-muted">${task.helperText}</div>` : ''}
+                                                ${task.notes ? `<div class="mt-1 small p-2 bg-light border-start border-3" style="font-style: italic;">Obs: ${task.notes}</div>` : ''}
+                                            </td>
+                                            <td><span class="badge bg-light text-muted border small">${task.type}</span></td>
+                                            <td>${renderTaskResult(task)}</td>
+                                            <td class="text-center">
+                                                <span class="badge ${task.status === 'Aprobó' ? 'bg-success' : (task.status === 'Alerta' ? 'bg-warning text-dark' : 'bg-danger')} py-2 px-3 rounded-pill">
+                                                    ${task.status || 'Pendiente'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        ${task.photos && task.photos.length > 0 ? `
+                                            <tr>
+                                                <td colspan="4" class="ps-4 py-3 bg-light bg-opacity-50">
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        ${task.photos.map(p => `<img src="${p}" class="rounded border shadow-sm" style="height: 80px; cursor: pointer;" onclick="window.open('${p}', '_blank')">`).join('')}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ` : ''}
+                                    `).join('')}
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('print-pretty-report-btn').onclick = () => {
+        const selector = document.getElementById('report-execution-select');
+        if (selector) {
+            selector.value = execution.fb_id;
+            generateExecutionReportPDF();
+        } else {
+            showToast('Utilice el panel de reportes para imprimir este informe.', 'info');
+        }
+    };
+
+    state.modals.prettyExecutionReport.show();
+}
+
+function calculateExecutionDuration(execution) {
+    if (!execution.workIntervals || execution.workIntervals.length === 0) return 'N/A';
+
+    let totalMs = 0;
+    execution.workIntervals.forEach(interval => {
+        if (interval.start && interval.end) {
+            totalMs += (new Date(interval.end) - new Date(interval.start));
+        }
+    });
+
+    if (totalMs === 0) return '0h 0m';
+
+    const hours = Math.floor(totalMs / 3600000);
+    const minutes = Math.floor((totalMs % 3600000) / 60000);
+    return `${hours}h ${minutes}m`;
+}
+
+function renderTaskResult(task) {
+    if (task.type === 'check') return task.value ? '<i class="fas fa-check-circle text-success"></i> Realizado' : 'No realizado';
+    if (task.type === 'numeric') return `<span class="fw-bold">${task.value || 0}</span> <small class="text-muted">${task.unit || ''}</small>`;
+    if (task.type === 'multi_numeric') {
+        if (!task.fields || !task.multiValues) return 'N/A';
+        return task.fields.map((f, i) => `<div class="small"><strong>${f}:</strong> ${task.multiValues[i] || 0} ${task.unit || ''}</div>`).join('');
+    }
+    if (task.type === 'text') return task.value || 'S/N';
+    return '---';
+}
+
 function populateExecutionReportSelector(searchTerm = '') {
     const selector = document.getElementById('report-execution-select');
     if (!selector) return;
@@ -18114,6 +18276,7 @@ async function testAIConnection() {
     }
 }
 
+window.showPrettyExecutionReport = showPrettyExecutionReport;
 window.handleClosePlanExecution = handleClosePlanExecution;
 window.renderPurchaseCart = renderPurchaseCart;
 window.addToPurchaseCart = addToPurchaseCart;

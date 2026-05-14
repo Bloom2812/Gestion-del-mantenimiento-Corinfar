@@ -5,6 +5,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <meta name="theme-color" content="#2c3e50">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CORINFAR CMMS">
@@ -3678,6 +3679,35 @@
                 <button type="button" class="btn btn-danger" id="btn-clear-purchase-cart">Vaciar Carrito</button>
                 <button type="button" class="btn btn-primary px-4" id="btn-submit-purchase-request">
                     <i class="fas fa-file-invoice-dollar me-2"></i>Generar Solicitud (PDF)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Reporte Detallado de Ejecución -->
+<div class="modal fade" id="pretty-execution-report-modal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+            <div class="modal-header text-white p-4" style="background: linear-gradient(135deg, #1e3b8a 0%, #3b82f6 100%);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-white bg-opacity-20 rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                        <i class="fas fa-clipboard-check fa-lg"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="pretty-report-title">Reporte de Ejecución</h5>
+                        <p class="small mb-0 opacity-75" id="pretty-report-subtitle"></p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 bg-light" id="pretty-report-content">
+                <!-- Se inyecta por JS -->
+            </div>
+            <div class="modal-footer bg-white border-top-0 p-3">
+                <button type="button" class="btn btn-light fw-bold px-4" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary fw-bold px-4" id="print-pretty-report-btn">
+                    <i class="fas fa-print me-2"></i>Imprimir Reporte
                 </button>
             </div>
         </div>
