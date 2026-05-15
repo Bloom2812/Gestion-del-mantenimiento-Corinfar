@@ -18527,3 +18527,10 @@ window.showPurchaseReceiveModal = showPurchaseReceiveModal;
 window.handlePurchaseReceiveSubmit = handlePurchaseReceiveSubmit;
 window.formatCurrency = formatCurrency;
 window.renderPurchaseRequestsTable = renderPurchaseRequestsTable;
+
+window.showWorkPlanPreview = showWorkPlanPreview;
+window.showMachinePlanHistory = showMachinePlanHistory;
+window.renderWorkPlanDetails = renderWorkPlanDetails;
+window.deleteWorkPlan = deleteWorkPlan;
+window.handleWorkPlanSubmit = handleWorkPlanSubmit;
+window.startWorkPlanExecution = startWorkPlanExecution;
