@@ -7196,13 +7196,13 @@ function renderWorkPlans() {
         const group = machineGroups[mId];
         const machine = group.machine;
         const plans = group.plans;
-        const imageUrl = getOptimizedImageUrlWithRetry(machine.fotoUrl) || 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=800';
+        const placeholderImg = 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=800';
 
         const card = document.createElement('div');
         card.className = 'wp-machine-card';
         card.innerHTML = `
             <div class="wp-card-image-container">
-                <img src="${imageUrl}" class="wp-card-image" alt="${machine.name}">
+                <img src="${placeholderImg}" class="wp-card-image" alt="${machine.name}" id="wp-img-${machine.id}">
                 <span class="wp-machine-badge">${machine.id}</span>
             </div>
             <div class="wp-card-body">
@@ -7237,6 +7237,14 @@ function renderWorkPlans() {
             </div>
         `;
         gridContainer.appendChild(card);
+
+        // Async image loading
+        if (machine.fotoUrl) {
+            getOptimizedImageUrlWithRetry(machine.fotoUrl).then(url => {
+                const img = document.getElementById(`wp-img-${machine.id}`);
+                if (img && url) img.src = url;
+            }).catch(err => console.error("Error loading optimized image:", err));
+        }
     });
 
     const areaSelect = document.getElementById('wp-filter-area');
@@ -7511,9 +7519,9 @@ function addTaskGroup(name = '', layout = 'table', tasks = []) {
                     <label class="x-small fw-bold mb-1 d-block">Tipo de Campo</label>
                     <select class="form-select form-select-sm task-type-select">
                         <option value="status_detail" ${task?.type === 'status_detail' ? 'selected' : ''}>Estado (OK/FALLO) + Detalle</option>
+                        <option value="text" ${task?.type === 'text' ? 'selected' : ''}>Solo Texto/Observación</option>
                         <option value="numeric" ${task?.type === 'numeric' ? 'selected' : ''}>Medición Numérica</option>
                         <option value="multi_numeric" ${task?.type === 'multi_numeric' ? 'selected' : ''}>Múltiples Mediciones</option>
-                        <option value="text" ${task?.type === 'text' ? 'selected' : ''}>Solo Texto/Observación</option>
                     </select>
                 </div>
                 <div class="col-md-3 unit-container ${['numeric', 'multi_numeric'].includes(task?.type) ? '' : 'd-none'}">
@@ -14219,8 +14227,8 @@ async function showPrettyExecutionReport(executionId) {
                                                 ${task.helperText ? `<div class="x-small text-muted">${task.helperText}</div>` : ''}
                                                 ${task.notes ? `<div class="mt-1 small p-2 bg-light border-start border-3" style="font-style: italic;">Obs: ${task.notes}</div>` : ''}
                                             </td>
-                                            <td><span class="badge bg-light text-muted border small">${task.type}</span></td>
-                                            <td>${renderTaskResult(task)}</td>
+                                            <td><span class="badge bg-light text-muted border small">${task.type === 'status_detail' ? 'Estado' : task.type}</span></td>
+                                            <td>${task.type === 'status_detail' ? (task.detail || '---') : renderTaskResult(task)}</td>
                                             <td class="text-center">
                                                 <span class="badge ${task.status === 'Aprobó' ? 'bg-success' : (task.status === 'Alerta' ? 'bg-warning text-dark' : 'bg-danger')} py-2 px-3 rounded-pill">
                                                     ${task.status || 'Pendiente'}
@@ -18474,7 +18482,12 @@ function showWorkPlanPreview(planId) {
         fb_id: 'preview',
         planId: plan.fb_id,
         status: 'Vista Previa',
-        items: (plan.taskGroups || []).flatMap(g => g.tasks.map(t => ({ ...t, status: 'Pendiente' })))
+        isMock: true,
+        isReadOnly: true,
+        taskGroups: (plan.taskGroups || []).map(g => ({
+            ...g,
+            tasks: g.tasks.map(t => ({ ...t, status: 'Pendiente' }))
+        }))
     };
     startWorkPlanExecution(mock, plan);
 }

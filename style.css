@@ -20,6 +20,7 @@
     --shadow-color: rgba(0,0,0,0.08);
     --transition-speed: 0.3s;
     --hover-bg: #f1f2f6;
+    --sidebar-blue: #2c3e50;
 }
 
 body.dark-mode {
@@ -3047,6 +3048,6 @@ body.dark-mode #ai-settings .progress {
     margin-right: 0.5rem;
 }
 
-.wp-status-ontime { background-color: #10b981; }
-.wp-status-delayed { background-color: #ef4444; }
-.wp-status-pending { background-color: #f59e0b; }
+.wp-status-ontime { color: #10b981; background-color: #10b981; }
+.wp-status-delayed { color: #ef4444; background-color: #ef4444; }
+.wp-status-pending { color: #f59e0b; background-color: #f59e0b; }
