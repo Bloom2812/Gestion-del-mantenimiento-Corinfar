@@ -1565,6 +1565,7 @@ function setupEventListeners() {
     });
     document.getElementById('sync-all-machines-odoo-btn').addEventListener('click', () => syncAllMachinesToOdoo());
     document.getElementById('machine-form').addEventListener('submit', handleMachineSubmit);
+    document.getElementById('global-machine-photo-input').addEventListener('change', handleGlobalMachinePhotoChange);
     document.getElementById('search-machine-input').addEventListener('input', debounce(renderMachines, 300));
 
     // Filtros de resumen de maquinaria
@@ -7197,13 +7198,25 @@ function renderWorkPlans() {
         const machine = group.machine;
         const plans = group.plans;
         const placeholderImg = 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=800';
+        const machinePhoto = machine.fotoUrl || machine.imageUrl || placeholderImg;
+
+        const canEditPhoto = state.currentUser?.role === 'Admin' || state.currentUser?.role === 'Planificador';
+        const photoButton = canEditPhoto ? `
+            <button class="btn btn-sm btn-dark position-absolute top-0 end-0 m-2 opacity-75 rounded-circle"
+                    title="Cambiar Foto"
+                    onclick="event.stopPropagation(); triggerMachinePhotoUpload('${machine.fb_id}')"
+                    style="z-index: 10; width: 32px; height: 32px; padding: 0;">
+                <i class="fas fa-camera"></i>
+            </button>
+        ` : '';
 
         const card = document.createElement('div');
         card.className = 'wp-machine-card';
         card.innerHTML = `
             <div class="wp-card-image-container">
-                <img src="${placeholderImg}" class="wp-card-image" alt="${machine.name}" id="wp-img-${machine.id}">
+                <img src="${machinePhoto}" class="wp-card-image" alt="${machine.name}" id="wp-img-${machine.id}">
                 <span class="wp-machine-badge">${machine.id}</span>
+                ${photoButton}
             </div>
             <div class="wp-card-body">
                 <h5 class="fw-bold text-primary mb-1">${machine.name}</h5>
@@ -7239,12 +7252,10 @@ function renderWorkPlans() {
         gridContainer.appendChild(card);
 
         // Async image loading
-        if (machine.fotoUrl) {
-            getOptimizedImageUrlWithRetry(machine.fotoUrl).then(url => {
-                const img = document.getElementById(`wp-img-${machine.id}`);
-                if (img && url) img.src = url;
-            }).catch(err => console.error("Error loading optimized image:", err));
-        }
+        getOptimizedImageUrlWithRetry(machinePhoto).then(url => {
+            const img = document.getElementById(`wp-img-${machine.id}`);
+            if (img && url) img.src = url;
+        }).catch(err => console.error("Error loading optimized image:", err));
     });
 
     const areaSelect = document.getElementById('wp-filter-area');
@@ -18532,3 +18543,48 @@ function showMachinePlanHistory(machineId) {
 
 window.showWorkPlansGrid = showWorkPlansGrid;
 window.startWorkPlanExecutionWrapper = startWorkPlanExecutionWrapper;
+window.triggerMachinePhotoUpload = triggerMachinePhotoUpload;
+
+let currentMachineFbIdForPhoto = null;
+function triggerMachinePhotoUpload(machineFbId) {
+    currentMachineFbIdForPhoto = machineFbId;
+    document.getElementById('global-machine-photo-input').click();
+}
+
+async function handleGlobalMachinePhotoChange(event) {
+    const file = event.target.files[0];
+    if (!file || !currentMachineFbIdForPhoto) return;
+
+    const machine = state.machines.find(m => m.fb_id === currentMachineFbIdForPhoto);
+    if (!machine) {
+        showToast("No se encontró el equipo seleccionado", "danger");
+        return;
+    }
+
+    showLoading(true, "Subiendo y procesando imagen...");
+    try {
+        const imageUrl = await uploadMachineFile(machine.id, file, 'img');
+        if (imageUrl) {
+            const docRef = doc(state.collections.machines, machine.id);
+            const oldData = JSON.parse(JSON.stringify(machine));
+            const newData = { ...machine, fotoUrl: imageUrl };
+
+            await updateDoc(docRef, { fotoUrl: imageUrl });
+            await updateRTDBMirror('machines', newData, machine.id);
+            await recordAuditLog('machines', machine.id, 'UPDATE', oldData, newData, 'Actualización de foto desde pestaña Planes');
+
+            // Actualizar estado local
+            machine.fotoUrl = imageUrl;
+
+            showToast("Imagen del equipo actualizada correctamente", "success");
+            renderWorkPlans();
+        }
+    } catch (error) {
+        console.error("Error updating machine photo:", error);
+        showToast("Error al subir la imagen: " + error.message, "danger");
+    } finally {
+        showLoading(false);
+        event.target.value = '';
+        currentMachineFbIdForPhoto = null;
+    }
+}
