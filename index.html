@@ -1443,40 +1443,56 @@
     </div>
 </div>
 <div class="tab-content d-none" id="planes-trabajo">
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">Planes de Mantenimiento</h5>
-            <button class="btn btn-primary" id="add-work-plan-btn"><i class="fas fa-plus me-2"></i>Nuevo Plan de Trabajo</button>
+    <!-- Rediseño Planes de Mantenimiento - Bento Style -->
+    <div class="wp-header-section d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h1 class="display-5 fw-bold mb-1">Planes de Mantenimiento</h1>
+            <p class="lead mb-0 opacity-75">Gestión de cronogramas y frecuencia por activo industrial.</p>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4">
-                    <ul class="nav nav-pills nav-fill mb-3" id="work-plan-group-tabs">
-                        <li class="nav-item">
-                            <button class="nav-link active py-1 small" data-group="machine">Por Máquina</button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link py-1 small" data-group="frequency">Por Frecuencia</button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link py-1 small" data-group="all">Todos</button>
-                        </li>
-                    </ul>
-                    <div class="input-group mb-3">
-                         <span class="input-group-text"><i class="fas fa-search"></i></span>
-                        <input type="text" class="form-control" id="work-plan-search-input" placeholder="Buscar plan...">
-                    </div>
-                    <div id="work-plans-list-container">
-                        </div>
-                </div>
-                <div class="col-md-8">
-                    <div id="work-plan-details-container" class="d-none">
-                        </div>
-                    <div id="work-plan-placeholder" class="text-center text-muted mt-5">
-                        <i class="fas fa-clipboard-list fa-3x mb-3"></i>
-                        <p>Seleccione un plan para ver sus detalles o cree uno nuevo.</p>
-                    </div>
-                </div>
+        <button class="btn btn-light btn-lg shadow-sm fw-bold px-4 rounded-pill" id="add-work-plan-btn">
+            <i class="fas fa-plus me-2 text-primary"></i>Nuevo Plan
+        </button>
+    </div>
+
+    <div class="wp-filter-bar d-flex flex-wrap align-items-center gap-3">
+        <div class="flex-grow-1">
+            <div class="input-group input-group-lg border-0 shadow-none bg-light rounded-pill overflow-hidden">
+                <span class="input-group-text bg-transparent border-0 ps-4 text-muted"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control bg-transparent border-0 py-3" id="work-plan-search-input" placeholder="Buscar máquina o plan...">
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <select class="form-select border-0 bg-light rounded-pill px-4 py-2" id="wp-filter-area" onchange="renderWorkPlans()">
+                <option value="">Todas las áreas</option>
+                <!-- Áreas dinámicas -->
+            </select>
+            <select class="form-select border-0 bg-light rounded-pill px-4 py-2" id="wp-filter-criticality" onchange="renderWorkPlans()">
+                <option value="">Toda Criticidad</option>
+                <option value="Alta">Crítico</option>
+                <option value="Media">Media</option>
+                <option value="Baja">Baja</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Main Container: Grid or Detail -->
+    <div id="work-plans-main-container">
+        <!-- Grid View (Default) -->
+        <div id="work-plans-grid-view">
+            <div class="wp-bento-grid" id="work-plans-bento-grid">
+                <!-- Bento Cards injected here -->
+            </div>
+        </div>
+
+        <!-- Detail View (Hidden by default) -->
+        <div id="work-plan-detail-view" class="d-none">
+            <div class="mb-4">
+                <button class="btn btn-link text-decoration-none p-0 text-primary fw-bold" onclick="showWorkPlansGrid()">
+                    <i class="fas fa-arrow-left me-2"></i>Volver al listado
+                </button>
+            </div>
+            <div id="work-plan-details-content">
+                <!-- Detailed plan content injected here -->
             </div>
         </div>
     </div>
