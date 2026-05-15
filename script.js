@@ -1565,6 +1565,7 @@ function setupEventListeners() {
     });
     document.getElementById('sync-all-machines-odoo-btn').addEventListener('click', () => syncAllMachinesToOdoo());
     document.getElementById('machine-form').addEventListener('submit', handleMachineSubmit);
+    document.getElementById('global-machine-photo-input').addEventListener('change', handleGlobalMachinePhotoChange);
     document.getElementById('search-machine-input').addEventListener('input', debounce(renderMachines, 300));
 
     // Filtros de resumen de maquinaria
