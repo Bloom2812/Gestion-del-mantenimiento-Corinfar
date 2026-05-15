@@ -7146,13 +7146,22 @@ function renderCriteriaBreakdown(evaluations, forPdf = false) {
 
 // --- Work Plan Functions ---
 
+
 function renderWorkPlans() {
     if (state.currentTab !== 'planes-trabajo' && initialLoadComplete) return;
-    const container = document.getElementById('work-plans-list-container');
-    const searchTerm = document.getElementById('work-plan-search-input').value.toLowerCase();
-    container.innerHTML = '';
 
+    const gridContainer = document.getElementById('work-plans-bento-grid');
+    if (!gridContainer) return;
+
+    const searchTerm = document.getElementById('work-plan-search-input').value.toLowerCase();
+    const areaFilter = document.getElementById('wp-filter-area').value;
+    const critFilter = document.getElementById('wp-filter-criticality').value;
+
+    gridContainer.innerHTML = '';
+
+    const machineGroups = {};
     let plansToRender = state.workPlans;
+
     if (state.currentUser?.role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
         const managedIds = new Set(state.currentUser.managedMachineIds);
         plansToRender = state.workPlans.filter(p => managedIds.has(p.machineId));
@@ -7161,257 +7170,165 @@ function renderWorkPlans() {
         plansToRender = state.workPlans.filter(p => assignedIds.has(p.machineId));
     }
 
-    const filteredPlans = plansToRender.filter(p => p.name.toLowerCase().includes(searchTerm));
-    if (filteredPlans.length === 0) {
-        container.innerHTML = '<div class="alert alert-light text-center">No se encontraron planes.</div>';
+    plansToRender.forEach(plan => {
+        const machine = state.machines.find(m => m.id === plan.machineId);
+        if (!machine) return;
+
+        const matchesSearch = plan.name.toLowerCase().includes(searchTerm) || machine.name.toLowerCase().includes(searchTerm) || machine.id.toLowerCase().includes(searchTerm);
+        const matchesArea = !areaFilter || machine.area === areaFilter;
+        const matchesCrit = !critFilter || machine.criticidad === critFilter;
+
+        if (matchesSearch && matchesArea && matchesCrit) {
+            if (!machineGroups[machine.id]) {
+                machineGroups[machine.id] = { machine, plans: [] };
+            }
+            machineGroups[machine.id].plans.push(plan);
+        }
+    });
+
+    const machineIds = Object.keys(machineGroups);
+    if (machineIds.length === 0) {
+        gridContainer.innerHTML = '<div class="col-12 text-center py-5 text-muted"><i class="fas fa-search fa-3x mb-3"></i><p>No se encontraron máquinas con planes que coincidan.</p></div>';
         return;
     }
 
-    const createWorkPlanListItem = (plan) => {
-        const machine = state.machines.find(m => m.id === plan.machineId);
-        const item = document.createElement('a');
-        item.href = '#';
-        item.className = 'list-group-item list-group-item-action border-0 py-3 px-3 transition-all';
-        item.dataset.id = plan.fb_id;
-        item.setAttribute('data-plan-id', plan.fb_id);
+    machineIds.forEach(mId => {
+        const group = machineGroups[mId];
+        const machine = group.machine;
+        const plans = group.plans;
+        const imageUrl = getOptimizedImageUrlWithRetry(machine.fotoUrl) || 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=800';
 
-        const frequencyMap = { 'h': 'Hora(s)', 'd': 'Día(s)', 'w': 'Semana(s)', 'm': 'Mes(es)', 'y': 'Año(s)'};
-        const frequencyText = `Cada ${plan.frequencyValue || 1} ${frequencyMap[plan.frequencyUnit] || 'Mes(es)'}`;
-
-        const lastDate = plan.lastExecutedAt ? new Date(plan.lastExecutedAt).toLocaleDateString() : 'Nunca';
-        const lastTech = plan.lastExecutedBy || 'N/A';
-
-        item.innerHTML = `
-            <div class="d-flex w-100 justify-content-between align-items-start mb-1">
-                <h6 class="mb-0 fw-800 text-primary" style="font-size: 0.9rem;">${plan.name}</h6>
-                <span class="badge bg-primary-soft text-primary rounded-pill border-0" style="font-size: 0.65rem;">${frequencyText}</span>
+        const card = document.createElement('div');
+        card.className = 'wp-machine-card';
+        card.innerHTML = `
+            <div class="wp-card-image-container">
+                <img src="${imageUrl}" class="wp-card-image" alt="${machine.name}">
+                <span class="wp-machine-badge">${machine.id}</span>
             </div>
-            <div class="d-flex flex-column gap-1">
-                ${state.activeWorkPlanTab !== 'machine' ? `
-                    <div class="d-flex align-items-center text-muted" style="font-size: 0.75rem;">
-                        <i class="fas fa-microchip me-1 opacity-50"></i>
-                        <span>${machine?.name || 'Máquina no encontrada'}</span>
-                    </div>
-                ` : ''}
-                <div class="d-flex align-items-center justify-content-between mt-1 pt-1 border-top" style="font-size: 0.65rem; opacity: 0.8;">
-                    <span class="text-muted"><i class="fas fa-calendar-check me-1"></i>${lastDate}</span>
-                    <span class="text-muted"><i class="fas fa-user-check me-1"></i>${lastTech}</span>
+            <div class="wp-card-body">
+                <h5 class="fw-bold text-primary mb-1">${machine.name}</h5>
+                <p class="text-muted small mb-3"><i class="fas fa-location-dot me-1"></i>${machine.ubicacion || 'Sin ubicación'} | ${machine.area || 'Sin área'}</p>
+                <div class="wp-plan-mini-list">
+                    ${plans.map(p => {
+                        let statusClass = 'wp-status-ontime';
+                        let statusText = 'A tiempo';
+                        if (p.nextDueDate) {
+                            const today = new Date();
+                            const due = new Date(p.nextDueDate + 'T00:00:00');
+                            if (due < today) { statusClass = 'wp-status-delayed'; statusText = 'Atrasado'; }
+                            else if (due.getTime() - today.getTime() < 7 * 24 * 60 * 60 * 1000) { statusClass = 'wp-status-pending'; statusText = 'Próximo'; }
+                        }
+                        return `
+                            <div class="wp-plan-mini-item" onclick="renderWorkPlanDetails('${p.fb_id}')" style="cursor:pointer">
+                                <span class="small text-truncate me-2" title="${p.name}"><i class="fas fa-circle ${statusClass} me-2" style="font-size:8px"></i>${p.name}</span>
+                                <span class="badge bg-light text-dark border-0 small" style="font-size:0.65rem">${statusText}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="mt-auto pt-3 d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-sm flex-grow-1 rounded-pill fw-bold" onclick="renderWorkPlanDetails('${plans[0].fb_id}')">
+                        Ver Planes <i class="fas fa-arrow-right ms-1"></i>
+                    </button>
+                    <button class="btn btn-light btn-sm rounded-circle" title="Historial de Máquina" onclick="showMachinePlanHistory('${machine.id}')">
+                        <i class="fas fa-history"></i>
+                    </button>
                 </div>
             </div>
         `;
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            document.querySelectorAll('#work-plans-list-container .list-group-item').forEach(el => el.classList.remove('active'));
-            item.classList.add('active');
-            renderWorkPlanDetails(plan.fb_id);
+        gridContainer.appendChild(card);
+    });
+
+    const areaSelect = document.getElementById('wp-filter-area');
+    if (areaSelect && areaSelect.options.length <= 1) {
+        const areas = [...new Set(state.machines.map(m => m.area).filter(Boolean))].sort();
+        areas.forEach(area => {
+            const opt = document.createElement('option');
+            opt.value = area; opt.textContent = area;
+            areaSelect.appendChild(opt);
         });
-        return item;
-    };
-
-    if (state.activeWorkPlanTab === 'all') {
-        const listGroup = document.createElement('div');
-        listGroup.className = 'list-group';
-        filteredPlans.forEach(plan => {
-            listGroup.appendChild(createWorkPlanListItem(plan));
-        });
-        container.appendChild(listGroup);
-    } else {
-        // Grouped view
-        let grouped = {};
-        if (state.activeWorkPlanTab === 'machine') {
-            filteredPlans.forEach(plan => {
-                const machine = state.machines.find(m => m.id === plan.machineId);
-                const groupName = machine?.name || 'Sin Máquina';
-                if (!grouped[groupName]) grouped[groupName] = [];
-                grouped[groupName].push(plan);
-            });
-        } else if (state.activeWorkPlanTab === 'frequency') {
-            const frequencyMap = { 'd': 'Diario', 'w': 'Semanal', 'm': 'Mensual', 'y': 'Anual'};
-            filteredPlans.forEach(plan => {
-                const freqLabel = frequencyMap[plan.frequencyUnit] || 'Otros';
-                const groupName = `${freqLabel} (Cada ${plan.frequencyValue || 1})`;
-                if (!grouped[groupName]) grouped[groupName] = [];
-                grouped[groupName].push(plan);
-            });
-        }
-
-        const accordion = document.createElement('div');
-        accordion.className = 'accordion accordion-flush';
-        accordion.id = 'workPlansAccordion';
-
-        Object.keys(grouped).sort().forEach((groupName, index) => {
-            const plans = grouped[groupName];
-            const accordionItem = document.createElement('div');
-            accordionItem.className = 'accordion-item border-bottom';
-
-            const headerId = `headingWP${index}`;
-            const collapseId = `collapseWP${index}`;
-
-            const isExpanded = searchTerm.length > 0 || index === 0;
-
-            accordionItem.innerHTML = `
-                <h2 class="accordion-header" id="${headerId}">
-                    <button class="accordion-button ${isExpanded ? '' : 'collapsed'} py-2" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="${isExpanded}" aria-controls="${collapseId}">
-                        <div class="d-flex justify-content-between w-100 align-items-center pe-3">
-                            <span class="fw-bold small">${groupName}</span>
-                            <span class="badge bg-secondary rounded-pill small">${plans.length}</span>
-                        </div>
-                    </button>
-                </h2>
-                <div id="${collapseId}" class="accordion-collapse collapse ${isExpanded ? 'show' : ''}" aria-labelledby="${headerId}" ${searchTerm.length === 0 ? 'data-bs-parent="#workPlansAccordion"' : ''}>
-                    <div class="accordion-body p-0">
-                        <div class="list-group list-group-flush">
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            const listGroup = accordionItem.querySelector('.list-group');
-            plans.forEach(plan => {
-                listGroup.appendChild(createWorkPlanListItem(plan));
-            });
-
-            accordion.appendChild(accordionItem);
-        });
-        container.appendChild(accordion);
     }
 }
 
 function renderWorkPlanDetails(planId) {
-    const detailsContainer = document.getElementById('work-plan-details-container');
-    const placeholder = document.getElementById('work-plan-placeholder');
+    const detailView = document.getElementById('work-plan-detail-view');
+    const gridView = document.getElementById('work-plans-grid-view');
+    const content = document.getElementById('work-plan-details-content');
     const plan = state.workPlans.find(p => p.fb_id === planId);
+    if (!plan) return;
 
-    if (!plan) {
-        detailsContainer.classList.add('d-none');
-        placeholder.classList.remove('d-none');
-        return;
-    }
+    if (gridView) gridView.classList.add('d-none');
+    if (detailView) detailView.classList.remove('d-none');
 
     const machine = state.machines.find(m => m.id === plan.machineId);
-    const technician = state.technicians.find(t => t.username === plan.responsibleTechnician);
     const lastExecution = state.workPlanExecutions.filter(e => e.planId === plan.fb_id).sort((a,b) => new Date(b.executedAt) - new Date(a.executedAt))[0];
-
-    const userRole = state.currentUser?.role;
-    const canEdit = userRole !== 'Operario' && userRole !== 'Invitado';
     const activeExecution = state.workPlanExecutions.find(ex => ex.planId === planId && (ex.status === 'En Proceso' || ex.status === 'Pausado'));
-
     const freqMap = { 'h': 'Hora(s)', 'd': 'Día(s)', 'w': 'Semana(s)', 'm': 'Mes(es)', 'y': 'Año(s)'};
     const freqText = `Cada ${plan.frequencyValue || 1} ${freqMap[plan.frequencyUnit] || 'Mes(es)'}`;
     const nextDate = plan.nextDueDate ? new Date(plan.nextDueDate + 'T00:00:00').toLocaleDateString('es-ES') : 'N/A';
-    const lastDate = plan.lastExecutedAt ? new Date(plan.lastExecutedAt).toLocaleString('es-ES') : 'Nunca';
 
-    detailsContainer.innerHTML = `
-        <div class="plan-details-card mb-4">
-            <div class="plan-details-header d-flex justify-content-between align-items-center">
+    content.innerHTML = `
+        <div class="wp-detail-view">
+            <div class="wp-detail-header d-flex justify-content-between align-items-center">
                 <div>
-                    <div class="execution-breadcrumb mb-1">
-                        <i class="fas fa-clipboard-list me-1"></i> PLAN DE MANTENIMIENTO
-                    </div>
-                    <h4 class="mb-0 fw-800">${plan.name}</h4>
+                    <span class="text-uppercase tracking-wider small opacity-75 fw-bold"><i class="fas fa-file-alt me-1"></i> Detalle del Plan</span>
+                    <h2 class="fw-bold mb-0">${plan.name}</h2>
                 </div>
-                <div class="glass-header d-flex gap-2">
-                    <button class="btn btn-sm ${activeExecution ? 'btn-warning' : 'btn-light'} fw-bold" id="view-plan-btn">
-                        <i class="fas ${activeExecution ? 'fa-play-circle' : 'fa-list-check'} me-1"></i>
-                        ${activeExecution ? 'Continuar Ejecución' : 'Ver Actividades'}
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary shadow-sm px-4 rounded-pill fw-bold" onclick="startWorkPlanExecutionWrapper('${plan.fb_id}')">
+                        <i class="fas fa-play-circle me-2"></i>${activeExecution ? 'Continuar' : 'Ejecutar Plan'}
                     </button>
-                    ${canEdit ? `
-                        <button class="btn btn-sm btn-light" id="edit-plan-btn"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-danger" id="delete-plan-btn"><i class="fas fa-trash"></i></button>
-                    ` : ''}
+                    <button class="btn btn-outline-light px-4 rounded-pill fw-bold" onclick="showWorkPlanPreview('${plan.fb_id}')">
+                        <i class="fas fa-eye me-2"></i>Previsualizar
+                    </button>
+                    <button class="btn btn-light rounded-circle" onclick="showWorkPlanModal('${plan.fb_id}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-danger rounded-circle" onclick="deleteWorkPlan('${plan.fb_id}')"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
-
-            <div class="plan-info-grid">
-                <div class="plan-info-item">
-                    <span class="plan-info-label">Equipo</span>
-                    <span class="plan-info-value"><i class="fas fa-microchip text-primary me-1"></i> ${machine?.name || 'N/A'}</span>
+            <div class="p-4">
+                <div class="row g-4 mb-4">
+                    <div class="col-md-3"><div class="p-3 bg-light rounded-lg border text-center"><span class="text-muted small d-block text-uppercase fw-bold mb-1">Equipo</span><span class="fw-bold text-primary">${machine?.name || 'N/A'}</span></div></div>
+                    <div class="col-md-3"><div class="p-3 bg-light rounded-lg border text-center"><span class="text-muted small d-block text-uppercase fw-bold mb-1">Responsable</span><span class="fw-bold">${plan.responsibleTechnician || 'N/A'}</span></div></div>
+                    <div class="col-md-3"><div class="p-3 bg-light rounded-lg border text-center"><span class="text-muted small d-block text-uppercase fw-bold mb-1">Frecuencia</span><span class="fw-bold text-info">${freqText}</span></div></div>
+                    <div class="col-md-3"><div class="p-3 bg-light rounded-lg border text-center"><span class="text-muted small d-block text-uppercase fw-bold mb-1">Próxima Fecha</span><span class="fw-bold text-success">${nextDate}</span></div></div>
                 </div>
-                <div class="plan-info-item">
-                    <span class="plan-info-label">Responsable</span>
-                    <span class="plan-info-value"><i class="fas fa-user-shield text-primary me-1"></i> ${technician?.username || 'N/A'}</span>
+                <div class="wp-glass-card mb-4 bg-light border-0 p-3 rounded">
+                    <h6 class="text-uppercase small fw-bold text-muted mb-2">Objetivo del Plan</h6>
+                    <p class="mb-0 text-dark" style="font-size: 1rem;">${plan.description || 'No se ha definido un objetivo específico.'}</p>
                 </div>
-                <div class="plan-info-item">
-                    <span class="plan-info-label">Frecuencia</span>
-                    <span class="plan-info-value"><i class="fas fa-sync text-primary me-1"></i> ${freqText}</span>
-                </div>
-                <div class="plan-info-item">
-                    <span class="plan-info-label">Próxima Fecha</span>
-                    <span class="plan-info-value"><i class="fas fa-calendar-plus text-primary me-1"></i> ${nextDate}</span>
-                </div>
-            </div>
-
-            <div class="plan-objective-box">
-                <span class="plan-info-label mb-2 d-block">Objetivo del Plan</span>
-                <p class="mb-0 text-dark" style="font-size: 0.9rem; line-height: 1.5;">${plan.description || 'No se ha definido un objetivo específico para este plan.'}</p>
-            </div>
-
-            <div class="px-4 py-2 mb-3">
-                <div class="card border-0 shadow-sm" style="border-radius: 12px; background: linear-gradient(to right, #f8fafc, #ffffff);">
-                    <div class="card-body py-3 d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="plan-info-label">Último Resultado</span>
-                            <div class="plan-info-value mt-1">
-                                <i class="fas fa-history text-muted me-1"></i> ${lastDate}
-                                ${lastExecution ? `<span class="ms-2 badge ${lastExecution.status === 'Completado' ? 'bg-success' : 'bg-warning'}">${lastExecution.status}</span>` : ''}
-                            </div>
+                ${lastExecution ? `
+                    <div class="card border-0 shadow-sm mb-4" style="background: #f8fafc; border-left: 4px solid #10b981 !important;">
+                        <div class="card-body d-flex justify-content-between align-items-center">
+                            <div><h6 class="mb-1 fw-bold text-success">Última ejecución</h6><p class="small text-muted mb-0">${new Date(lastExecution.executedAt).toLocaleString()} | Por: ${lastExecution.executedBy}</p></div>
+                            <button class="btn btn-outline-success rounded-pill px-4" onclick="showPrettyExecutionReport('${lastExecution.id || lastExecution.fb_id}')"><i class="fas fa-file-invoice me-2"></i>Informe Ejecutivo</button>
                         </div>
-                        ${lastExecution ? `
-                            <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="showPrettyExecutionReport('${lastExecution.id || lastExecution.fb_id}')">
-                                <i class="fas fa-file-invoice me-1"></i> Ver Informe
-                            </button>
-                        ` : ''}
                     </div>
-                </div>
-            </div>
-
-            <div class="task-list-professional">
-                <h6 class="plan-info-label mb-3 border-bottom pb-2">Actividades Programadas</h6>
-                ${(plan.taskGroups || []).map(group => `
-                    <div class="mb-4">
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; font-size: 0.7rem;">
-                                <i class="fas ${group.layout === 'cards' ? 'fa-th-large' : 'fa-table'}"></i>
-                            </div>
-                            <span class="fw-bold text-dark">${group.name}</span>
-                        </div>
-                        <div class="ps-4">
-                            ${group.tasks.map(task => `
-                                <div class="task-item-pro">
-                                    <i class="fas fa-check-circle task-icon-pro"></i>
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <span class="fw-bold text-dark" style="font-size: 0.85rem;">${task.description}</span>
-                                            <span class="status-badge-pro bg-light border text-muted">${task.type}</span>
+                ` : ''}
+                <div class="mt-4">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center"><i class="fas fa-tasks me-2 text-primary"></i>Actividades</h5>
+                    <div class="row">
+                        ${(plan.taskGroups || []).map(group => `
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100 border shadow-sm">
+                                    <div class="card-header bg-white py-2"><h6 class="mb-0 fw-bold">${group.name}</h6></div>
+                                    <div class="card-body p-0">
+                                        <div class="list-group list-group-flush">
+                                            ${group.tasks.map(task => `
+                                                <div class="list-group-item py-2 d-flex justify-content-between align-items-center">
+                                                    <span class="small fw-bold">${task.description}</span>
+                                                    <span class="badge bg-light text-dark border x-small">${task.type}</span>
+                                                </div>
+                                            `).join('')}
                                         </div>
-                                        ${task.helperText ? `<p class="mb-0 text-muted x-small mt-1">${task.helperText}</p>` : ''}
                                     </div>
                                 </div>
-                            `).join('')}
-                        </div>
+                            </div>
+                        `).join('')}
                     </div>
-                `).join('')}
+                </div>
             </div>
         </div>
     `;
-
-    detailsContainer.querySelector('#view-plan-btn').addEventListener('click', () => {
-        if (activeExecution) {
-            startWorkPlanExecution(activeExecution, plan);
-        } else {
-            // Visualization-only mode from the plans tab
-            executeWorkPlan(planId, true);
-        }
-    });
-
-    if (canEdit) {
-        detailsContainer.querySelector('#edit-plan-btn').addEventListener('click', () => showWorkPlanModal(planId));
-        detailsContainer.querySelector('#delete-plan-btn').addEventListener('click', () => deleteWorkPlan(planId));
-    }
-
-
-    placeholder.classList.add('d-none');
-    detailsContainer.classList.remove('d-none');
 }
 
 function showWorkPlanModal(planId = null) {
@@ -18527,3 +18444,78 @@ window.showPurchaseReceiveModal = showPurchaseReceiveModal;
 window.handlePurchaseReceiveSubmit = handlePurchaseReceiveSubmit;
 window.formatCurrency = formatCurrency;
 window.renderPurchaseRequestsTable = renderPurchaseRequestsTable;
+
+window.showWorkPlanPreview = showWorkPlanPreview;
+window.showMachinePlanHistory = showMachinePlanHistory;
+window.renderWorkPlanDetails = renderWorkPlanDetails;
+window.deleteWorkPlan = deleteWorkPlan;
+window.handleWorkPlanSubmit = handleWorkPlanSubmit;
+window.startWorkPlanExecution = startWorkPlanExecution;
+
+function showWorkPlansGrid() {
+    const gridView = document.getElementById('work-plans-grid-view');
+    const detailView = document.getElementById('work-plan-detail-view');
+    if (gridView) gridView.classList.remove('d-none');
+    if (detailView) detailView.classList.add('d-none');
+    renderWorkPlans();
+}
+
+function startWorkPlanExecutionWrapper(planId) {
+    const plan = state.workPlans.find(p => p.fb_id === planId);
+    const active = state.workPlanExecutions.find(ex => ex.planId === planId && (ex.status === 'En Proceso' || ex.status === 'Pausado'));
+    startWorkPlanExecution(active || null, plan);
+}
+
+function showWorkPlanPreview(planId) {
+    const plan = state.workPlans.find(p => p.fb_id === planId);
+    if (!plan) return;
+    showToast('Generando vista previa...', 'info');
+    const mock = {
+        fb_id: 'preview',
+        planId: plan.fb_id,
+        status: 'Vista Previa',
+        items: (plan.taskGroups || []).flatMap(g => g.tasks.map(t => ({ ...t, status: 'Pendiente' })))
+    };
+    startWorkPlanExecution(mock, plan);
+}
+
+function showMachinePlanHistory(machineId) {
+    const machine = state.machines.find(m => m.id === machineId);
+    if (!machine) return;
+    const plans = state.workPlans.filter(p => p.machineId === machineId);
+    const planIds = plans.map(p => p.fb_id);
+    const executions = state.workPlanExecutions.filter(e => planIds.includes(e.planId)).sort((a,b) => new Date(b.executedAt) - new Date(a.executedAt));
+    const historyModalHTML = `
+        <div class="modal fade" id="machinePlanHistoryModal" tabindex="-1">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content border-0 shadow-lg" style="border-radius: 1.5rem;">
+                    <div class="modal-header bg-primary text-white p-4">
+                        <h5 class="modal-title fw-bold">Historial: ${machine.name}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4 bg-light">
+                        <div class="table-responsive bg-white rounded-3 shadow-sm">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="bg-light"><tr><th class="ps-4">Plan</th><th>Fecha</th><th>Responsable</th><th>Estado</th><th class="text-center">Reporte</th></tr></thead>
+                                <tbody>
+                                    ${executions.length > 0 ? executions.map(ex => {
+                                        const p = plans.find(pl => pl.fb_id === ex.planId);
+                                        return `<tr><td class="ps-4"><b>${p?.name || 'N/A'}</b></td><td>${new Date(ex.executedAt).toLocaleString()}</td><td>${ex.executedBy}</td>
+                                        <td><span class="badge ${ex.status === 'Completado' ? 'bg-success' : 'bg-warning'} rounded-pill">${ex.status}</span></td>
+                                        <td class="text-center"><button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="showPrettyExecutionReport('${ex.id || ex.fb_id}')">Ver Reporte</button></td></tr>`;
+                                    }).join('') : '<tr><td colspan="5" class="text-center py-4">No hay registros.</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    const existing = document.getElementById('machinePlanHistoryModal');
+    if (existing) existing.remove();
+    document.body.insertAdjacentHTML('beforeend', historyModalHTML);
+    new bootstrap.Modal(document.getElementById('machinePlanHistoryModal')).show();
+}
+
+window.showWorkPlansGrid = showWorkPlansGrid;
+window.startWorkPlanExecutionWrapper = startWorkPlanExecutionWrapper;
