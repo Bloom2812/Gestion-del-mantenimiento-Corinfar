@@ -3051,3 +3051,60 @@ body.dark-mode #ai-settings .progress {
 .wp-status-ontime { color: #10b981; background-color: #10b981; }
 .wp-status-delayed { color: #ef4444; background-color: #ef4444; }
 .wp-status-pending { color: #f59e0b; background-color: #f59e0b; }
+
+/* Dark Mode Overrides for Maintenance Plans */
+body.dark-mode .wp-filter-bar,
+body.dark-mode .wp-machine-card,
+body.dark-mode .wp-detail-view,
+body.dark-mode .wp-detail-view .wp-glass-card {
+    background-color: var(--card-bg) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color);
+}
+
+body.dark-mode .wp-filter-bar .bg-light,
+body.dark-mode .wp-filter-bar select.bg-light {
+    background-color: var(--input-bg) !important;
+    color: var(--text-color) !important;
+}
+
+body.dark-mode .wp-filter-bar input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+body.dark-mode .wp-plan-mini-item:hover {
+    background-color: var(--hover-bg);
+}
+
+body.dark-mode .wp-detail-header {
+    background: linear-gradient(rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.95)), url('https://www.transparenttextures.com/patterns/carbon-fibre.png') !important;
+}
+
+body.dark-mode .wp-machine-card .wp-plan-mini-list {
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .wp-machine-card .wp-plan-mini-item {
+    color: var(--text-color);
+}
+
+body.dark-mode .wp-detail-view .text-dark {
+    color: var(--text-color) !important;
+}
+
+body.dark-mode .wp-detail-view .card[style*="background: #f8fafc"],
+body.dark-mode .wp-detail-view .card[style*="background:#f8fafc"] {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+body.dark-mode .wp-detail-view .list-group-item .badge.bg-light {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+body.dark-mode .wp-detail-view .bg-light,
+body.dark-mode .wp-detail-view .card-header.bg-white {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: var(--text-color) !important;
+}
