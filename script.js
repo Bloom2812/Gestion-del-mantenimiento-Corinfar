@@ -1535,6 +1535,25 @@ function setupEventListeners() {
         renderSolicitudItems();
     });
     
+    // Machine Search Listeners
+    const machineSearchInputs = [
+        { searchId: 'solicitud-machine-search', selectorId: 'solicitud-machine' },
+        { searchId: 'kpi-machine-search', selectorId: 'kpi-machine-select' },
+        { searchId: 'report-machine-select-search', selectorId: 'report-machine-select' },
+        { searchId: 'report-machine-parts-select-search', selectorId: 'report-machine-parts-select' },
+        { searchId: 'work-plan-machine-search', selectorId: 'work-plan-machine' },
+        { searchId: 'decommission-replacement-search', selectorId: 'decommission-replacement' }
+    ];
+
+    machineSearchInputs.forEach(cfg => {
+        const input = document.getElementById(cfg.searchId);
+        if (input) {
+            input.addEventListener('input', (e) => {
+                populateDynamicSelectors(e.target.value, cfg.selectorId);
+            });
+        }
+    });
+
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
     document.getElementById('btn-filter-audit').addEventListener('click', renderAuditLogs);
     document.getElementById('generate-audit-report-btn').addEventListener('click', generateAuditReport);
@@ -2501,7 +2520,19 @@ async function switchTab(tabName) {
     document.getElementById('dashboard-date-filter').classList.toggle('d-none', tabName !== 'dashboard');
 
     // Refresh dynamic selectors when entering key tabs
-    if (tabName === 'dashboard' || tabName === 'reportes' || tabName === 'equipos-baja') {
+    if (tabName === 'dashboard' || tabName === 'reportes' || tabName === 'equipos-baja' || tabName === 'planes-mantenimiento' || tabName === 'solicitudes') {
+        // Clear searches
+        if (tabName === 'dashboard') {
+            const s = document.getElementById('kpi-machine-search');
+            if (s) s.value = '';
+        }
+        if (tabName === 'reportes') {
+            const s1 = document.getElementById('report-machine-select-search');
+            if (s1) s1.value = '';
+            const s2 = document.getElementById('report-machine-parts-select-search');
+            if (s2) s2.value = '';
+        }
+
         populateDynamicSelectors();
         populateWorkOrderSelectors();
         populateExecutionReportSelector();
@@ -6431,7 +6462,7 @@ function renderSolicitudes() {
         } else if (solicitud.status === 'Pendiente' && canManage) {
             tr.querySelector('.create-wo-btn').addEventListener('click', (e) => {
                 e.preventDefault();
-                const targetType = solicitud.type === 'mecanizado' ? 'Mecanizado' : 'Correctivo';
+                let targetType = 'Correctivo'; if (solicitud.type === 'mecanizado') targetType = 'Mecanizado'; else if (solicitud.type === 'calibracion') targetType = 'Calibración';
                 showWorkOrderModal(null, targetType, solicitud);
             });
         }
@@ -6550,12 +6581,12 @@ async function handleSolicitudSubmit(e) {
     }
 
     // Caso Mantenimiento / Mecanizado
-    const prefix = type === 'mecanizado' ? 'MEC' : 'SOL';
+    let prefix = 'SOL'; if (type === 'mecanizado') prefix = 'MEC'; else if (type === 'calibracion') prefix = 'CAL';
     const allSolicitudes = await getDocs(query(state.collections.solicitudes));
     const count = allSolicitudes.docs.filter(d => d.data().id && d.data().id.startsWith(prefix)).length;
     const nextId = `${prefix}-${(count + 1).toString().padStart(4, '0')}`;
 
-    const finalDescription = type === 'mecanizado' ? `[MECANIZADO] ${description}` : description;
+    let finalDescription = description; if (type === 'mecanizado') finalDescription = `[MECANIZADO] ${description}`; else if (type === 'calibracion') finalDescription = `[CALIBRACIÓN] ${description}`;
 
     const solicitudData = {
         id: nextId,
@@ -6576,7 +6607,7 @@ async function handleSolicitudSubmit(e) {
     try {
         const docRef = await addDoc(state.collections.solicitudes, solicitudData);
         await updateRTDBMirror('solicitudes', solicitudData, docRef.id);
-        const auditAction = type === 'mecanizado' ? 'Creación Solicitud Mecanizado' : 'Creación Solicitud Mantenimiento';
+        const auditAction = type === 'mecanizado' ? 'Creación Solicitud Mecanizado' : (type === 'calibracion' ? 'Creación Solicitud Calibración' : 'Creación Solicitud Mantenimiento');
         await recordAuditLog('solicitudes', solicitudData.id, 'CREATE', null, solicitudData, auditAction);
         showToast('Solicitud enviada correctamente', 'success');
         state.modals.solicitud.hide();
@@ -8668,7 +8699,7 @@ function createSolicitudCard(solicitud) {
     `;
     if (!isReadOnly) {
         card.querySelector('.convert-solicitud-btn').addEventListener('click', () => {
-            const targetType = solicitud.type === 'mecanizado' ? 'Mecanizado' : 'Correctivo';
+            let targetType = 'Correctivo'; if (solicitud.type === 'mecanizado') targetType = 'Mecanizado'; else if (solicitud.type === 'calibracion') targetType = 'Calibración';
             showWorkOrderModal(null, targetType, solicitud);
         });
     }
@@ -14839,7 +14870,8 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
         { id: 'solicitud-machine', tab: 'solicitudes' },
         { id: 'decommission-replacement', tab: 'equipos-baja' },
         { id: 'report-executive-area', tab: 'reportes' },
-        { id: 'report-executive-cost-center', tab: 'reportes' }
+        { id: 'report-executive-cost-center', tab: 'reportes' },
+        { id: 'work-plan-machine', tab: 'planes-mantenimiento' }
     ];
     
     selectorsConfig.forEach(cfg => {
@@ -14902,8 +14934,19 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
                 if (lowerSearch) {
                     machinesToPopulate = machinesToPopulate.filter(m =>
                         (m.id && m.id.toLowerCase().includes(lowerSearch)) ||
-                        (m.name && m.name.toLowerCase().includes(lowerSearch))
+                        (m.name && m.name.toLowerCase().includes(lowerSearch)) ||
+                        (m.location && m.location.toLowerCase().includes(lowerSearch))
                     );
+                }
+
+                // Show/hide no-results warning if present
+                const noResultsDiv = document.getElementById(`${selector.id}-no-results`);
+                if (noResultsDiv) {
+                    if (machinesToPopulate.length === 0 && lowerSearch) {
+                        noResultsDiv.classList.remove('d-none');
+                    } else {
+                        noResultsDiv.classList.add('d-none');
+                    }
                 }
 
                 if (selector.id !== 'report-machine-select' && selector.id !== 'kpi-machine-select') {
@@ -14957,6 +15000,7 @@ window.handlePausePlanExecution = handlePausePlanExecution;
 window.handleResumePlanExecution = handleResumePlanExecution;
 window.handleFinishPlanExecution = handleFinishPlanExecution;
 window.showTechnicianModal = showTechnicianModal;
+window.showSolicitudModal = showSolicitudModal;
 window.renderTechnicians = renderTechnicians;
 window.showManagePartsModal = showManagePartsModal;
 window.addTaskGroup = addTaskGroup;

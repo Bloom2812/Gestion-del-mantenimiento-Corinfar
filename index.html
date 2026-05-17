@@ -469,10 +469,14 @@
 <div class="card">
 <div class="card-header d-flex justify-content-between align-items-center">
 <h6 class="mb-0">Efectividad del Mantenimiento (KPIs)</h6>
-<div class="d-flex align-items-center gap-2 w-50" style="max-width: 400px;">
-<select class="form-select form-select-sm" id="kpi-machine-select">
-<option value="all">Todas las Máquinas</option>
-</select>
+<div class="d-flex flex-column gap-1 w-50" style="max-width: 400px;">
+    <div class="input-group input-group-sm">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input type="text" class="form-control" id="kpi-machine-search" placeholder="Filtrar máquina...">
+    </div>
+    <select class="form-select form-select-sm" id="kpi-machine-select">
+        <option value="all">Todas las Máquinas</option>
+    </select>
 <button class="btn btn-sm btn-outline-primary d-none" id="kpi-view-history-btn" title="Ver Historial de la Máquina">
 <i class="fas fa-history"></i>
 </button>
@@ -1285,22 +1289,24 @@
 <div class="list-group-item">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <h6 class="mb-1">Reporte Específico por Máquina</h6>
-                                            <input class="form-control form-control-sm" id="report-machine-search" placeholder="Filtrar..." style="max-width: 150px;" type="text"/>
                                         </div>
 <p class="mb-1 text-muted small">Obtén un historial detallado de mantenimientos para una máquina específica.</p>
 <div class="input-group mt-2">
-<select class="form-select" id="report-machine-select"></select>
+    <span class="input-group-text"><i class="fas fa-search"></i></span>
+    <input type="text" class="form-control" id="report-machine-select-search" placeholder="Filtrar máquina...">
+    <select class="form-select" id="report-machine-select"></select>
 <button class="btn btn-primary" id="generate-machine-report-btn"><i class="fas fa-download me-2"></i>Generar</button>
 </div>
 </div>
 <div class="list-group-item">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <h6 class="mb-1">Disponibilidad de Repuestos por Máquina</h6>
-                                            <input class="form-control form-control-sm" id="report-machine-parts-search" placeholder="Filtrar..." style="max-width: 150px;" type="text"/>
                                         </div>
 <p class="mb-1 text-muted small">Verifica el stock de los repuestos vinculados a una máquina específica.</p>
 <div class="input-group mt-2">
-<select class="form-select" id="report-machine-parts-select"></select>
+    <span class="input-group-text"><i class="fas fa-search"></i></span>
+    <input type="text" class="form-control" id="report-machine-parts-select-search" placeholder="Filtrar máquina...">
+    <select class="form-select" id="report-machine-parts-select"></select>
 <button class="btn btn-primary" id="generate-machine-parts-report-btn"><i class="fas fa-download me-2"></i>Generar</button>
 </div>
 </div>
@@ -2136,6 +2142,10 @@
 
                     <div class="mb-3">
                         <label for="decommission-replacement" class="form-label small fw-bold text-uppercase">Equipo de Reemplazo (Opcional)</label>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="decommission-replacement-search" placeholder="Filtrar máquina...">
+                        </div>
                         <select class="form-select" id="decommission-replacement">
                             <option value="">Ninguno / Por adquirir</option>
                         </select>
@@ -2549,13 +2559,21 @@
     <label class="form-label" for="solicitud-type">Tipo de Solicitud</label>
     <select class="form-select" id="solicitud-type" required="">
         <option value="mantenimiento">Mantenimiento / Falla de Máquina</option>
+        <option value="calibracion">Calibración de Equipo</option>
         <option value="insumos">Insumos / Accesorios</option>
         <option value="mecanizado">Mecanizado</option>
     </select>
 </div>
 <div class="mb-3">
-<label class="form-label" id="solicitud-machine-label" for="solicitud-machine">Máquina</label>
-<select class="form-select" id="solicitud-machine" required=""></select>
+    <label class="form-label" id="solicitud-machine-label" for="solicitud-machine">Máquina</label>
+    <div class="input-group mb-2">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input type="text" class="form-control" id="solicitud-machine-search" placeholder="Filtrar por ID, nombre o ubicación...">
+    </div>
+    <select class="form-select" id="solicitud-machine" required=""></select>
+    <div id="solicitud-machine-no-results" class="alert alert-warning py-1 px-2 mt-2 d-none" style="font-size: 0.85rem;">
+        <i class="fas fa-exclamation-triangle me-1"></i> No se encontraron máquinas.
+    </div>
 </div>
 <div class="row d-none" id="solicitud-extra-fields">
     <div class="col-md-6 mb-3" id="solicitud-quantity-container">
@@ -2936,6 +2954,10 @@
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="work-plan-machine" class="form-label">Máquina Aplicable</label>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" id="work-plan-machine-search" placeholder="Filtrar máquina...">
+                            </div>
                             <select class="form-select" id="work-plan-machine" required>
                                 <option value="">Seleccione una máquina...</option>
                             </select>
