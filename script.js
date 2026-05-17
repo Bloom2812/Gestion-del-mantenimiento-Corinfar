@@ -1448,9 +1448,16 @@ function handleReportExecutionSearch(e) {
 }
 
 // --- Event Listeners Setup ---
+function safeAddEventListener(id, event, handler) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.addEventListener(event, handler);
+    }
+}
+
 function setupEventListeners() {
-    document.getElementById('login-form').addEventListener('submit', handleLogin);
-    document.getElementById('forgot-password-link').addEventListener('click', (e) => {
+    safeAddEventListener('login-form', 'submit', handleLogin);
+    safeAddEventListener('forgot-password-link', 'click', (e) => {
         e.preventDefault();
         showLoading(false);
 
@@ -1464,18 +1471,18 @@ function setupEventListeners() {
             state.modals.forgotPassword.show();
         }
     });
-    document.getElementById('submit-forgot-password').addEventListener('click', handleForgotPasswordRequest);
-    document.getElementById('set-password-form').addEventListener('submit', handleSetPasswordSubmit);
-    document.getElementById('copy-link-btn').addEventListener('click', () => {
+    safeAddEventListener('submit-forgot-password', 'click', handleForgotPasswordRequest);
+    safeAddEventListener('set-password-form', 'submit', handleSetPasswordSubmit);
+    safeAddEventListener('copy-link-btn', 'click', () => {
         const input = document.getElementById('generated-link-input');
         input.select();
         document.execCommand('copy');
         showToast('Link copiado al portapapeles', 'success');
     });
 
-    document.getElementById('theme-toggle-btn').addEventListener('click', toggleTheme);
-    document.getElementById('password-toggle').addEventListener('click', togglePasswordVisibility);
-    document.getElementById('solicitud-type').addEventListener('change', (e) => {
+    safeAddEventListener('theme-toggle-btn', 'click', toggleTheme);
+    safeAddEventListener('password-toggle', 'click', togglePasswordVisibility);
+    safeAddEventListener('solicitud-type', 'change', (e) => {
         const type = e.target.value;
         const isInsumos = type === 'insumos';
 
@@ -1499,7 +1506,7 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('solicitud-add-item-btn').addEventListener('click', () => {
+    safeAddEventListener('solicitud-add-item-btn', 'click', () => {
         const partSelect = document.getElementById('solicitud-item-part-select');
         const manualDesc = document.getElementById('solicitud-item-description').value.trim();
         const quantity = parseInt(document.getElementById('solicitud-item-quantity').value);
@@ -1554,9 +1561,9 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('logout-btn').addEventListener('click', handleLogout);
-    document.getElementById('btn-filter-audit').addEventListener('click', renderAuditLogs);
-    document.getElementById('generate-audit-report-btn').addEventListener('click', generateAuditReport);
+    safeAddEventListener('logout-btn', 'click', handleLogout);
+    safeAddEventListener('btn-filter-audit', 'click', renderAuditLogs);
+    safeAddEventListener('generate-audit-report-btn', 'click', generateAuditReport);
     
     document.querySelectorAll('.nav-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
@@ -1568,24 +1575,24 @@ function setupEventListeners() {
         });
     });
 
-    document.getElementById('sidebar-toggle').addEventListener('click', () => toggleSidebar());
-    document.getElementById('sidebar-overlay').addEventListener('click', () => toggleSidebar(false));
+    safeAddEventListener('sidebar-toggle', 'click', () => toggleSidebar());
+    safeAddEventListener('sidebar-overlay', 'click', () => toggleSidebar(false));
     
     // Machine Listeners
-    document.getElementById('add-machine-btn').addEventListener('click', () => showMachineModal());
-    document.getElementById('search-decommissioned-input').addEventListener('input', debounce(renderDecommissionedMachines, 300));
-    document.getElementById('decommission-form').addEventListener('submit', handleDecommissionSubmit);
-    document.getElementById('decommission-modal').addEventListener('hidden.bs.modal', () => {
+    safeAddEventListener('add-machine-btn', 'click', () => showMachineModal());
+    safeAddEventListener('search-decommissioned-input', 'input', debounce(renderDecommissionedMachines, 300));
+    safeAddEventListener('decommission-form', 'submit', handleDecommissionSubmit);
+    safeAddEventListener('decommission-modal', 'hidden.bs.modal', () => {
         if (state.reopenMachineDetail) {
             const machineId = state.reopenMachineDetail;
             state.reopenMachineDetail = null;
             showMachineDetail(machineId);
         }
     });
-    document.getElementById('sync-all-machines-odoo-btn').addEventListener('click', () => syncAllMachinesToOdoo());
-    document.getElementById('machine-form').addEventListener('submit', handleMachineSubmit);
-    document.getElementById('global-machine-photo-input').addEventListener('change', handleGlobalMachinePhotoChange);
-    document.getElementById('search-machine-input').addEventListener('input', debounce(renderMachines, 300));
+    safeAddEventListener('sync-all-machines-odoo-btn', 'click', () => syncAllMachinesToOdoo());
+    safeAddEventListener('machine-form', 'submit', handleMachineSubmit);
+    safeAddEventListener('global-machine-photo-input', 'change', handleGlobalMachinePhotoChange);
+    safeAddEventListener('search-machine-input', 'input', debounce(renderMachines, 300));
 
     // Filtros de resumen de maquinaria
     document.querySelectorAll('.machine-summary-header .summary-pill').forEach(pill => {
@@ -1596,17 +1603,17 @@ function setupEventListeners() {
         });
     });
 
-    document.getElementById('disable-schedule-check').addEventListener('change', e => {
+    safeAddEventListener('disable-schedule-check', 'change', e => {
         document.getElementById('schedule-wrapper').style.display = e.target.checked ? 'none' : 'block';
     });
 
     // Part Listeners
-    document.getElementById('add-part-btn').addEventListener('click', () => showPartModal());
-    document.getElementById('btn-show-purchase-cart').addEventListener('click', () => state.modals.purchaseCart.show());
-    document.getElementById('btn-clear-purchase-cart').addEventListener('click', clearPurchaseCart);
-    document.getElementById('btn-submit-purchase-request').addEventListener('click', submitPurchaseRequest);
-    document.getElementById('sync-all-parts-odoo-btn').addEventListener('click', () => syncAllPartsToOdoo());
-    document.getElementById('view-all-part-history-btn').addEventListener('click', () => showPartHistoryModal(null));
+    safeAddEventListener('add-part-btn', 'click', () => showPartModal());
+    safeAddEventListener('btn-show-purchase-cart', 'click', () => state.modals.purchaseCart.show());
+    safeAddEventListener('btn-clear-purchase-cart', 'click', clearPurchaseCart);
+    safeAddEventListener('btn-submit-purchase-request', 'click', submitPurchaseRequest);
+    safeAddEventListener('sync-all-parts-odoo-btn', 'click', () => syncAllPartsToOdoo());
+    safeAddEventListener('view-all-part-history-btn', 'click', () => showPartHistoryModal(null));
 
     const addPartMobile = document.getElementById('btn-add-part-mobile');
     if (addPartMobile) addPartMobile.addEventListener('click', () => showPartModal());
@@ -1616,17 +1623,17 @@ function setupEventListeners() {
 
     const historyPartsMobile = document.getElementById('btn-part-history-mobile');
     if (historyPartsMobile) historyPartsMobile.addEventListener('click', () => showPartHistoryModal(null));
-    document.getElementById('part-form').addEventListener('submit', handlePartSubmit);
-    document.getElementById('btn-adjust-stock').addEventListener('click', showStockAdjustmentModal);
-    document.getElementById('stock-adjustment-form').addEventListener('submit', handleStockAdjustmentSubmit);
-    document.getElementById('purchase-receive-form').addEventListener('submit', handlePurchaseReceiveSubmit);
-    document.getElementById('material-delivery-form').addEventListener('submit', handleMaterialDeliverySubmit);
+    safeAddEventListener('part-form', 'submit', handlePartSubmit);
+    safeAddEventListener('btn-adjust-stock', 'click', showStockAdjustmentModal);
+    safeAddEventListener('stock-adjustment-form', 'submit', handleStockAdjustmentSubmit);
+    safeAddEventListener('purchase-receive-form', 'submit', handlePurchaseReceiveSubmit);
+    safeAddEventListener('material-delivery-form', 'submit', handleMaterialDeliverySubmit);
 
-    document.getElementById('add-part-doc-btn').addEventListener('click', () => {
+    safeAddEventListener('add-part-doc-btn', 'click', () => {
         document.getElementById('part-doc-file').click();
     });
 
-    document.getElementById('part-doc-file').addEventListener('change', (e) => {
+    safeAddEventListener('part-doc-file', 'change', (e) => {
         const file = e.target.files[0];
         if (file) {
             currentPartDocs.push({ name: file.name, file: file });
@@ -1635,7 +1642,7 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('part-image-file').addEventListener('change', (e) => {
+    safeAddEventListener('part-image-file', 'change', (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
@@ -1648,7 +1655,7 @@ function setupEventListeners() {
             reader.readAsDataURL(file);
         }
     });
-    document.getElementById('search-part-input').addEventListener('input', debounce(renderParts, 300));
+    safeAddEventListener('search-part-input', 'input', debounce(renderParts, 300));
 
     // Filtros de resumen de repuestos
     document.querySelectorAll('.inventory-summary .summary-pill').forEach(pill => {
@@ -1664,14 +1671,14 @@ function setupEventListeners() {
     });
 
     // Proveedor Listeners
-    document.getElementById('add-proveedor-btn').addEventListener('click', () => showProveedorModal());
-    document.getElementById('proveedor-form').addEventListener('submit', handleProveedorSubmit);
-    document.getElementById('search-proveedor-input').addEventListener('input', debounce(renderProveedores, 300));
+    safeAddEventListener('add-proveedor-btn', 'click', () => showProveedorModal());
+    safeAddEventListener('proveedor-form', 'submit', handleProveedorSubmit);
+    safeAddEventListener('search-proveedor-input', 'input', debounce(renderProveedores, 300));
 
     // Technician/User Listeners
-    document.getElementById('add-technician-btn').addEventListener('click', () => showTechnicianModal());
-    document.getElementById('technician-form').addEventListener('submit', handleTechnicianSubmit);
-    document.getElementById('technician-role').addEventListener('change', (e) => {
+    safeAddEventListener('add-technician-btn', 'click', () => showTechnicianModal());
+    safeAddEventListener('technician-form', 'submit', handleTechnicianSubmit);
+    safeAddEventListener('technician-role', 'change', (e) => {
         updateTechnicianModalUIForRole(e.target.value);
     });
 
@@ -1687,7 +1694,7 @@ function setupEventListeners() {
             this.textContent = !allChecked ? 'Deseleccionar todas' : 'Seleccionar todas';
         });
     });
-    document.getElementById('technician-genera-gasto').addEventListener('change', (e) => {
+    safeAddEventListener('technician-genera-gasto', 'change', (e) => {
         const wrapper = document.getElementById('technician-salary-wrapper');
         const salaryInput = document.getElementById('technician-salary');
         if (e.target.checked) {
@@ -1700,20 +1707,20 @@ function setupEventListeners() {
     });
 
     // Signature Listeners
-    document.getElementById('toggle-draw-sig').addEventListener('click', () => {
+    safeAddEventListener('toggle-draw-sig', 'click', () => {
         document.getElementById('signature-draw-container').style.display = 'block';
         document.getElementById('signature-upload-container').style.display = 'none';
         initSignaturePad();
     });
-    document.getElementById('toggle-upload-sig').addEventListener('click', () => {
+    safeAddEventListener('toggle-upload-sig', 'click', () => {
         document.getElementById('signature-draw-container').style.display = 'none';
         document.getElementById('signature-upload-container').style.display = 'block';
     });
-    document.getElementById('clear-signature').addEventListener('click', () => {
+    safeAddEventListener('clear-signature', 'click', () => {
         if (state.signaturePad) state.signaturePad.clear();
     });
 
-    document.getElementById('signature-upload').addEventListener('change', (e) => {
+    safeAddEventListener('signature-upload', 'change', (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
@@ -1728,13 +1735,13 @@ function setupEventListeners() {
     });
     
     // Solicitud Listeners
-    document.getElementById('add-solicitud-btn').addEventListener('click', showSolicitudModal);
-    document.getElementById('solicitud-form').addEventListener('submit', handleSolicitudSubmit);
+    safeAddEventListener('add-solicitud-btn', 'click', showSolicitudModal);
+    safeAddEventListener('solicitud-form', 'submit', handleSolicitudSubmit);
 
     // Work Plan Listeners
-    document.getElementById('add-work-plan-btn').addEventListener('click', () => showWorkPlanModal());
-    document.getElementById('save-work-plan-btn').addEventListener('click', handleWorkPlanSubmit);
-    document.getElementById('work-plan-search-input').addEventListener('input', debounce(renderWorkPlans, 300));
+    safeAddEventListener('add-work-plan-btn', 'click', () => showWorkPlanModal());
+    safeAddEventListener('save-work-plan-btn', 'click', handleWorkPlanSubmit);
+    safeAddEventListener('work-plan-search-input', 'input', debounce(renderWorkPlans, 300));
     document.querySelectorAll('#work-plan-group-tabs .nav-link').forEach(tab => {
         tab.addEventListener('click', (e) => {
             state.activeWorkPlanTab = e.target.dataset.group;
@@ -1743,45 +1750,45 @@ function setupEventListeners() {
             renderWorkPlans();
         });
     });
-    document.getElementById('add-task-group-btn').addEventListener('click', () => addTaskGroup());
+    safeAddEventListener('add-task-group-btn', 'click', () => addTaskGroup());
 
     // Criteria Listeners
-    document.getElementById('add-criteria-btn').addEventListener('click', () => showCriteriaModal());
-    document.getElementById('criteria-form').addEventListener('submit', handleCriteriaSubmit);
+    safeAddEventListener('add-criteria-btn', 'click', () => showCriteriaModal());
+    safeAddEventListener('criteria-form', 'submit', handleCriteriaSubmit);
 
     // Evaluation Listeners
-    document.getElementById('evaluation-form').addEventListener('submit', handleEvaluationSubmit);
+    safeAddEventListener('evaluation-form', 'submit', handleEvaluationSubmit);
 
 
     // Planner Listeners
-    document.getElementById('prev-month-btn').addEventListener('click', () => changeMonth(-1));
-    document.getElementById('next-month-btn').addEventListener('click', () => changeMonth(1));
-    document.getElementById('planner-search-input').addEventListener('input', debounce(renderCalendar, 300));
-    document.getElementById('add-preventive-task-btn').addEventListener('click', () => showWorkOrderModal(null, 'Preventivo'));
-    document.getElementById('add-corrective-task-btn-planner').addEventListener('click', () => showWorkOrderModal(null, 'Correctivo'));
+    safeAddEventListener('prev-month-btn', 'click', () => changeMonth(-1));
+    safeAddEventListener('next-month-btn', 'click', () => changeMonth(1));
+    safeAddEventListener('planner-search-input', 'input', debounce(renderCalendar, 300));
+    safeAddEventListener('add-preventive-task-btn', 'click', () => showWorkOrderModal(null, 'Preventivo'));
+    safeAddEventListener('add-corrective-task-btn-planner', 'click', () => showWorkOrderModal(null, 'Correctivo'));
 
     // Work Order Listeners
-    document.getElementById('wo-machine-search').addEventListener('input', (e) => populateWorkOrderMachineSelector(e.target.value));
-    document.getElementById('wo-machine').addEventListener('change', (e) => {
+    safeAddEventListener('wo-machine-search', 'input', (e) => populateWorkOrderMachineSelector(e.target.value));
+    safeAddEventListener('wo-machine', 'change', (e) => {
         const machineId = e.target.value;
         const machine = state.machines.find(m => m.id === machineId);
         if (machine && machine.status === 'DADO_DE_BAJA') {
             showToast('ADVERTENCIA: Este equipo está DADO DE BAJA.', 'warning');
         }
     });
-    document.getElementById('wo-type').addEventListener('change', handleWorkOrderTypeChange);
-    document.getElementById('wo-save-btn').addEventListener('click', () => saveWorkOrder());
-    document.getElementById('wo-start-btn').addEventListener('click', () => handleWorkOrderStart());
-    document.getElementById('confirm-auto-request-btn').addEventListener('click', () => submitAutomaticPartRequest());
-    document.getElementById('wo-pause-btn').addEventListener('click', async () => {
+    safeAddEventListener('wo-type', 'change', handleWorkOrderTypeChange);
+    safeAddEventListener('wo-save-btn', 'click', () => saveWorkOrder());
+    safeAddEventListener('wo-start-btn', 'click', () => handleWorkOrderStart());
+    safeAddEventListener('confirm-auto-request-btn', 'click', () => submitAutomaticPartRequest());
+    safeAddEventListener('wo-pause-btn', 'click', async () => {
         const type = document.getElementById('wo-type').value;
         const machineStatusOnPause = await requestMachineStatusOnPause(type);
         showLoading(true); // El modal de pausa lo quita, hay que ponerlo para el guardado
         saveWorkOrder({ status: 'Pausado', machineStatusOnPause });
     });
-    document.getElementById('wo-resume-btn').addEventListener('click', () => saveWorkOrder({ status: 'En Proceso' }));
-    document.getElementById('wo-complete-btn').addEventListener('click', () => saveWorkOrder({ status: 'Completado' }));
-    document.getElementById('wo-validate-btn').addEventListener('click', async () => {
+    safeAddEventListener('wo-resume-btn', 'click', () => saveWorkOrder({ status: 'En Proceso' }));
+    safeAddEventListener('wo-complete-btn', 'click', () => saveWorkOrder({ status: 'Completado' }));
+    safeAddEventListener('wo-validate-btn', 'click', async () => {
         const fbId = document.getElementById('wo-fb-id-hidden').value;
         const now = new Date().toISOString();
         // Cambiamos a Completado directamente para que los datos queden registrados para auditorías
@@ -1792,7 +1799,7 @@ function setupEventListeners() {
         });
         await completeLinkedPlanExecution(fbId, now, 'Completado', state.currentUser.username);
     });
-    document.getElementById('wo-reject-btn').addEventListener('click', async () => {
+    safeAddEventListener('wo-reject-btn', 'click', async () => {
         const fbId = document.getElementById('wo-fb-id-hidden').value;
         await saveWorkOrder({
             status: 'Pausado',
@@ -1803,68 +1810,68 @@ function setupEventListeners() {
         });
         showToast('Orden rechazada y devuelta a estado Pausado.', 'info');
     });
-    document.getElementById('wo-add-part-btn').addEventListener('click', () => addPartToWorkOrder());
-    document.getElementById('wo-add-image-btn').addEventListener('click', () => document.getElementById('wo-image-input').click());
-    document.getElementById('wo-image-input').addEventListener('change', handleWoImageUpload);
-    document.getElementById('wo-add-to-request-cart-btn').addEventListener('click', handleAddToRequestCart);
-    document.getElementById('wo-submit-request-btn').addEventListener('click', handlePartRequestSubmit);
-    document.getElementById('part-request-status-filter').addEventListener('change', renderPartRequests);
-    document.getElementById('part-request-month-filter').addEventListener('change', renderPartRequests);
-    document.getElementById('wo-add-support-technician-btn').addEventListener('click', handleAddSupportTechnicianClick);
-    document.getElementById('wo-lead-technician-select').addEventListener('change', handleLeadTechnicianChange);
+    safeAddEventListener('wo-add-part-btn', 'click', () => addPartToWorkOrder());
+    safeAddEventListener('wo-add-image-btn', 'click', () => document.getElementById('wo-image-input').click());
+    safeAddEventListener('wo-image-input', 'change', handleWoImageUpload);
+    safeAddEventListener('wo-add-to-request-cart-btn', 'click', handleAddToRequestCart);
+    safeAddEventListener('wo-submit-request-btn', 'click', handlePartRequestSubmit);
+    safeAddEventListener('part-request-status-filter', 'change', renderPartRequests);
+    safeAddEventListener('part-request-month-filter', 'change', renderPartRequests);
+    safeAddEventListener('wo-add-support-technician-btn', 'click', handleAddSupportTechnicianClick);
+    safeAddEventListener('wo-lead-technician-select', 'change', handleLeadTechnicianChange);
 
     // Manage Parts Modal Listeners
-    document.getElementById('add-update-part-btn').addEventListener('click', handleAddOrUpdatePartInModal);
-    document.getElementById('save-managed-parts-btn').addEventListener('click', handleSaveManagedParts);
+    safeAddEventListener('add-update-part-btn', 'click', handleAddOrUpdatePartInModal);
+    safeAddEventListener('save-managed-parts-btn', 'click', handleSaveManagedParts);
 
     // Criteria Listeners
-    document.getElementById('add-criteria-btn').addEventListener('click', () => showCriteriaModal());
-    document.getElementById('criteria-form').addEventListener('submit', handleCriteriaSubmit);
+    safeAddEventListener('add-criteria-btn', 'click', () => showCriteriaModal());
+    safeAddEventListener('criteria-form', 'submit', handleCriteriaSubmit);
 
     // Evaluation Listeners
-    document.getElementById('evaluation-form').addEventListener('submit', handleEvaluationSubmit);
+    safeAddEventListener('evaluation-form', 'submit', handleEvaluationSubmit);
 
     // Report Listeners
-    document.getElementById('report-machine-search').addEventListener('input', debounce(handleReportMachineSearch, 300));
-    document.getElementById('report-machine-parts-search').addEventListener('input', debounce(handleReportMachinePartsSearch, 300));
-    document.getElementById('report-wo-search').addEventListener('input', debounce(handleReportWoSearch, 300));
-    document.getElementById('report-execution-search').addEventListener('input', debounce(handleReportExecutionSearch, 300));
+    safeAddEventListener('report-machine-select-search', 'input', debounce(handleReportMachineSearch, 300));
+    safeAddEventListener('report-machine-parts-select-search', 'input', debounce(handleReportMachinePartsSearch, 300));
+    safeAddEventListener('report-wo-search', 'input', debounce(handleReportWoSearch, 300));
+    safeAddEventListener('report-execution-search', 'input', debounce(handleReportExecutionSearch, 300));
 
-    document.getElementById('generate-general-report-btn').addEventListener('click', generateGeneralReport);
-    document.getElementById('generate-wo-report-btn').addEventListener('click', generateWorkOrderReport);
-    document.getElementById('generate-machine-report-btn').addEventListener('click', generateMachineReport);
-    document.getElementById('generate-machine-parts-report-btn').addEventListener('click', generateMachinePartsReport);
-    document.getElementById('generate-single-wo-report-btn').addEventListener('click', generateSingleWorkOrderReport);
-    document.getElementById('generate-global-report-btn').addEventListener('click', generateGlobalReport);
-    document.getElementById('generate-executive-report-btn').addEventListener('click', generateExecutiveReportData);
-    document.getElementById('generate-execution-report-btn').addEventListener('click', generateExecutionReportPDF);
-    document.getElementById('generate-technician-performance-report-btn').addEventListener('click', generateTechnicianPerformanceReport);
-    document.getElementById('backup-db-btn').addEventListener('click', downloadBackup);
-    document.getElementById('refresh-monitoring-btn').addEventListener('click', () => {
+    safeAddEventListener('generate-general-report-btn', 'click', generateGeneralReport);
+    safeAddEventListener('generate-wo-report-btn', 'click', generateWorkOrderReport);
+    safeAddEventListener('generate-machine-report-btn', 'click', generateMachineReport);
+    safeAddEventListener('generate-machine-parts-report-btn', 'click', generateMachinePartsReport);
+    safeAddEventListener('generate-single-wo-report-btn', 'click', generateSingleWorkOrderReport);
+    safeAddEventListener('generate-global-report-btn', 'click', generateGlobalReport);
+    safeAddEventListener('generate-executive-report-btn', 'click', generateExecutiveReportData);
+    safeAddEventListener('generate-execution-report-btn', 'click', generateExecutionReportPDF);
+    safeAddEventListener('generate-technician-performance-report-btn', 'click', generateTechnicianPerformanceReport);
+    safeAddEventListener('backup-db-btn', 'click', downloadBackup);
+    safeAddEventListener('refresh-monitoring-btn', 'click', () => {
         renderSmartMonitoring();
         document.getElementById('last-update-text').textContent = 'Actualizado hace un momento';
     });
 
     // Monitoring Config Listeners
-    document.getElementById('m-config-cancel-btn').addEventListener('click', hideMonitoringConfig);
-    document.getElementById('m-config-save-btn').addEventListener('click', handleSaveMonitoringConfig);
-    document.getElementById('m-config-add-var-btn').addEventListener('click', () => {
+    safeAddEventListener('m-config-cancel-btn', 'click', hideMonitoringConfig);
+    safeAddEventListener('m-config-save-btn', 'click', handleSaveMonitoringConfig);
+    safeAddEventListener('m-config-add-var-btn', 'click', () => {
         document.getElementById('new-variable-name').value = '';
         state.modals.variableName.show();
     });
 
-    document.getElementById('save-variable-name-btn').addEventListener('click', handleAddMonitoringVariable);
-    document.getElementById('new-variable-name').addEventListener('keypress', (e) => {
+    safeAddEventListener('save-variable-name-btn', 'click', handleAddMonitoringVariable);
+    safeAddEventListener('new-variable-name', 'keypress', (e) => {
         if (e.key === 'Enter') handleAddMonitoringVariable();
     });
 
     // Threshold Inputs Listeners
     ['normal', 'warning', 'critical'].forEach(type => {
-        document.getElementById(`m-threshold-${type}-min`).addEventListener('input', updateActiveVarThresholds);
-        document.getElementById(`m-threshold-${type}-max`).addEventListener('input', updateActiveVarThresholds);
+        safeAddEventListener(`m-threshold-${type}-min`, 'input', updateActiveVarThresholds);
+        safeAddEventListener(`m-threshold-${type}-max`, 'input', updateActiveVarThresholds);
     });
 
-    document.getElementById('technician-list').addEventListener('click', (e) => {
+    safeAddEventListener('technician-list', 'click', (e) => {
         const viewButton = e.target.closest('.view-profile-btn');
         const editButton = e.target.closest('.edit-tech');
         const deleteButton = e.target.closest('.delete-tech:not([disabled])');
@@ -1883,22 +1890,22 @@ function setupEventListeners() {
 
 
     // Dashboard Filters
-    document.getElementById('dashboardDate').addEventListener('change', updateDashboardData);
-    document.getElementById('dashboardWeek').addEventListener('change', updateDashboardData);
-    document.getElementById('dashboard-period-select').addEventListener('change', handlePeriodChange);
-    document.getElementById('dashboardMonth').addEventListener('change', () => {
+    safeAddEventListener('dashboardDate', 'change', updateDashboardData);
+    safeAddEventListener('dashboardWeek', 'change', updateDashboardData);
+    safeAddEventListener('dashboard-period-select', 'change', handlePeriodChange);
+    safeAddEventListener('dashboardMonth', 'change', () => {
         if (document.getElementById('dashboard-period-select').value === 'week') {
             populateWeekSelector();
         }
         updateDashboardData();
     });
-    document.getElementById('dashboardYear').addEventListener('change', () => {
+    safeAddEventListener('dashboardYear', 'change', () => {
         if (document.getElementById('dashboard-period-select').value === 'week') {
             populateWeekSelector();
         }
         updateDashboardData();
     });
-    document.getElementById('kpi-machine-select').addEventListener('change', updateDashboardData);
+    safeAddEventListener('kpi-machine-select', 'change', updateDashboardData);
 
     const kanbanMonthFilter = document.getElementById('kanban-month-filter');
     if (kanbanMonthFilter) {
@@ -1974,7 +1981,7 @@ function setupEventListeners() {
     const refreshAiUsageBtn = document.getElementById('refresh-ai-usage-btn');
     if (refreshAiUsageBtn) refreshAiUsageBtn.addEventListener('click', loadAIUsage);
 
-    document.getElementById('inv-trace-search').addEventListener('input', debounce(() => renderInventoryTraceability(), 300));
+    safeAddEventListener('inv-trace-search', 'input', debounce(() => renderInventoryTraceability(), 300));
 
     const confirmReceiptSubmit = document.getElementById('confirm-receipt-submit');
     if (confirmReceiptSubmit) confirmReceiptSubmit.addEventListener('click', handleConfirmReceiptSubmit);
