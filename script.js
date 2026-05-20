@@ -8161,6 +8161,7 @@ async function handlePausePlanExecution() {
                 leadTechnician: plan.responsibleTechnician,
                 technicians: [plan.responsibleTechnician],
                 sourcePlanId: plan.fb_id,
+                linkedPlanId: plan.fb_id,
                 executionId: '',
                 createdAt: new Date().toISOString()
             };
@@ -8316,6 +8317,7 @@ async function autoCreateNextWorkOrder(planId, lastWorkOrderFbId, nextDueDateOve
         leadTechnician: leadTechnician,
         technicians: [leadTechnician],
         sourcePlanId: plan.fb_id,
+        linkedPlanId: plan.fb_id,
         partsUsed: partsToCopy.map(p => ({ ...p, delivered: false })), // Copy parts but mark as not delivered yet
         createdAt: now
     };
@@ -8454,6 +8456,7 @@ async function handleFinishPlanExecution() {
                     leadTechnician: plan.responsibleTechnician,
                     technicians: [plan.responsibleTechnician],
                     sourcePlanId: plan.fb_id,
+                    linkedPlanId: plan.fb_id,
                     executionId: '',
                     createdAt: now
                 };
