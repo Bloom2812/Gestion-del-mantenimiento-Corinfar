@@ -1031,14 +1031,14 @@ async function submitPurchaseRequest() {
         // Generar PDF
         generatePurchaseRequestPDF({ ...requestData, fb_id: docRef.id });
 
-        // Notificación Telegram
+        // Notificar a administradores, planificadores y grupo global
         const tgMsg = `🛒 <b>Nueva Solicitud de Compra</b>\n\n` +
                       `<b>Folio:</b> ${requestData.folioStr}\n` +
                       `<b>Solicitante:</b> ${escapeHTML(requestData.createdBy)}\n` +
                       `<b>Monto Est.:</b> $${requestData.totalCost.toLocaleString()}\n` +
                       `<b>Items:</b> ${requestData.items.length}\n\n` +
                       `Favor de revisar y procesar en el panel de compras.`;
-        sendTelegramNotification(tgMsg).catch(err => console.warn("[Telegram Purchase Error]", err));
+        notifyAdminsAndPlanners(tgMsg).catch(err => console.warn("[Telegram Purchase Error]", err));
 
     } catch (error) {
         console.error("Error submitting purchase request:", error);
@@ -2138,7 +2138,7 @@ async function checkDailyLowStock() {
 
             message += `🔗 <a href="https://corinfar-cmms.web.app/?tab=repuestos">Abrir Gestión de Inventario</a>`;
 
-            const success = await sendTelegramNotification(message);
+            const success = await notifyAdminsAndPlanners(message);
             if (success) {
                 await setDoc(statusDocRef, { lastCheck: todayStr, sentAt: now.toISOString() });
                 console.log("[Low Stock Check] Resumen diario enviado a Telegram.");
@@ -2214,7 +2214,7 @@ async function checkMaintenanceExpirations() {
             globalMsg += `🔗 <a href="https://corinfar-cmms.web.app/?tab=planes-trabajo">Ver Planes de Trabajo</a>`;
 
             // Enviar resumen global a Admin/Planificador
-            const success = await sendTelegramNotification(globalMsg);
+            const success = await notifyAdminsAndPlanners(globalMsg);
 
             if (success) {
                 // Notificaciones personales a técnicos responsables
@@ -2302,11 +2302,12 @@ async function sendTelegramNotification(message, chatId = null, customToken = nu
  * @param {string} message - Mensaje a enviar
  */
 async function notifyTechnicians(technicianUsernames, message) {
-    if (!technicianUsernames) return;
+    if (!technicianUsernames) return false;
     const usernames = Array.isArray(technicianUsernames) ? technicianUsernames : [technicianUsernames];
 
     // Eliminar duplicados y filtrar nulos
     const uniqueUsernames = [...new Set(usernames.filter(u => u))];
+    let someSuccess = false;
 
     for (const username of uniqueUsernames) {
         const tech = state.technicians.find(t => t.username === username);
@@ -2314,10 +2315,15 @@ async function notifyTechnicians(technicianUsernames, message) {
         if (tech && tech.isActive !== false && tech.telegramChatId) {
             // Añadir un pequeño retraso de 200ms entre envíos para evitar congestión y retrasos en la red
             await new Promise(resolve => setTimeout(resolve, 200));
-            sendTelegramNotification(message, tech.telegramChatId)
-                .catch(err => console.error(`[Telegram Personal Error] User: ${username}`, err));
+            const sent = await sendTelegramNotification(message, tech.telegramChatId)
+                .catch(err => {
+                    console.error(`[Telegram Personal Error] User: ${username}`, err);
+                    return false;
+                });
+            if (sent) someSuccess = true;
         }
     }
+    return someSuccess;
 }
 
 /**
@@ -2329,10 +2335,15 @@ async function notifyAdminsAndPlanners(message) {
         .map(t => t.username);
 
     // Notificar al grupo global primero
-    sendTelegramNotification(message).catch(err => console.warn("[Telegram Global Error]", err));
+    const globalSuccess = await sendTelegramNotification(message).catch(err => {
+        console.warn("[Telegram Global Error]", err);
+        return false;
+    });
 
     // Luego notificar individualmente a cada admin/planificador
-    notifyTechnicians(adminsAndPlanners, message);
+    const personalSuccess = await notifyTechnicians(adminsAndPlanners, message);
+
+    return globalSuccess || personalSuccess;
 }
 
 async function handleOdooConfigSubmit(e) {
@@ -6739,12 +6750,14 @@ async function handleSolicitudSubmit(e) {
                         `<b>Solicitante:</b> ${escapeHTML(requestData.requester)}\n` +
                         `<b>Equipo Ref:</b> ${escapeHTML(requestData.machineId)}`;
 
-            // Global notification
-            sendTelegramNotification(msg).catch(err => console.warn("[Telegram Notification Error]", err));
+            // Notificar a administradores, planificadores y grupo global
+            notifyAdminsAndPlanners(msg).catch(err => console.warn("[Telegram Notification Error]", err));
 
-            // Personal notifications to all technicians
-            const allTechnicianUsernames = state.technicians.map(t => t.username);
-            notifyTechnicians(allTechnicianUsernames, msg);
+            // Personal notifications to all technicians (excluding admins/planners already notified)
+            const otherTechnicians = state.technicians
+                .filter(t => t.isActive !== false && !['Admin', 'Planificador'].includes(t.role))
+                .map(t => t.username);
+            notifyTechnicians(otherTechnicians, msg);
 
             showLoading(false);
             return;
@@ -6805,14 +6818,14 @@ async function handleSolicitudSubmit(e) {
                     `<b>Descripción:</b> ${escapeHTML(solicitudData.description)}\n` +
                     `<b>Fecha:</b> ${new Date().toLocaleString()}`;
 
-        // Notificar a todos los técnicos (incluyendo Admin/Planificador)
-        const allUsernames = state.technicians.map(t => t.username);
+        // Notificar a administradores, planificadores y grupo global
+        notifyAdminsAndPlanners(msg).catch(err => console.warn("[Telegram Notification Error]", err));
 
-        // Notificar al grupo global
-        sendTelegramNotification(msg).catch(err => console.warn("[Telegram Notification Error]", err));
-
-        // Personal notifications to all
-        notifyTechnicians(allUsernames, msg);
+        // Notificaciones personales para el resto de técnicos
+        const otherUsernames = state.technicians
+            .filter(t => t.isActive !== false && !['Admin', 'Planificador'].includes(t.role))
+            .map(t => t.username);
+        notifyTechnicians(otherUsernames, msg);
     } catch(error) {
         console.error("Error submitting solicitud:", error);
         showToast('Error al enviar la solicitud.', 'error');
@@ -8387,8 +8400,8 @@ async function autoCreateNextWorkOrder(planId, lastWorkOrderFbId, nextDueDateOve
                       `<b>Técnico:</b> ${escapeHTML(newWO.leadTechnician)}\n` +
                       `<b>Fecha Programada:</b> ${newWO.date}`;
 
-        // Global notification
-        sendTelegramNotification(tgMsg).catch(err => console.warn("[Telegram WO Error]", err));
+        // Notificar a administradores, planificadores y grupo global
+        notifyAdminsAndPlanners(tgMsg).catch(err => console.warn("[Telegram WO Error]", err));
 
         // Personal notifications for assigned technicians
         notifyTechnicians([newWO.leadTechnician, ...(newWO.technicians || [])], tgMsg);
@@ -8626,10 +8639,8 @@ async function handleFinishPlanExecution() {
                                        `<b>Hallazgos:</b> \n` +
                                        issues.map(t => `• ${escapeHTML(t.description)} (${t.status})`).join('\n');
 
-                    // Global notification
-                    if (state.telegramConfig && state.telegramConfig.token && state.telegramConfig.chatId) {
-                        sendTelegramNotification(telegramMsg).catch(err => console.error("Error Telegram Global:", err));
-                    }
+                    // Notificar a administradores, planificadores y grupo global
+                    notifyAdminsAndPlanners(telegramMsg).catch(err => console.error("Error Telegram Global:", err));
 
                     // Personal notification
                     notifyTechnicians(state.currentUser.username, telegramMsg);
@@ -10724,10 +10735,10 @@ async function saveWorkOrder(updates = {}) {
                               `<b>Prioridad:</b> ${orderData.priority}` +
                               (sourceSolicitudId ? `\n<b>Origen:</b> Solicitud ${orderData.solicitudId}` : '');
 
-                // Global notification
-                sendTelegramNotification(tgMsg).catch(err => console.warn("[Telegram WO Error]", err));
+                // Notificar a administradores, planificadores y grupo global
+                notifyAdminsAndPlanners(tgMsg).catch(err => console.warn("[Telegram WO Error]", err));
 
-                // Personal notifications for assigned technicians
+                // Notificaciones personales para los técnicos asignados (si no son admin/planificador ya notificados)
                 const techniciansToNotify = [orderData.leadTechnician, ...(orderData.technicians || [])];
                 notifyTechnicians(techniciansToNotify, tgMsg);
             }
@@ -10746,14 +10757,19 @@ async function saveWorkOrder(updates = {}) {
             const addedTechnicians = newTechnicians.filter(u => !oldTechnicians.includes(u));
             if (addedTechnicians.length > 0) {
                 const machine = state.machines.find(m => m.id === orderData.machineId);
-                const tgMsg = `🛠 <b>Asignación de OT</b>\n\n` +
-                              `Has sido asignado a la siguiente orden:\n\n` +
+                const tgMsg = `🛠 <b>Reasignación de OT</b>\n\n` +
+                              `Se han asignado nuevos técnicos a la orden:\n\n` +
                               `<b>ID:</b> ${orderData.id}\n` +
                               `<b>Equipo:</b> ${escapeHTML(machine ? machine.name : orderData.machineId)}\n` +
                               `<b>Tipo:</b> ${orderData.type}\n` +
                               `<b>Responsable:</b> ${escapeHTML(orderData.leadTechnician)}\n` +
-                              `<b>Prioridad:</b> ${orderData.priority}`;
+                              `<b>Prioridad:</b> ${orderData.priority}\n\n` +
+                              `<b>Técnicos agregados:</b> ${addedTechnicians.join(', ')}`;
 
+                // Notificar al grupo global y a los administradores del cambio
+                notifyAdminsAndPlanners(tgMsg).catch(err => console.warn("[Telegram Notification Error]", err));
+
+                // Notificar personalmente a los técnicos recién agregados
                 notifyTechnicians(addedTechnicians, tgMsg);
             }
         }
@@ -15393,7 +15409,7 @@ async function handleForgotPasswordRequest() {
 
         // Intentar enviar notificación pero no bloquear si falla Telegram
         try {
-            await sendTelegramNotification(message);
+            await notifyAdminsAndPlanners(message);
         } catch (tgError) {
             console.warn("Error enviando notificación por Telegram:", tgError);
         }
@@ -16141,7 +16157,7 @@ function renderSmartMonitoring() {
                 alertMsg += `• ${escapeHTML(v.key)}: ${v.value}${escapeHTML(v.unit || '')} (${v.status})\n`;
             });
 
-            sendTelegramNotification(alertMsg).catch(err => console.warn("[Telegram Monitoring Alert Error]", err));
+            notifyAdminsAndPlanners(alertMsg).catch(err => console.warn("[Telegram Monitoring Alert Error]", err));
         }
         state.lastNotifiedMachineStatus[machine.id] = overallStatus;
 
@@ -17867,7 +17883,7 @@ async function handleMaterialDeliverySubmit(e) {
             state.modals.materialDelivery.hide();
             showToast('Entrega realizada con éxito.', 'success');
 
-            // Notificación Telegram
+            // Notificar a administradores, planificadores y grupo global
             const deliveryMsg = `📦 <b>Entrega de Material Realizada</b>\n\n` +
                                `<b>OT/Solicitud:</b> ${request.workOrderId || 'SOL-' + fbId.substring(0,5)}\n` +
                                `<b>Material:</b> ${escapeHTML(part.description)}\n` +
@@ -17875,7 +17891,7 @@ async function handleMaterialDeliverySubmit(e) {
                                `<b>Entregó:</b> ${escapeHTML(state.currentUser.username)}\n` +
                                `<b>Recibió:</b> ${escapeHTML(request.requester)}`;
 
-            sendTelegramNotification(deliveryMsg).catch(err => console.warn("[Telegram Delivery Notification Error]", err));
+            notifyAdminsAndPlanners(deliveryMsg).catch(err => console.warn("[Telegram Delivery Notification Error]", err));
 
             // 4. Generar PDF Automático (DESHABILITADO por solicitud de usuario)
             // generateMaterialOutPDF(materialOutData);
@@ -18198,12 +18214,12 @@ async function handleDecommissionSubmit(e) {
         // 4. Audit Log
         await recordAuditLog('machines', machine.id, 'UPDATE', oldData, { ...machine, ...decommissionData }, 'BAJA DE EQUIPO');
 
-        // Notificación Telegram
+        // Notificar a administradores, planificadores y grupo global
         const tgMsg = `⚠️ <b>EQUIPO DADO DE BAJA</b>\n\n` +
                       `<b>Equipo:</b> ${escapeHTML(machine.name)} (${escapeHTML(machine.id)})\n` +
                       `<b>Motivo:</b> ${escapeHTML(decommissionData.decommissionReason)}\n` +
                       `<b>Por:</b> ${escapeHTML(state.currentUser.username)}`;
-        sendTelegramNotification(tgMsg).catch(err => console.warn("[Telegram Decommission Error]", err));
+        notifyAdminsAndPlanners(tgMsg).catch(err => console.warn("[Telegram Decommission Error]", err));
 
         showToast('Equipo dado de baja correctamente.', 'success');
         state.reopenMachineDetail = null;
