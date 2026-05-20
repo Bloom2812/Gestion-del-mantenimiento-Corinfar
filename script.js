@@ -1682,6 +1682,7 @@ function setupEventListeners() {
     // Technician/User Listeners
     safeAddEventListener('add-technician-btn', 'click', () => showTechnicianModal());
     safeAddEventListener('technician-form', 'submit', handleTechnicianSubmit);
+    safeAddEventListener('btn-verify-telegram', 'click', handleVerifyTelegramConnection);
     safeAddEventListener('technician-role', 'change', (e) => {
         updateTechnicianModalUIForRole(e.target.value);
     });
@@ -6260,17 +6261,14 @@ function showTechnicianModal(techId = null) {
     state.modals.technician.show();
 }
 
-async function handleTechnicianSubmit(e) {
-    e.preventDefault();
-    const techId = document.getElementById('technician-id-hidden').value;
-    const password = document.getElementById('technician-password').value;
+async function getTechnicianDataFromForm() {
     const role = document.getElementById('technician-role').value;
     const generaGasto = document.getElementById('technician-genera-gasto').checked;
-
     const isActive = document.getElementById('technician-is-active').checked;
+    const password = document.getElementById('technician-password').value;
 
     const techData = {
-        username: document.getElementById('technician-username').value,
+        username: document.getElementById('technician-username').value.trim(),
         isActive: isActive,
         generaGasto: generaGasto,
         salario: (role === 'Operario' || !generaGasto) ? 0 : (parseFloat(document.getElementById('technician-salary').value) || 0),
@@ -6308,7 +6306,7 @@ async function handleTechnicianSubmit(e) {
             techData.equipoAsignado.push(cb.value);
         });
     } else if (role === 'Técnico') {
-        techData.equipoAsignado = []; // Se inicializa el array para este rol
+        techData.equipoAsignado = [];
         document.querySelectorAll('.permission-check:checked').forEach(cb => {
             techData.permissions.push(cb.value);
         });
@@ -6317,23 +6315,19 @@ async function handleTechnicianSubmit(e) {
         });
     }
 
-    // Para las actualizaciones de roles que no son 'Técnico', nos aseguramos de
-    // eliminar el campo `equipoAsignado` en caso de que el usuario fuera previamente un técnico.
+    const techId = document.getElementById('technician-id-hidden').value;
     if (techId && !['Técnico', 'Operario', 'Admin', 'Planificador'].includes(role)) {
         techData.equipoAsignado = deleteField();
     }
 
-
     if (password) {
         techData.password = await hashPassword(password);
         techData.passwordIsHashed = true;
-        // Si se define contraseña, limpiar cualquier token de invitación previo
         techData.invitationToken = deleteField();
         techData.tokenExpiry = deleteField();
         techData.resetRequested = deleteField();
     }
 
-    // Capture Signature
     const signatureDrawContainer = document.getElementById('signature-draw-container');
     const signaturePreview = document.getElementById('signature-preview');
     const signaturePreviewContainer = document.getElementById('signature-preview-container');
@@ -6342,6 +6336,19 @@ async function handleTechnicianSubmit(e) {
         techData.signature = state.signaturePad.toDataURL();
     } else if (!signaturePreviewContainer.classList.contains('d-none') && signaturePreview.src) {
         techData.signature = signaturePreview.src;
+    }
+
+    return techData;
+}
+
+async function handleTechnicianSubmit(e) {
+    if (e) e.preventDefault();
+    const techId = document.getElementById('technician-id-hidden').value;
+    const techData = await getTechnicianDataFromForm();
+
+    if (!techData.username) {
+        showToast('El nombre de usuario es obligatorio.', 'warning');
+        return;
     }
     
     try {
@@ -6354,21 +6361,65 @@ async function handleTechnicianSubmit(e) {
         } else {
             const docRef = await addDoc(state.collections.technicians, techData);
             currentFbId = docRef.id;
+            document.getElementById('technician-id-hidden').value = currentFbId;
             await recordAuditLog('technicians', currentFbId, 'CREATE', null, techData);
             showToast('Usuario creado correctamente', 'success');
         }
 
-        // --- Sincronización con Odoo (Segundo Plano) ---
         if (state.odoo) {
-            syncTechnicianToOdoo(techData, currentFbId).catch(err => {
-                console.warn("[Odoo Background Sync] Error:", err);
-            });
+            syncTechnicianToOdoo(techData, currentFbId).catch(err => console.warn("[Odoo Sync] Error:", err));
         }
     } catch (error) { 
         console.error("Error saving technician: ", error);
         showToast('Error al guardar el usuario', 'error');
     }
     state.modals.technician.hide();
+}
+
+async function handleVerifyTelegramConnection() {
+    const telegramId = document.getElementById('technician-telegram-chat-id').value.trim();
+    if (!telegramId) {
+        showToast('Ingrese un Telegram Chat ID primero.', 'warning');
+        return;
+    }
+
+    const techData = await getTechnicianDataFromForm();
+    if (!techData.username) {
+        showToast('El nombre de usuario es obligatorio para la verificación.', 'warning');
+        return;
+    }
+
+    const techId = document.getElementById('technician-id-hidden').value;
+
+    try {
+        let currentFbId = techId;
+        const oldTech = techId ? state.technicians.find(t => t.fb_id === techId) : null;
+        if (techId) {
+            await setDoc(doc(state.collections.technicians, techId), techData, { merge: true });
+            await recordAuditLog('technicians', techId, 'UPDATE', oldTech, techData);
+        } else {
+            const docRef = await addDoc(state.collections.technicians, techData);
+            currentFbId = docRef.id;
+            document.getElementById('technician-id-hidden').value = currentFbId;
+            await recordAuditLog('technicians', currentFbId, 'CREATE', null, techData);
+        }
+
+        const welcomeMsg = `se agrego correctamente al chat bienvenido ${techData.username}`;
+        const sent = await sendTelegramNotification(welcomeMsg, telegramId);
+
+        if (sent) {
+            showToast('Perfil guardado y mensaje de bienvenida enviado con éxito.', 'success');
+        } else {
+            showToast('Perfil guardado, pero falló el envío del mensaje a Telegram. Verifique el ID o la configuración del Bot.', 'warning');
+        }
+
+        if (state.odoo) {
+            syncTechnicianToOdoo(techData, currentFbId).catch(err => console.warn("[Odoo Sync] Error:", err));
+        }
+    } catch (error) {
+        console.error("Error verifying telegram:", error);
+        showToast('Error al procesar la verificación', 'error');
+    }
 }
 
 async function toggleTechnicianStatus(techId) {
@@ -18820,3 +18871,4 @@ async function handleGlobalMachinePhotoChange(event) {
         currentMachineFbIdForPhoto = null;
     }
 }
+window.handleVerifyTelegramConnection = handleVerifyTelegramConnection;
