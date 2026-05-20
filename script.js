@@ -8810,13 +8810,15 @@ function renderActiveWorkView() {
     }
 
     workOrdersToDisplay.forEach(wo => {
-        const card = createWorkOrderCard(wo);
-
         const cleanId = (wo.fb_id).toString().replace(/[.#$\[\]]/g, '_');
         const woMirror = state.liveWorkOrders?.[cleanId];
         const currentStatus = woMirror?.status || wo.status;
 
-        if (currentStatus === 'Completado') {
+        const card = createWorkOrderCard(wo, currentStatus);
+
+        if (wo.isExpired || currentStatus === 'Cancelado' || currentStatus === 'Rechazado') {
+            if (cancelledContainer) cancelledContainer.appendChild(card);
+        } else if (currentStatus === 'Completado') {
             // Unificamos lógica: si es Completado pero falta alguna evaluación, va a la columna de Evaluación
             const evs = state.technicianEvaluations.filter(ev => ev.workOrderFbId === wo.fb_id);
             const hasOp = evs.some(e => e.evaluatorRole === 'Operario');
@@ -8839,12 +8841,8 @@ function renderActiveWorkView() {
             }
         } else if (currentStatus === 'Pausado') {
             pausedContainer.appendChild(card);
-        } else if (currentStatus === 'Cancelado' || currentStatus === 'Rechazado' || wo.isExpired) {
-            if (cancelledContainer) cancelledContainer.appendChild(card);
         } else if (currentStatus === 'Pendiente' || currentStatus === 'Planificada') {
             plannedContainer.appendChild(card);
-        } else if (currentStatus === 'Completado') {
-            if (completedContainer) completedContainer.appendChild(card);
         }
     });
 
@@ -8908,10 +8906,12 @@ function createSolicitudCard(solicitud) {
     return card;
 }
 
-function createWorkOrderCard(order) {
+function createWorkOrderCard(order, statusOverride = null) {
     const card = document.createElement('div');
     card.className = 'kanban-card';
-    if (order.status === 'Pendiente de Aprobación') {
+    const currentStatus = statusOverride || order.status;
+
+    if (currentStatus === 'Pendiente de Aprobación') {
         card.classList.add('status-pending-approval');
     }
     if (order.type === 'Mecanizado') {
@@ -8946,23 +8946,23 @@ function createWorkOrderCard(order) {
 
     if (order.isExpired) {
         footerContent = `<p class="text-muted text-center mb-0 small"><i class="fas fa-lock me-1"></i>Expirada - Solo Lectura</p>`;
-    } else if (order.status === 'Pendiente de Evaluación' || (order.status === 'Completado' && (!hasOp || !hasJf))) {
+    } else if (currentStatus === 'Pendiente de Evaluación' || (currentStatus === 'Completado' && (!hasOp || !hasJf))) {
         if (canEvaluate) {
             const label = (hasOp || hasJf) ? 'Completar Evaluación' : 'Evaluar';
-            const pendingBadge = (order.status === 'Completado' && (!hasOp || !hasJf)) ? '<div class="text-center mb-1"><span class="badge bg-danger text-white pulse-animation" style="font-size: 0.7rem;"><i class="fas fa-exclamation-triangle me-1"></i>Evaluación Pendiente</span></div>' : '';
+            const pendingBadge = (currentStatus === 'Completado' && (!hasOp || !hasJf)) ? '<div class="text-center mb-1"><span class="badge bg-danger text-white pulse-animation" style="font-size: 0.7rem;"><i class="fas fa-exclamation-triangle me-1"></i>Evaluación Pendiente</span></div>' : '';
             const partialBadge = (hasOp || hasJf) ? '<div class="text-center mb-1"><span class="badge bg-info text-dark" style="font-size: 0.7rem;">Evaluación Parcial</span></div>' : '';
             footerContent = `${pendingBadge || partialBadge}<button class="btn btn-sm btn-info evaluate-task-btn w-100"><i class="fas fa-star-half-alt me-2"></i>${label}</button>`;
         } else {
             const missing = !hasOp ? 'Operario' : 'Jefe de Área';
-            const pendingText = (order.status === 'Completado') ? `<div class="text-center mb-1"><span class="badge bg-danger text-white" style="font-size: 0.7rem;"><i class="fas fa-exclamation-triangle me-1"></i>Falta Calificar</span></div>` : '';
+            const pendingText = (currentStatus === 'Completado') ? `<div class="text-center mb-1"><span class="badge bg-danger text-white" style="font-size: 0.7rem;"><i class="fas fa-exclamation-triangle me-1"></i>Falta Calificar</span></div>` : '';
             footerContent = `${pendingText}<p class="text-muted text-center mb-0 small"><i class="fas fa-clock me-1"></i>Esperando a ${missing}</p>`;
         }
-    } else if (order.status === 'Completado') {
+    } else if (currentStatus === 'Completado') {
         footerContent = `<button class="btn btn-sm btn-outline-primary view-evaluation-btn w-100"><i class="fas fa-eye me-2"></i>Ver Evaluación</button>`;
     } else if (!canAction) {
         footerContent = `<p class="text-muted text-center mb-0 small">Solo visualización</p>`;
     } else {
-        switch(order.status) {
+        switch(currentStatus) {
             case 'Pendiente':
                 footerContent = `<button class="btn btn-sm btn-primary start-task-btn w-100"><i class="fas fa-play me-2"></i>Iniciar</button>`;
                 break;
@@ -8993,7 +8993,7 @@ function createWorkOrderCard(order) {
     const totalScore = evs.reduce((acc, ev) => acc + (ev.score || 0), 0);
     const totalMaxScore = evs.reduce((acc, ev) => acc + (ev.maxScore || 0), 0);
     const avgRating = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 5 : 0;
-    const starDisplay = order.status === 'Completado' && avgRating > 0 ? `<span class="text-warning ms-1 fw-bold" style="font-size: 0.8rem;" title="Calificación: ${avgRating.toFixed(1)}">⭐${avgRating.toFixed(1)}</span>` : '';
+    const starDisplay = currentStatus === 'Completado' && avgRating > 0 ? `<span class="text-warning ms-1 fw-bold" style="font-size: 0.8rem;" title="Calificación: ${avgRating.toFixed(1)}">⭐${avgRating.toFixed(1)}</span>` : '';
 
     const cardTitle = order.id ? order.id : `(${machine.id || 'N/A'})`;
     const expiredBadge = order.isExpired ? '<br><span class="badge bg-dark text-white mt-1"><i class="fas fa-hourglass-end me-1"></i>Expirada</span>' : '';
