@@ -1120,6 +1120,7 @@ function setupRealtimeListeners() {
 
         if (dataChanged) {
             debouncedPartsUpdate(requiresCostUpdate);
+            checkDailyLowStock();
         }
     });
 
@@ -1241,7 +1242,10 @@ function setupRealtimeListeners() {
             else if (change.type === "modified") { if (index > -1) state.workPlans[index] = data; }
             else if (change.type === "removed") { if (index > -1) state.workPlans.splice(index, 1); }
         });
-        if (changed) debouncedWorkPlansUpdate();
+        if (changed) {
+            debouncedWorkPlansUpdate();
+            checkMaintenanceExpirations();
+        }
     });
 
     const debouncedPlanExecutionsUpdate = debounce(() => {
@@ -2148,6 +2152,102 @@ async function checkDailyLowStock() {
 }
 
 /**
+ * Revisa planes de mantenimiento por vencer o vencidos y envía alertas diarias vía Telegram
+ */
+async function checkMaintenanceExpirations() {
+    // Solo ejecutado por Admin o Planificador
+    if (!state.currentUser || !['Admin', 'Planificador'].includes(state.currentUser.role)) return;
+
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const todayStr = now.toISOString().split('T')[0];
+
+    try {
+        const statusDocRef = doc(state.collections.settings, 'maint_exp_status');
+        const statusSnap = await getDoc(statusDocRef);
+
+        if (statusSnap.exists()) {
+            const statusData = statusSnap.data();
+            if (statusData.lastCheck === todayStr) return; // Ya se envió hoy
+        }
+
+        const alerts = {
+            vencidos: [], // 1 día después
+            hoy: [],      // Mismo día
+            proximos: []  // 3 días antes
+        };
+
+        state.workPlans.forEach(plan => {
+            if (!plan.isActive || !plan.nextDueDate) return;
+
+            const dueDate = new Date(plan.nextDueDate + 'T00:00:00');
+            const diffTime = dueDate.getTime() - now.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === -1) alerts.vencidos.push(plan);
+            else if (diffDays === 0) alerts.hoy.push(plan);
+            else if (diffDays === 3) alerts.proximos.push(plan);
+        });
+
+        const hasAlerts = alerts.vencidos.length > 0 || alerts.hoy.length > 0 || alerts.proximos.length > 0;
+
+        if (hasAlerts) {
+            let globalMsg = `📅 <b>RESUMEN DIARIO DE MANTENIMIENTOS</b>\n\n`;
+
+            if (alerts.vencidos.length > 0) {
+                globalMsg += `❌ <b>VENCIDOS (Ayer):</b>\n`;
+                alerts.vencidos.forEach(p => globalMsg += `• ${escapeHTML(p.name)} (${p.machineId})\n`);
+                globalMsg += `\n`;
+            }
+            if (alerts.hoy.length > 0) {
+                globalMsg += `⚠️ <b>PARA HOY:</b>\n`;
+                alerts.hoy.forEach(p => globalMsg += `• ${escapeHTML(p.name)} (${p.machineId})\n`);
+                globalMsg += `\n`;
+            }
+            if (alerts.proximos.length > 0) {
+                globalMsg += `ℹ️ <b>PRÓXIMOS (3 días):</b>\n`;
+                alerts.proximos.forEach(p => globalMsg += `• ${escapeHTML(p.name)} (${p.machineId})\n`);
+                globalMsg += `\n`;
+            }
+
+            globalMsg += `🔗 <a href="https://corinfar-cmms.web.app/?tab=planes-trabajo">Ver Planes de Trabajo</a>`;
+
+            // Enviar resumen global a Admin/Planificador
+            const success = await sendTelegramNotification(globalMsg);
+
+            if (success) {
+                // Notificaciones personales a técnicos responsables
+                const allAlerts = [...alerts.vencidos, ...alerts.hoy, ...alerts.proximos];
+                for (const plan of allAlerts) {
+                    if (plan.responsibleTechnician) {
+                        const dueDate = new Date(plan.nextDueDate + 'T00:00:00');
+                        const diffTime = dueDate.getTime() - now.getTime();
+                        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+                        let personalMsg = '';
+                        if (diffDays === -1) personalMsg = `❌ <b>MANTENIMIENTO VENCIDO</b>\nEl plan "${plan.name}" venció ayer.`;
+                        else if (diffDays === 0) personalMsg = `⚠️ <b>MANTENIMIENTO PARA HOY</b>\nEl plan "${plan.name}" debe ejecutarse hoy.`;
+                        else if (diffDays === 3) personalMsg = `ℹ️ <b>MANTENIMIENTO PRÓXIMO</b>\nEl plan "${plan.name}" vence en 3 días.`;
+
+                        if (personalMsg) {
+                            personalMsg += `\n\n<b>Equipo:</b> ${plan.machineId}\n<b>Fecha:</b> ${plan.nextDueDate}`;
+                            await notifyTechnicians(plan.responsibleTechnician, personalMsg);
+                        }
+                    }
+                }
+
+                await setDoc(statusDocRef, { lastCheck: todayStr, sentAt: now.toISOString() });
+                console.log("[Maint Expiration Check] Alertas diarias enviadas a Telegram.");
+            }
+        } else {
+            await setDoc(statusDocRef, { lastCheck: todayStr, sentAt: now.toISOString(), empty: true });
+        }
+    } catch (error) {
+        console.error("Error in checkMaintenanceExpirations:", error);
+    }
+}
+
+/**
  * Escapes HTML special characters to prevent Telegram API errors
  */
 function escapeHTML(text) {
@@ -2209,11 +2309,29 @@ async function notifyTechnicians(technicianUsernames, message) {
 
     for (const username of uniqueUsernames) {
         const tech = state.technicians.find(t => t.username === username);
-        if (tech && tech.telegramChatId) {
+        // Solo notificar si el técnico está activo y tiene Chat ID
+        if (tech && tech.isActive !== false && tech.telegramChatId) {
+            // Añadir un pequeño retraso de 200ms entre envíos para evitar congestión y retrasos en la red
+            await new Promise(resolve => setTimeout(resolve, 200));
             sendTelegramNotification(message, tech.telegramChatId)
                 .catch(err => console.error(`[Telegram Personal Error] User: ${username}`, err));
         }
     }
+}
+
+/**
+ * Notifica a todos los administradores y planificadores activos vía Telegram
+ */
+async function notifyAdminsAndPlanners(message) {
+    const adminsAndPlanners = state.technicians
+        .filter(t => t.isActive !== false && ['Admin', 'Planificador'].includes(t.role))
+        .map(t => t.username);
+
+    // Notificar al grupo global primero
+    sendTelegramNotification(message).catch(err => console.warn("[Telegram Global Error]", err));
+
+    // Luego notificar individualmente a cada admin/planificador
+    notifyTechnicians(adminsAndPlanners, message);
 }
 
 async function handleOdooConfigSubmit(e) {
@@ -6628,7 +6746,7 @@ async function handleSolicitudSubmit(e) {
 
         // --- Notificación Telegram ---
         const machine = state.machines.find(m => m.id === machineId);
-        const typeTitle = type === 'mecanizado' ? 'Mecanizado' : 'Mantenimiento';
+        const typeTitle = type === 'mecanizado' ? 'Mecanizado' : (type === 'calibracion' ? 'Calibración' : 'Mantenimiento');
         const msg = `🆕 <b>Nueva Solicitud de ${typeTitle}</b>\n\n` +
                     `<b>ID:</b> ${nextId}\n` +
                     `<b>Equipo:</b> ${escapeHTML(machine ? machine.name : machineId)} (${escapeHTML(machineId)})\n` +
@@ -6636,12 +6754,14 @@ async function handleSolicitudSubmit(e) {
                     `<b>Descripción:</b> ${escapeHTML(solicitudData.description)}\n` +
                     `<b>Fecha:</b> ${new Date().toLocaleString()}`;
 
-        // Global notification
+        // Notificar a todos los técnicos (incluyendo Admin/Planificador)
+        const allUsernames = state.technicians.map(t => t.username);
+
+        // Notificar al grupo global
         sendTelegramNotification(msg).catch(err => console.warn("[Telegram Notification Error]", err));
 
-        // Personal notifications to all technicians
-        const allTechnicianUsernames = state.technicians.map(t => t.username);
-        notifyTechnicians(allTechnicianUsernames, msg);
+        // Personal notifications to all
+        notifyTechnicians(allUsernames, msg);
     } catch(error) {
         console.error("Error submitting solicitud:", error);
         showToast('Error al enviar la solicitud.', 'error');
@@ -8463,6 +8583,16 @@ async function handleFinishPlanExecution() {
                     console.error("Error creating corrective WO from plan failures:", error);
                 }
             }
+
+            // Notificación de Validación para Plan Finalizado
+            const machine = state.machines.find(m => m.id === plan.machineId);
+            const valMsg = `✅ <b>Plan Finalizado - Lista para Validación</b>\n\n` +
+                          `La ejecución del plan "${plan.name}" ha sido finalizada y requiere su revisión.\n\n` +
+                          `<b>Equipo:</b> ${escapeHTML(machine ? machine.name : plan.machineId)}\n` +
+                          `<b>Técnico:</b> ${escapeHTML(state.currentUser.username)}\n` +
+                          `<b>Estado:</b> Pendiente de Aprobación`;
+
+            notifyAdminsAndPlanners(valMsg).catch(err => console.warn("[Telegram Validation Notification Error]", err));
 
             showToast('Plan finalizado, enviado a aprobación y reprogramado con éxito.', 'success');
             handleClosePlanExecution();
@@ -10529,16 +10659,16 @@ async function saveWorkOrder(updates = {}) {
             await updateRTDBMirror('workOrders', orderData, docRef.id);
             await recordAuditLog('workOrders', orderData.id, 'CREATE', null, orderData, 'Creación OT');
 
-            // Notificación Telegram para nuevas OTs (Manuales)
-            // No notificamos si ya viene de una Solicitud (porque esa ya notificó al crearse)
-            if (!sourceSolicitudId && orderData.status !== 'Cancelado') {
+            // Notificación Telegram para nuevas OTs
+            if (orderData.status !== 'Cancelado') {
                 const machine = state.machines.find(m => m.id === orderData.machineId);
                 const tgMsg = `🛠 <b>Nueva Orden de Trabajo</b>\n\n` +
                               `<b>ID:</b> ${orderData.id}\n` +
                               `<b>Equipo:</b> ${escapeHTML(machine ? machine.name : orderData.machineId)}\n` +
                               `<b>Tipo:</b> ${orderData.type}\n` +
-                              `<b>Técnico:</b> ${escapeHTML(orderData.leadTechnician)}\n` +
-                              `<b>Prioridad:</b> ${orderData.priority}`;
+                              `<b>Responsable:</b> ${escapeHTML(orderData.leadTechnician)}\n` +
+                              `<b>Prioridad:</b> ${orderData.priority}` +
+                              (sourceSolicitudId ? `\n<b>Origen:</b> Solicitud ${orderData.solicitudId}` : '');
 
                 // Global notification
                 sendTelegramNotification(tgMsg).catch(err => console.warn("[Telegram WO Error]", err));
@@ -10599,6 +10729,19 @@ async function saveWorkOrder(updates = {}) {
                 }
                 await updateDoc(doc(state.collections.solicitudes, sourceSolicitudId), solUpdates);
             }
+        }
+
+        // Notificación de Validación (Si cambió a estado de validación)
+        const valStatus = ['Pendiente de Evaluación', 'Pendiente de Aprobación'];
+        if (valStatus.includes(orderData.status) && orderData.status !== oldStatus) {
+            const machine = state.machines.find(m => m.id === orderData.machineId);
+            const valMsg = `✅ <b>OT Lista para Validación</b>\n\n` +
+                          `La orden ${orderData.id} ha sido finalizada y requiere su revisión.\n\n` +
+                          `<b>Equipo:</b> ${escapeHTML(machine ? machine.name : orderData.machineId)}\n` +
+                          `<b>Responsable:</b> ${escapeHTML(orderData.leadTechnician)}\n` +
+                          `<b>Estado:</b> ${orderData.status}`;
+
+            notifyAdminsAndPlanners(valMsg).catch(err => console.warn("[Telegram Validation Notification Error]", err));
         }
 
         showToast('Orden de trabajo guardada.', 'success');
@@ -15741,6 +15884,8 @@ window.renderWorkPlans = renderWorkPlans;
 window.showWorkPlanModal = showWorkPlanModal;
 window.renderWorkPlanExecution = renderWorkPlanExecution;
 window.updatePlanNotifications = updatePlanNotifications;
+window.notifyAdminsAndPlanners = notifyAdminsAndPlanners;
+window.checkMaintenanceExpirations = checkMaintenanceExpirations;
 
 // --- Smart Monitoring Functions ---
 function renderSmartMonitoring() {
@@ -17464,6 +17609,16 @@ async function handleStockAdjustmentSubmit(e) {
         showToast('Stock ajustado correctamente.', 'success');
         state.modals.stockAdjustment.hide();
 
+        // Notificación Telegram para ajuste de stock
+        const stockMsg = `🔧 <b>Ajuste de Stock Manual</b>\n\n` +
+                        `<b>Repuesto:</b> ${escapeHTML(part.description)} (${escapeHTML(part.id)})\n` +
+                        `<b>Anterior:</b> ${oldStock}\n` +
+                        `<b>Nuevo:</b> ${newStock}\n` +
+                        `<b>Motivo:</b> ${escapeHTML(reason)}\n` +
+                        `<b>Usuario:</b> ${escapeHTML(state.currentUser.username)}`;
+
+        notifyAdminsAndPlanners(stockMsg).catch(err => console.warn("[Telegram Stock Adjustment Error]", err));
+
         // Actualizar el input en el modal de repuesto si sigue abierto
         const stockInput = document.getElementById('part-stock');
         if (stockInput) stockInput.value = newStock;
@@ -17657,6 +17812,16 @@ async function handleMaterialDeliverySubmit(e) {
 
             state.modals.materialDelivery.hide();
             showToast('Entrega realizada con éxito.', 'success');
+
+            // Notificación Telegram
+            const deliveryMsg = `📦 <b>Entrega de Material Realizada</b>\n\n` +
+                               `<b>OT/Solicitud:</b> ${request.workOrderId || 'SOL-' + fbId.substring(0,5)}\n` +
+                               `<b>Material:</b> ${escapeHTML(part.description)}\n` +
+                               `<b>Cantidad:</b> ${deliveryQty}\n` +
+                               `<b>Entregó:</b> ${escapeHTML(state.currentUser.username)}\n` +
+                               `<b>Recibió:</b> ${escapeHTML(request.requester)}`;
+
+            sendTelegramNotification(deliveryMsg).catch(err => console.warn("[Telegram Delivery Notification Error]", err));
 
             // 4. Generar PDF Automático (DESHABILITADO por solicitud de usuario)
             // generateMaterialOutPDF(materialOutData);
@@ -18500,6 +18665,19 @@ async function handlePurchaseReceiveSubmit(e) {
 
         showToast('Ingreso a inventario completado correctamente.', 'success');
         state.modals.purchaseReceive.hide();
+
+        // Notificación Telegram para recepción de compra
+        if (itemsToReceive.length > 0) {
+            const receiveMsg = `📥 <b>Recepción de Compra Realizada</b>\n\n` +
+                              `<b>Folio:</b> ${request.folioStr}\n` +
+                              `<b>Items:</b> ${itemsToReceive.length}\n` +
+                              `<b>Estado:</b> ${newStatus}\n` +
+                              `<b>Usuario:</b> ${escapeHTML(state.currentUser.username)}\n\n` +
+                              itemsToReceive.map(i => `• ${escapeHTML(i.description)} (${i.quantity})`).join('\n');
+
+            notifyAdminsAndPlanners(receiveMsg).catch(err => console.warn("[Telegram Purchase Receive Notification Error]", err));
+        }
+
         updateInventoryDashboard();
 
     } catch (error) {
