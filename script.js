@@ -7462,10 +7462,10 @@ function renderWorkPlans() {
                     }).join('')}
                 </div>
                 <div class="mt-auto pt-3 d-flex gap-2">
-                    <button class="btn btn-outline-primary btn-sm flex-grow-1 rounded-pill fw-bold" onclick="renderWorkPlanDetails('${plans[0].fb_id}')">
+                    <button class="btn btn-outline-primary btn-sm flex-grow-1 fw-bold" onclick="renderWorkPlanDetails('${plans[0].fb_id}')">
                         Ver Planes <i class="fas fa-arrow-right ms-1"></i>
                     </button>
-                    <button class="btn btn-light btn-sm rounded-circle" title="Historial de Máquina" onclick="showMachinePlanHistory('${machine.id}')">
+                    <button class="btn btn-light btn-sm fw-bold" title="Historial de Máquina" onclick="showMachinePlanHistory('${machine.id}')">
                         <i class="fas fa-history"></i>
                     </button>
                 </div>
@@ -7515,15 +7515,19 @@ function renderWorkPlanDetails(planId) {
                     <span class="text-uppercase tracking-wider small opacity-75 fw-bold"><i class="fas fa-file-alt me-1"></i> Detalle del Plan</span>
                     <h2 class="fw-bold mb-0">${plan.name}</h2>
                 </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-primary shadow-sm px-4 rounded-pill fw-bold" onclick="startWorkPlanExecutionWrapper('${plan.fb_id}')">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-primary shadow-sm px-3 fw-bold" onclick="startWorkPlanExecutionWrapper('${plan.fb_id}')">
                         <i class="fas fa-play-circle me-2"></i>${activeExecution ? 'Continuar' : 'Ejecutar Plan'}
                     </button>
-                    <button class="btn btn-outline-light px-4 rounded-pill fw-bold" onclick="showWorkPlanPreview('${plan.fb_id}')">
+                    <button class="btn btn-outline-light px-3 fw-bold" onclick="showWorkPlanPreview('${plan.fb_id}')">
                         <i class="fas fa-eye me-2"></i>Previsualizar
                     </button>
-                    <button class="btn btn-light rounded-circle" onclick="showWorkPlanModal('${plan.fb_id}')"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-danger rounded-circle" onclick="deleteWorkPlan('${plan.fb_id}')"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-light px-3 fw-bold" onclick="showWorkPlanModal('${plan.fb_id}')">
+                        <i class="fas fa-edit me-2"></i>Editar
+                    </button>
+                    <button class="btn btn-danger px-3 fw-bold" onclick="deleteWorkPlan('${plan.fb_id}')">
+                        <i class="fas fa-trash me-2"></i>Eliminar
+                    </button>
                 </div>
             </div>
             <div class="p-4">
