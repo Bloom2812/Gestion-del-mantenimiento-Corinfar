@@ -1199,11 +1199,18 @@ function setupRealtimeListeners() {
         renderTechnicians(); // Full re-render is fine for this small/infrequent table
         populateDynamicSelectors();
 
-        if (wasEmpty && state.technicians.length > 0) {
-            document.getElementById('login-status-text').textContent = 'Ingrese sus credenciales';
-            document.getElementById('username').disabled = false;
-            document.getElementById('password').disabled = false;
-            document.querySelector('#login-form button[type="submit"]').disabled = false;
+        if (state.technicians.length > 0) {
+            const loginStatus = document.getElementById('login-status-text');
+            if (loginStatus && (loginStatus.textContent === 'Conectando al servidor...' || wasEmpty)) {
+                loginStatus.textContent = 'Ingrese sus credenciales';
+            }
+            const userInp = document.getElementById('username');
+            const passInp = document.getElementById('password');
+            const loginBtn = document.querySelector('#login-form button[type="submit"]');
+
+            if (userInp) userInp.disabled = false;
+            if (passInp) passInp.disabled = false;
+            if (loginBtn) loginBtn.disabled = false;
         }
     });
     
@@ -1977,9 +1984,7 @@ function setupEventListeners() {
     if (historyBtn) historyBtn.addEventListener('click', () => {
         const { plan } = state.currentExecution || {};
         if (plan && plan.machineId) {
-            const url = new URL(window.location.href);
-            url.searchParams.set('historyMachineId', plan.machineId);
-            window.open(url.toString(), '_blank');
+            showMachinePlanHistory(plan.machineId);
         } else {
             showToast('No se pudo identificar la máquina para ver el historial.', 'error');
         }
