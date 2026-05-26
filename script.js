@@ -7509,11 +7509,13 @@ function renderWorkPlans() {
         `;
         gridContainer.appendChild(card);
 
-        // Async image loading
-        getOptimizedImageUrlWithRetry(machinePhoto).then(url => {
-            const img = document.getElementById(`wp-img-${machine.id}`);
-            if (img && url) img.src = url;
-        }).catch(err => console.error("Error loading optimized image:", err));
+        // Async image loading only for Firebase Storage URLs
+        if (machinePhoto.includes('firebasestorage.googleapis.com')) {
+            getOptimizedImageUrlWithRetry(machinePhoto).then(url => {
+                const img = document.getElementById(`wp-img-${machine.id}`);
+                if (img && url) img.src = url;
+            }).catch(err => console.error("Error loading optimized image:", err));
+        }
     });
 
     const areaSelect = document.getElementById('wp-filter-area');
@@ -10924,18 +10926,19 @@ async function getOptimizedImageUrlWithRetry(originalUrl) {
         const optimizedPath = `${pathWithoutExtension}_1024x1024.webp`;
         const optimizedRef = ref(state.storage, optimizedPath);
 
-        const maxRetries = 5;
-        const delay = 3000;
+        const maxRetries = 2; // Reducido de 5 a 2
+        const delay = 2000;  // Reducido de 3000 a 2000
 
         for (let i = 0; i < maxRetries; i++) {
             try {
                 const url = await getDownloadURL(optimizedRef);
-                console.log(`[Storage] Imagen optimizada lista: ${optimizedPath}`);
                 return url;
             } catch (error) {
                 if (error.code === 'storage/object-not-found') {
-                    console.log(`[Storage] Reintentando búsqueda de imagen optimizada... (${i + 1}/${maxRetries})`);
-                    if (i < maxRetries - 1) await new Promise(resolve => setTimeout(resolve, delay));
+                    if (i < maxRetries - 1) {
+                        console.log(`[Storage] Reintentando búsqueda de imagen optimizada... (${i + 1}/${maxRetries})`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
                 } else {
                     console.error("[Storage] Error al obtener URL de descarga:", error);
                     break;
