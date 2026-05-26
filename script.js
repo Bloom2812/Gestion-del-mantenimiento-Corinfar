@@ -771,6 +771,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const urlParams = new URLSearchParams(window.location.search);
         const machineId = urlParams.get('machineId');
+        const historyMachineId = urlParams.get('historyMachineId');
         const token = urlParams.get('token');
 
         if (token) {
@@ -809,6 +810,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                         } else if (attempts > 20) {
                             clearInterval(checkInterval);
                             showToast('Tiempo de espera agotado cargando datos', 'warning');
+                        }
+                    }, 500);
+                }
+            }
+
+            if (historyMachineId) {
+                const tryShowHistory = async () => {
+                    if (state.machines.length > 0 && state.workPlans.length > 0 && state.workPlanExecutions.length > 0) {
+                        showMachinePlanHistory(historyMachineId);
+                        return true;
+                    }
+                    return false;
+                };
+
+                if (!await tryShowHistory()) {
+                    let attempts = 0;
+                    const checkInterval = setInterval(async () => {
+                        attempts++;
+                        if (await tryShowHistory()) {
+                            clearInterval(checkInterval);
+                        } else if (attempts > 30) {
+                            clearInterval(checkInterval);
+                            showToast('No se pudo cargar el historial del equipo', 'warning');
                         }
                     }, 500);
                 }
@@ -1948,6 +1972,18 @@ function setupEventListeners() {
 
     const closeBtn = document.getElementById('execution-view-close-btn');
     if (closeBtn) closeBtn.addEventListener('click', handleClosePlanExecution);
+
+    const historyBtn = document.getElementById('execution-view-history-btn');
+    if (historyBtn) historyBtn.addEventListener('click', () => {
+        const { plan } = state.currentExecution || {};
+        if (plan && plan.machineId) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('historyMachineId', plan.machineId);
+            window.open(url.toString(), '_blank');
+        } else {
+            showToast('No se pudo identificar la máquina para ver el historial.', 'error');
+        }
+    });
 
     // Odoo Config Listeners
     const odooForm = document.getElementById('odoo-config-form');
@@ -7933,6 +7969,15 @@ function renderWorkPlanExecution(execution, plan) {
 
     const pauseBtn = document.getElementById('execution-view-pause-btn');
     const finishBtn = document.getElementById('execution-view-finish-btn');
+    const historyBtn = document.getElementById('execution-view-history-btn');
+
+    if (historyBtn) {
+        if (execution.isMock) {
+            historyBtn.classList.remove('d-none');
+        } else {
+            historyBtn.classList.add('d-none');
+        }
+    }
 
     if (execution.isReadOnly) {
         if (pauseBtn) pauseBtn.classList.add('d-none');
