@@ -1517,9 +1517,19 @@ function setupEventListeners() {
 
     safeAddEventListener('theme-toggle-btn', 'click', toggleTheme);
     safeAddEventListener('password-toggle', 'click', togglePasswordVisibility);
+    safeAddEventListener('solicitud-item-search', 'input', () => {
+        populateSolicitudItemSelector();
+    });
+
     safeAddEventListener('solicitud-type', 'change', (e) => {
         const type = e.target.value;
         const isInsumos = type === 'insumos';
+
+        // Reset search and item selection on type change
+        const searchInput = document.getElementById('solicitud-item-search');
+        if (searchInput) searchInput.value = '';
+        const itemSelect = document.getElementById('solicitud-item-part-select');
+        if (itemSelect) itemSelect.innerHTML = '';
 
         document.getElementById('solicitud-extra-fields').classList.toggle('d-none', !isInsumos);
         document.getElementById('solicitud-multi-items-section').classList.toggle('d-none', !isInsumos);
@@ -1553,8 +1563,8 @@ function setupEventListeners() {
 
         let description = '';
         if (partSelect.value) {
-            const part = state.parts.find(p => p.fb_id === partSelect.value);
-            description = part ? part.name : '';
+            const part = state.parts.find(p => (p.id || p.fb_id) === partSelect.value);
+            description = part ? (part.description || part.name) : '';
         } else if (manualDesc) {
             description = manualDesc;
         } else {
@@ -6700,6 +6710,12 @@ function showSolicitudModal(prefillData = null) {
     document.getElementById('solicitud-form').reset();
     state.tempSolicitudItems = [];
     renderSolicitudItems();
+
+    // Reset search and item selection on modal open
+    const searchInput = document.getElementById('solicitud-item-search');
+    if (searchInput) searchInput.value = '';
+    const itemSelect = document.getElementById('solicitud-item-part-select');
+    if (itemSelect) itemSelect.innerHTML = '';
 
     document.getElementById('solicitud-extra-fields').classList.add('d-none');
     document.getElementById('solicitud-multi-items-section').classList.add('d-none');
@@ -18299,12 +18315,37 @@ window.showConfirmReceiptModal = showConfirmReceiptModal;
 
 function populateSolicitudItemSelector() {
     const select = document.getElementById('solicitud-item-part-select');
+    const searchInput = document.getElementById('solicitud-item-search');
     if (!select) return;
 
-    const insumos = state.parts.filter(p => p.classification === 'insumo');
-    let html = '<option value="">-- Seleccionar Insumo --</option>';
-    insumos.sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
-        html += `<option value="${p.fb_id}">${p.name} (Stock: ${p.currentStock})</option>`;
+    const filter = (searchInput ? searchInput.value : '').toLowerCase();
+
+    // Filtrar por clasificación (insumo/repuesto), stock > 0 y por el filtro de búsqueda
+    const availableItems = state.parts.filter(p => {
+        const isAllowedType = p.classification === 'insumo' || p.classification === 'repuesto';
+        const stock = p.stockActual || p.currentStock || 0;
+        const hasStock = stock > 0;
+
+        const name = (p.description || p.name || '').toLowerCase();
+        const id = (p.id || p.fb_id || '').toLowerCase();
+
+        const matchesSearch = name.includes(filter) || id.includes(filter);
+        return isAllowedType && hasStock && matchesSearch;
+    });
+
+    // Ordenar alfabéticamente por nombre/descripción
+    availableItems.sort((a, b) => {
+        const nameA = (a.description || a.name || '').toLowerCase();
+        const nameB = (b.description || b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+
+    let html = '<option value="">-- Seleccionar Ítem del Inventario --</option>';
+    availableItems.forEach(p => {
+        const stock = p.stockActual || p.currentStock || 0;
+        const name = p.description || p.name || 'Sin descripción';
+        const id = p.id || p.fb_id || 'S/ID';
+        html += `<option value="${p.id || p.fb_id}">${name} [${id}] (Stock: ${stock})</option>`;
     });
     select.innerHTML = html;
 }
@@ -18945,3 +18986,4 @@ async function handleGlobalMachinePhotoChange(event) {
     }
 }
 window.handleVerifyTelegramConnection = handleVerifyTelegramConnection;
+window.populateSolicitudItemSelector = populateSolicitudItemSelector;
