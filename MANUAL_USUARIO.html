@@ -296,9 +296,19 @@
                     <img src="manual_images/acceso_sistema.png" alt="Pantalla de Acceso">
                     <p class="img-caption">Interfaz de inicio de sesión.</p>
 
-                    <div class="alert alert-warning">
-                        <i class="fas fa-info-circle me-2"></i> Si olvidó su contraseña, por favor contacte al administrador del sistema para un reinicio seguro.
+                    <div class="alert alert-info">
+                        <h5 class="fw-bold"><i class="fas fa-undo me-2"></i> Recuperar Contraseña</h5>
+                        <p>Si ha olvidado sus credenciales, puede solicitar un restablecimiento siguiendo estos pasos:</p>
+                        <ol>
+                            <li>En la pantalla de inicio de sesión, haga clic en el enlace <strong>"¿Olvidó su contraseña?"</strong>.</li>
+                            <li>Aparecerá una ventana emergente donde deberá ingresar su <strong>Nombre de Usuario</strong>.</li>
+                            <li>Presione el botón <strong>"Notificar al Administrador"</strong>.</li>
+                        </ol>
+                        <p>Al realizar esta acción, el administrador recibirá una notificación automática y procederá a generar un link seguro de cambio de contraseña que se le hará llegar a la brevedad.</p>
                     </div>
+
+                    <img src="manual_images/olvido_contrasena_modal.png" alt="Recuperar Contraseña">
+                    <p class="img-caption">Ventana de solicitud de recuperación de contraseña.</p>
                 </div>
             </div>
         </section>
@@ -313,10 +323,42 @@
                     <p class="lead">Como Operario, su rol es fundamental para reportar fallas y solicitar los recursos necesarios para la producción.</p>
 
                     <h3>3.1 Cómo realizar una Solicitud de Mantenimiento</h3>
-                    <p>Si una máquina presenta una falla o requiere revisión, haga clic en <span class="badge bg-primary"><i class="fas fa-plus me-1"></i> Nueva Solicitud</span> y complete los datos.</p>
+                    <p>Una vez que haya ingresado al sistema, encontrará un <strong>menú lateral</strong> a la izquierda de su pantalla. Para gestionar sus reportes, haga clic en la pestaña con el nombre <strong>"Solicitudes"</strong>.</p>
 
-                    <img src="manual_images/nueva_solicitud_inventario.png" alt="Formulario de Solicitud">
-                    <p class="img-caption">Nueva interfaz de solicitud con búsqueda de inventario integrada.</p>
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <img src="manual_images/sidebar_solicitudes.png" alt="Menú Lateral Solicitudes">
+                            <p class="img-caption">Ubicación del módulo de Solicitudes.</p>
+                        </div>
+                        <div class="col-md-8">
+                            <p>Dentro de esta sección, podrá visualizar el historial de sus reportes y crear nuevos. Para reportar una falla o requerimiento, haga clic en el botón <span class="badge bg-primary"><i class="fas fa-plus me-1"></i> Nueva Solicitud</span>.</p>
+                        </div>
+                    </div>
+
+                    <h5>Completar el Formulario</h5>
+                    <p>Al abrirse el formulario, asegúrese de seleccionar la máquina correcta (puede buscarla por nombre o ID) y detallar de manera clara el problema detectado.</p>
+
+                    <img src="manual_images/nueva_solicitud_llena.png" alt="Ejemplo de Solicitud Llena">
+                    <p class="img-caption">Ejemplo de cómo completar correctamente una solicitud de mantenimiento.</p>
+
+                    <h5>Seguimiento en "Mis Solicitudes"</h5>
+                    <p>Una vez enviada, su solicitud aparecerá automáticamente en el listado de <strong>Mis Solicitudes</strong>. Desde aquí podrá monitorear en tiempo real los cambios de estado hasta que el trabajo sea finalizado.</p>
+
+                    <div class="card bg-light border-0 mb-4">
+                        <div class="card-body">
+                            <h6 class="fw-bold"><i class="fas fa-exchange-alt me-2"></i> Estados de una Solicitud:</h6>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <span class="badge bg-secondary">Pendiente</span>
+                                <span class="badge bg-warning text-dark">Planificada</span>
+                                <span class="badge bg-info text-white">En Ejecución</span>
+                                <span class="badge bg-dark">Pausada</span>
+                                <span class="badge bg-success">Pendiente de Evaluación</span>
+                                <span class="badge bg-primary">Evaluada (Finalizada)</span>
+                                <span class="badge bg-danger">Cancelada</span>
+                            </div>
+                            <p class="small text-muted mt-2 mb-0">El sistema le permite ver quién es el técnico asignado y el avance de la reparación en todo momento.</p>
+                        </div>
+                    </div>
 
                     <h3>3.2 Cómo solicitar un Accesorio o Consumible</h3>
                     <p>Seleccione el tipo <strong>Insumos / Accesorios</strong>. Ahora puede buscar ítems directamente del inventario por nombre o código.</p>
