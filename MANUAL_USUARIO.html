@@ -231,7 +231,7 @@
             <a href="#odoo"><i class="fas fa-sync"></i> Integración Odoo</a>
             <a href="#mobile"><i class="fas fa-mobile-alt"></i> Diseño Móvil</a>
             <a href="#consejos"><i class="fas fa-lightbulb"></i> Consejos Útiles</a>
-            <a href="#actualizacion-operario"><i class="fas fa-star"></i> Actualización: Guía Paso a Paso</a>
+            <a href="#actualizacion-operario"><i class="fas fa-star"></i> Actualización Visual</a>
         </nav>
     </div>
 
@@ -293,21 +293,8 @@
                         </div>
                     </div>
 
-                    <div class="step-card">
-                        <div class="step-number">3</div>
-                        <div class="step-content">
-                            <strong>Contraseña</strong>
-                            Escriba su contraseña personal. Recuerde que es privada e intransferible.
-                        </div>
-                    </div>
-
-                    <div class="step-card">
-                        <div class="step-number">4</div>
-                        <div class="step-content">
-                            <strong>Entrar</strong>
-                            Haga clic en el botón azul que dice "Iniciar Sesión".
-                        </div>
-                    </div>
+                    <img src="manual_images/acceso_sistema.png" alt="Pantalla de Acceso">
+                    <p class="img-caption">Interfaz de inicio de sesión.</p>
 
                     <div class="alert alert-warning">
                         <i class="fas fa-info-circle me-2"></i> Si olvidó su contraseña, por favor contacte al administrador del sistema para un reinicio seguro.
@@ -326,98 +313,19 @@
                     <p class="lead">Como Operario, su rol es fundamental para reportar fallas y solicitar los recursos necesarios para la producción.</p>
 
                     <h3>3.1 Cómo realizar una Solicitud de Mantenimiento</h3>
-                    <p>Si una máquina presenta una falla o requiere revisión, siga estos pasos:</p>
+                    <p>Si una máquina presenta una falla o requiere revisión, haga clic en <span class="badge bg-primary"><i class="fas fa-plus me-1"></i> Nueva Solicitud</span> y complete los datos.</p>
 
-                    <div class="step-card">
-                        <div class="step-number">1</div>
-                        <div class="step-content">
-                            <strong>Botón Nueva Solicitud</strong>
-                            Haga clic en el botón flotante o en el menú que dice <span class="badge bg-primary"><i class="fas fa-plus me-1"></i> Nueva Solicitud</span>.
-                        </div>
-                    </div>
-
-                    <div class="step-card">
-                        <div class="step-number">2</div>
-                        <div class="step-content">
-                            <strong>Tipo de Solicitud</strong>
-                            Seleccione la opción <i class="fas fa-tools me-1"></i> <strong>Mantenimiento</strong>.
-                        </div>
-                    </div>
-
-                    <div class="step-card">
-                        <div class="step-number">3</div>
-                        <div class="step-content">
-                            <strong>Datos del Problema</strong>
-                            - <strong>Máquina:</strong> Seleccione el equipo que tiene el problema (ej: Blistera 01).<br>
-                            - <strong>Descripción:</strong> Explique brevemente qué sucede (ej: "No enciende el panel principal").<br>
-                            - <strong>Urgencia:</strong> Seleccione qué tan rápido necesita la reparación.
-                        </div>
-                    </div>
-
-                    <div class="step-card">
-                        <div class="step-number">4</div>
-                        <div class="step-content">
-                            <strong>Enviar</strong>
-                            Presione el botón verde "Guardar Solicitud". El equipo técnico será notificado de inmediato.
-                        </div>
-                    </div>
+                    <img src="manual_images/nueva_solicitud_inventario.png" alt="Formulario de Solicitud">
+                    <p class="img-caption">Nueva interfaz de solicitud con búsqueda de inventario integrada.</p>
 
                     <h3>3.2 Cómo solicitar un Accesorio o Consumible</h3>
-                    <p>Si necesita repuestos, herramientas o materiales de limpieza:</p>
+                    <p>Seleccione el tipo <strong>Insumos / Accesorios</strong>. Ahora puede buscar ítems directamente del inventario por nombre o código.</p>
 
-                    <div class="step-card">
-                        <div class="step-number">1</div>
-                        <div class="step-content">
-                            <strong>Nueva Solicitud</strong>
-                            Al igual que antes, haga clic en "Nueva Solicitud".
-                        </div>
-                    </div>
-
-                    <div class="step-card">
-                        <div class="step-number">2</div>
-                        <div class="step-content">
-                            <strong>Tipo Insumos</strong>
-                            Seleccione la opción <i class="fas fa-box-open me-1"></i> <strong>Insumos y Accesorios</strong>.
-                        </div>
-                    </div>
-
-                    <div class="step-card">
-                        <div class="step-number">3</div>
-                        <div class="step-content">
-                            <strong>Detalles del Pedido</strong>
-                            Escriba el nombre del material, la cantidad que necesita y qué tan urgente es.
-                        </div>
-                    </div>
-
-                    <img src="manual_images/solicitudes_operario.png" alt="Panel de Solicitudes">
-                    <p class="img-caption">Panel donde el operario puede ver el estado de sus reportes.</p>
+                    <img src="manual_images/busqueda_repuestos.png" alt="Búsqueda de Repuestos">
+                    <p class="img-caption">Búsqueda en tiempo real de repuestos e insumos.</p>
 
                     <h3>3.3 Evaluación del Trabajo Realizado</h3>
-                    <p>Cuando un técnico termina una reparación, usted debe confirmar que todo quedó bien:</p>
-
-                    <div class="step-card">
-                        <div class="step-number">1</div>
-                        <div class="step-content">
-                            <strong>Pestaña Solicitudes</strong>
-                            Diríjase a la sección "Solicitudes" en el menú lateral.
-                        </div>
-                    </div>
-
-                    <div class="step-card">
-                        <div class="step-number">2</div>
-                        <div class="step-content">
-                            <strong>Estado Evaluación</strong>
-                            Busque las solicitudes que digan <span class="badge bg-warning text-dark">Pendiente de Evaluación</span>.
-                        </div>
-                    </div>
-
-                    <div class="step-card">
-                        <div class="step-number">3</div>
-                        <div class="step-content">
-                            <strong>Calificar</strong>
-                            Haga clic en el botón <strong>Evaluar</strong>. Se abrirá una ventana donde podrá dar estrellas al servicio y dejar un comentario sobre el estado de la máquina.
-                        </div>
-                    </div>
+                    <p>Cuando un técnico termina una reparación, usted debe confirmar que todo quedó bien usando el botón <strong>Evaluar</strong> en su lista de solicitudes.</p>
                 </div>
             </div>
         </section>
@@ -432,13 +340,9 @@
                     <p>El sistema cumple con normativas internacionales para asegurar que cada acción sea rastreable y legalmente válida.</p>
 
                     <h5>Firma Electrónica</h5>
-                    <p>Para acciones importantes (como finalizar un trabajo), el sistema le pedirá:</p>
-                    <ul>
-                        <li>Su firma manuscrita (dibujada en pantalla).</li>
-                        <li>Confirmar nuevamente su contraseña de acceso.</li>
-                    </ul>
+                    <p>Para acciones importantes, el sistema le pedirá confirmar su contraseña de acceso.</p>
                     <img src="manual_images/firma_seguridad.png" alt="Seguridad y Firmas">
-                    <p class="img-caption">Interfaz de seguridad para firmas vinculantes.</p>
+                    <p class="img-caption">Interfaz de seguridad para cumplimiento de 21 CFR Part 11.</p>
                 </div>
             </div>
         </section>
@@ -489,23 +393,7 @@
                     <h2><i class="fas fa-clipboard-list me-3 text-primary"></i> 6. Órdenes de Trabajo (OT)</h2>
                 </div>
                 <div class="card-body">
-                    <p>Las OTs son el corazón del sistema. Existen dos tipos principales:</p>
-
-                    <div class="row mt-4">
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded bg-light h-100">
-                                <h5 class="text-danger"><i class="fas fa-exclamation-circle me-2"></i> Correctivas</h5>
-                                <p class="small">Se generan cuando algo se rompe. El objetivo es reparar el equipo lo antes posible.</p>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded bg-light h-100">
-                                <h5 class="text-success"><i class="fas fa-calendar-check me-2"></i> Preventivas</h5>
-                                <p class="small">Son planificadas con antelación para evitar fallas futuras. El sistema las crea automáticamente.</p>
-                            </div>
-                        </div>
-                    </div>
-
+                    <p>Las OTs permiten registrar todo el trabajo realizado en un equipo.</p>
                     <img src="manual_images/modal_ot.png" alt="Detalle de Orden de Trabajo" class="mt-4">
                     <p class="img-caption">Formulario detallado de una Orden de Trabajo.</p>
                 </div>
@@ -519,28 +407,9 @@
                     <h2><i class="fas fa-chart-line me-3 text-primary"></i> 7. Dashboard y KPIs</h2>
                 </div>
                 <div class="card-body">
-                    <p>Para los roles administrativos y de planificación, el Dashboard ofrece métricas en tiempo real:</p>
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <div class="kpi-badge">
-                                <strong>MTBF</strong><br>
-                                <span class="small text-muted">Tiempo medio entre fallas. Indica qué tan confiable es una máquina.</span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="kpi-badge">
-                                <strong>MTTR</strong><br>
-                                <span class="small text-muted">Tiempo medio de reparación. Indica la eficiencia del equipo técnico.</span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="kpi-badge">
-                                <strong>Disponibilidad</strong><br>
-                                <span class="small text-muted">Porcentaje de tiempo que la máquina estuvo lista para producir.</span>
-                            </div>
-                        </div>
-                    </div>
-                    <img src="manual_images/dashboard_dark.png" alt="Panel de Indicadores en Modo Oscuro" class="mt-4">
+                    <p>El Dashboard ofrece métricas en tiempo real como MTBF, MTTR y Disponibilidad.</p>
+                    <img src="manual_images/dashboard_dark.png" alt="Dashboard Modo Oscuro" class="mt-4">
+                    <p class="img-caption">Dashboard en modo oscuro con indicadores de rendimiento.</p>
                 </div>
             </div>
         </section>
@@ -552,11 +421,9 @@
                     <h2><i class="fas fa-sync me-3 text-primary"></i> 8. Integración con Odoo</h2>
                 </div>
                 <div class="card-body">
-                    <p>El CMMS está conectado permanentemente con el ERP Odoo para mantener actualizado el inventario y los costos.</p>
-                    <div class="alert alert-info">
-                        <i class="fas fa-check-circle me-2"></i> Cada vez que se usa un repuesto en una OT, el stock se descuenta automáticamente en Odoo.
-                    </div>
+                    <p>El CMMS sincroniza el inventario y los costos directamente con Odoo ERP.</p>
                     <img src="manual_images/odoo_config.png" alt="Configuración de Odoo">
+                    <p class="img-caption">Panel de configuración de la sincronización ERP.</p>
                 </div>
             </div>
         </section>
@@ -568,11 +435,11 @@
                     <h2><i class="fas fa-mobile-alt me-3 text-primary"></i> 9. Diseño Móvil (Responsive)</h2>
                 </div>
                 <div class="card-body">
-                    <p>La aplicación está diseñada para funcionar perfectamente en celulares y tablets, permitiendo a los técnicos trabajar en el campo sin necesidad de una computadora.</p>
+                    <p>La aplicación está optimizada para su uso en tablets y celulares en planta.</p>
                     <div class="row justify-content-center">
                         <div class="col-md-6">
                             <img src="manual_images/dashboard_mobile.png" alt="Vista Móvil" style="max-width: 300px; margin: 0 auto; display: block;">
-                            <p class="img-caption mt-3">Interfaz optimizada para dispositivos móviles.</p>
+                            <p class="img-caption mt-3">Interfaz móvil.</p>
                         </div>
                     </div>
                 </div>
@@ -584,51 +451,39 @@
             <div class="card bg-light border-0">
                 <div class="card-body">
                     <h2><i class="fas fa-lightbulb me-3 text-warning"></i> 10. Consejos para Usuarios Nuevos</h2>
-                    <p>Si usted no acostumbra usar computadoras con frecuencia, estos consejos le ayudarán:</p>
                     <ul>
-                        <li><strong>No tenga miedo:</strong> El sistema está diseñado para que sea difícil cometer errores graves. Siempre puede cancelar una acción antes de guardar.</li>
-                        <li><strong>Lea los mensajes:</strong> Si el sistema no le deja guardar, lea el mensaje que aparece en rojo; suele decir qué campo falta completar.</li>
-                        <li><strong>Iconos de ayuda:</strong> Si ve un icono con una "i" o un signo de pregunta, pase el ratón por encima para ver una breve explicación.</li>
-                        <li><strong>Uso en celular:</strong> Si usa el sistema en su celular, puede usar la cámara para tomar fotos de las fallas y subirlas directamente.</li>
-                        <li><strong>Cerrar Sesión:</strong> Por seguridad, siempre cierre su sesión cuando termine de usar un equipo compartido en planta.</li>
+                        <li><strong>Búsqueda:</strong> Use los cuadros de búsqueda para encontrar máquinas o repuestos rápidamente.</li>
+                        <li><strong>Cierre de Sesión:</strong> Siempre cierre su sesión por seguridad al terminar.</li>
                     </ul>
                 </div>
             </div>
         </section>
 
-        <!-- Actualización Operario -->
+        <!-- Actualización Visual -->
         <section id="actualizacion-operario" class="mb-5">
             <div class="card border-primary" style="border-width: 2px;">
                 <div class="card-header bg-primary text-white">
-                    <h2 class="text-white"><i class="fas fa-star me-3"></i> 11. Actualización: Guía Visual Paso a Paso para el Operario</h2>
+                    <h2 class="text-white"><i class="fas fa-star me-3"></i> 11. Guía Visual Detallada: Solicitudes</h2>
                 </div>
                 <div class="card-body">
-                    <p class="lead">Esta sección ha sido añadida como una actualización detallada con imágenes para facilitar el uso del sistema a todo el personal de planta.</p>
-
-                    <div class="alert alert-primary">
-                        <h5><i class="fas fa-sign-in-alt me-2"></i> Paso 1: Acceso Seguro y Firma</h5>
-                        <p>Cada vez que usted necesite entrar al sistema o confirmar un trabajo, verá una pantalla de seguridad. Ingrese su contraseña personal con cuidado.</p>
-                        <img src="manual_images/firma_seguridad.png" alt="Pantalla de Seguridad">
-                        <p class="img-caption">Imagen 1: Ventana de confirmación de identidad. Aquí debe poner su clave.</p>
+                    <div class="row align-items-center mb-5">
+                        <div class="col-md-7">
+                            <h5>Mis Solicitudes</h5>
+                            <p>Vea el listado de sus reportes y su estado actual en tiempo real.</p>
+                        </div>
+                        <div class="col-md-5">
+                            <img src="manual_images/solicitudes_operario.png" alt="Panel Solicitudes">
+                        </div>
                     </div>
 
-                    <div class="alert alert-primary mt-5">
-                        <h5><i class="fas fa-list-check me-2"></i> Paso 2: Revisar sus Solicitudes</h5>
-                        <p>En el menú lateral, haga clic en "Solicitudes". Verá una lista de todos sus reportes y su estado actual (si están siendo atendidos o ya terminaron).</p>
-                        <img src="manual_images/solicitudes_operario.png" alt="Panel de Solicitudes">
-                        <p class="img-caption">Imagen 2: Listado de solicitudes. El color azul indica que están en planificación.</p>
-                    </div>
-
-                    <div class="alert alert-primary mt-5">
-                        <h5><i class="fas fa-box-open me-2"></i> Paso 3: Solicitar Repuestos o Insumos</h5>
-                        <p>Si necesita algo del almacén, puede usar el botón "Nueva Solicitud". En la pantalla que se abre, podrá detallar qué repuesto necesita y la cantidad.</p>
-                        <img src="manual_images/modal_ot.png" alt="Formulario de Solicitud">
-                        <p class="img-caption">Imagen 3: Ejemplo de formulario para pedir repuestos e insumos al equipo técnico.</p>
-                    </div>
-
-                    <div class="alert alert-primary mt-5">
-                        <h5><i class="fas fa-check-double me-2"></i> Paso 4: Evaluación del Trabajo</h5>
-                        <p>No olvide que al finalizar una reparación, debe presionar el botón "Evaluar" para que el sistema sepa que la máquina está funcionando correctamente en producción.</p>
+                    <div class="row align-items-center mb-5">
+                        <div class="col-md-7 order-md-2">
+                            <h5>Detalle de la Solicitud</h5>
+                            <p>Antes de enviar, puede revisar la lista de ítems agregados y corregir cantidades.</p>
+                        </div>
+                        <div class="col-md-5 order-md-1">
+                            <img src="manual_images/solicitud_detalle.png" alt="Detalle Solicitud">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -637,7 +492,7 @@
         <footer class="text-center text-muted mt-5 pb-5">
             <hr>
             <p>&copy; 2026 Corinfar CMMS - Sistema de Gestión de Mantenimiento<br>
-            <small>Documentación Confidencial para Uso Interno (Actualizado: Febrero 2026)</small></p>
+            <small>Documentación Confidencial (Actualizado: Febrero 2026)</small></p>
         </footer>
     </div>
 
@@ -649,12 +504,12 @@
                 this.style.display = 'none';
                 const p = document.createElement('p');
                 p.className = 'alert alert-danger';
-                p.innerHTML = '<i class="fas fa-image-slash me-2"></i> Error: No se pudo cargar la imagen "' + this.src.split('/').pop() + '". Verifique que la carpeta manual_images esté en la misma ubicación que este archivo.';
+                p.innerHTML = '<i class="fas fa-image-slash me-2"></i> Error: No se pudo cargar la imagen "' + this.src.split('/').pop() + '".';
                 this.parentNode.insertBefore(p, this.nextSibling);
             };
         });
 
-        // Simple script to highlight active section in sidebar
+        // Sidebar active state
         window.addEventListener('scroll', () => {
             let current = '';
             const sections = document.querySelectorAll('section');
