@@ -214,6 +214,7 @@
         .bg-operario { background-color: #dcfce7; color: #166534; }
         .bg-tecnico { background-color: #dbeafe; color: #1e40af; }
         .bg-admin { background-color: #fee2e2; color: #991b1b; }
+        .text-purple { color: #8e44ad !important; }
     </style>
 </head>
 <body>
@@ -224,6 +225,7 @@
             <a href="#intro" class="active"><i class="fas fa-home"></i> Introducción</a>
             <a href="#acceso"><i class="fas fa-key"></i> Acceso al Sistema</a>
             <a href="#operario"><i class="fas fa-user-cog"></i> Guía del Operario</a>
+            <a href="#trabajo-activo-guia" class="ps-4 small"><i class="fas fa-tasks"></i> 3.4 Trabajo Activo</a>
             <a href="#seguridad"><i class="fas fa-shield-alt"></i> Seguridad y Firmas</a>
             <a href="#roles"><i class="fas fa-users"></i> Roles y Permisos</a>
             <a href="#ots"><i class="fas fa-clipboard-list"></i> Órdenes de Trabajo</a>
@@ -367,7 +369,91 @@
                     <p class="img-caption">Búsqueda en tiempo real de repuestos e insumos.</p>
 
                     <h3>3.3 Evaluación del Trabajo Realizado</h3>
-                    <p>Cuando un técnico termina una reparación, usted debe confirmar que todo quedó bien usando el botón <strong>Evaluar</strong> en su lista de solicitudes.</p>
+                    <p>Cuando un técnico termina una reparación, usted debe confirmar que todo quedó bien usando el botón <strong>Evaluar</strong> en su lista de solicitudes o desde el tablero de Trabajo Activo. <em>(Vea la sección 3.4 para el detalle paso a paso)</em>.</p>
+
+                    <h3 id="trabajo-activo-guia">3.4 Módulo de Trabajo Activo</h3>
+                    <p>Este módulo es su tablero de control visual. Aquí podrá ver el avance de todos los trabajos que involucran a sus <strong>equipos vinculados</strong>.</p>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-link me-2"></i> <strong>Nota:</strong> Por seguridad y orden, usted solo podrá visualizar las máquinas y solicitudes que tenga asignadas en su perfil.
+                    </div>
+
+                    <h5>Los 7 Espacios del Tablero (Kanban):</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="kpi-badge">
+                                <strong><i class="fas fa-bullhorn me-2 text-purple"></i> 1. Solicitudes Pendientes</strong><br>
+                                Reportes nuevos que están esperando ser revisados por el departamento de mantenimiento.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="kpi-badge">
+                                <strong><i class="fas fa-clock me-2 text-warning"></i> 2. Planificadas</strong><br>
+                                Trabajos que ya tienen un técnico asignado y una fecha programada de ejecución.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="kpi-badge">
+                                <strong><i class="fas fa-spinner fa-spin me-2 text-info"></i> 3. En Ejecución</strong><br>
+                                Tareas en las que el técnico está trabajando físicamente en este momento.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="kpi-badge">
+                                <strong><i class="fas fa-pause-circle me-2 text-secondary"></i> 4. Pausadas</strong><br>
+                                Trabajos detenidos temporalmente por falta de repuestos, espera de terceros o cambio de turno.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="kpi-badge">
+                                <strong><i class="fas fa-clipboard-check me-2 text-success"></i> 5. Pendiente de Evaluación</strong><br>
+                                <strong>¡Importante!</strong> El técnico ya terminó, pero el trabajo requiere su validación final.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="kpi-badge">
+                                <strong><i class="fas fa-check-double me-2 text-primary"></i> 6. Evaluadas</strong><br>
+                                Historial de trabajos cerrados y aprobados por usted y su jefe de área.
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="kpi-badge" style="border-left-color: #334155;">
+                                <strong><i class="fas fa-times-circle me-2 text-dark"></i> 7. Canceladas / No Ejecutadas</strong><br>
+                                Solicitudes que no procedieron o fueron anuladas por el administrador.
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="mt-4 fw-bold">Proceso Detallado de Evaluación</h5>
+                    <p>Para asegurar la calidad y el cumplimiento normativo, la evaluación sigue estos pasos obligatorios:</p>
+
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <strong>Validación del Planificador</strong>
+                            Antes de que el botón "Evaluar" esté disponible para usted, el Planificador debe validar la Orden de Trabajo. Si intenta evaluar antes, el sistema le avisará que está pendiente de validación.
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <strong>Criterios de Aceptación</strong>
+                            Al hacer clic en <strong>Evaluar</strong>, se desplegará una lista de criterios (ej: Limpieza del área, Equipo operativo, Entrega de herramientas). Marque los puntos que se cumplieron satisfactoriamente.
+                        </div>
+                    </div>
+
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <strong>Firma Electrónica (Obligatorio)</strong>
+                            Para finalizar, deberá ingresar su contraseña de acceso. Esta acción vincula legalmente su nombre al cierre de la solicitud (Norma 21 CFR Part 11). Sin esta firma, el trabajo no se considerará "Evaluado".
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i> <strong>Recuerde:</strong> Una evaluación honesta ayuda a mejorar los tiempos de respuesta y la calidad del mantenimiento en su área.
+                    </div>
                 </div>
             </div>
         </section>
@@ -382,7 +468,7 @@
                     <p>El sistema cumple con normativas internacionales para asegurar que cada acción sea rastreable y legalmente válida.</p>
 
                     <h5>Firma Electrónica</h5>
-                    <p>Para acciones importantes, el sistema le pedirá confirmar su contraseña de acceso.</p>
+                    <p>Para acciones importantes, como el <strong>cierre y evaluación de una solicitud</strong>, el sistema le pedirá confirmar su identidad mediante su contraseña de acceso personal.</p>
                     <img src="manual_images/firma_seguridad.png" alt="Seguridad y Firmas">
                     <p class="img-caption">Interfaz de seguridad para cumplimiento de 21 CFR Part 11.</p>
                 </div>
@@ -419,7 +505,7 @@
                                 <tr>
                                     <td><strong>Operario</strong></td>
                                     <td><span class="badge-role bg-operario">Usuario Planta</span></td>
-                                    <td>Reporte de fallas, solicitudes de insumos y evaluación de servicio.</td>
+                                    <td>Reporte de fallas, solicitudes de insumos, monitoreo de trabajos activos y evaluación de servicio.</td>
                                 </tr>
                             </tbody>
                         </table>
