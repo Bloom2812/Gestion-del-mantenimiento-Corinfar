@@ -3260,8 +3260,12 @@ function renderMachines() {
     const userRole = state.currentUser?.role;
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
-    const hasPermissionFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || ((userRole === 'Técnico' || (['Operario', 'Supervisor de Area'].includes(userRole))) && Array.isArray(equipoAsignado));
-    const allowedMachineIds = hasPermissionFilter ? new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado) : null;
+    const hasPermissionFilter = (userRole === 'Jefe de Area') || (['Técnico', 'Operario', 'Supervisor de Area'].includes(userRole));
+    let allowedMachineIds = null;
+    if (hasPermissionFilter) {
+        const ids = userRole === 'Jefe de Area' ? (managedMachineIds || []) : (equipoAsignado || []);
+        allowedMachineIds = new Set(Array.isArray(ids) ? ids : []);
+    }
 
     const filteredMachines = state.machines.filter(m => {
         if (m.status === 'DADO_DE_BAJA') return false;
@@ -6582,8 +6586,10 @@ function renderSolicitudes() {
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
 
-    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado)) || ((['Operario', 'Supervisor de Area'].includes(userRole)) && Array.isArray(equipoAsignado))) {
-        const relevantMachineIds = new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado);
+    const hasRestrictiveRole = (userRole === 'Jefe de Area') || (['Técnico', 'Operario', 'Supervisor de Area'].includes(userRole));
+    if (hasRestrictiveRole) {
+        const ids = userRole === 'Jefe de Area' ? (managedMachineIds || []) : (equipoAsignado || []);
+        const relevantMachineIds = new Set(Array.isArray(ids) ? ids : []);
         userSolicitudes = state.solicitudes.filter(s => relevantMachineIds.has(s.machineId));
     }
 
@@ -6742,11 +6748,11 @@ function showSolicitudModal(prefillData = null) {
     const user = state.currentUser;
 
     if (user) {
-        if (user.role === 'Jefe de Area' && Array.isArray(user.managedMachineIds)) {
-            const managedIds = new Set(user.managedMachineIds);
+        if (user.role === 'Jefe de Area') {
+            const managedIds = new Set(Array.isArray(user.managedMachineIds) ? user.managedMachineIds : []);
             machinesToDisplay = state.machines.filter(m => managedIds.has(m.id));
-        } else if ((user.role === 'Técnico' || user.role === 'Operario' || user.role === 'Supervisor de Area') && Array.isArray(user.equipoAsignado)) {
-            const assignedIds = new Set(user.equipoAsignado);
+        } else if (['Técnico', 'Operario', 'Supervisor de Area'].includes(user.role)) {
+            const assignedIds = new Set(Array.isArray(user.equipoAsignado) ? user.equipoAsignado : []);
             machinesToDisplay = state.machines.filter(m => assignedIds.has(m.id));
         }
     }
@@ -7137,6 +7143,22 @@ function showEvaluationModal(workOrderId) {
         return;
     }
 
+    // Restricción de equipo asignado para roles restringidos
+    const userRole = state.currentUser?.role;
+    if (['Operario', 'Supervisor de Area', 'Técnico'].includes(userRole)) {
+        const equipoAsignado = Array.isArray(state.currentUser?.equipoAsignado) ? state.currentUser.equipoAsignado : [];
+        if (!equipoAsignado.includes(workOrder.machineId)) {
+            showToast('No tiene permisos para evaluar este equipo ya que no está bajo su cargo.', 'error');
+            return;
+        }
+    } else if (userRole === 'Jefe de Area') {
+        const managedIds = Array.isArray(state.currentUser?.managedMachineIds) ? state.currentUser.managedMachineIds : [];
+        if (!managedIds.includes(workOrder.machineId)) {
+            showToast('No tiene permisos para evaluar este equipo ya que no pertenece a su área.', 'error');
+            return;
+        }
+    }
+
     // Bloquear evaluación si es de plan o de solicitud y no ha sido validada por el planificador
     const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(workOrder.type) || workOrder.linkedPlanId;
     const hasRequest = workOrder.solicitudId || workOrder.sourceSolicitudId;
@@ -7149,7 +7171,7 @@ function showEvaluationModal(workOrderId) {
     document.getElementById('evaluation-wo-id-hidden').value = workOrder.fb_id;
 
     // Determinar qué rol está evaluando el usuario actual
-    const userRole = state.currentUser?.role;
+    // const userRole = state.currentUser?.role; // Already declared above
     const existingEvaluations = state.technicianEvaluations.filter(ev => ev.workOrderFbId === workOrder.fb_id);
     const originalSolicitud = (workOrder.solicitudId || workOrder.sourceSolicitudId) ? state.solicitudes.find(s => s.id === (workOrder.solicitudId || workOrder.sourceSolicitudId) || s.fb_id === (workOrder.solicitudId || workOrder.sourceSolicitudId)) : null;
     const isRequester = originalSolicitud && originalSolicitud.requester === state.currentUser?.username;
@@ -8800,8 +8822,10 @@ function renderActiveWorkView() {
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
 
-    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado)) || ((['Operario', 'Supervisor de Area'].includes(userRole)) && Array.isArray(equipoAsignado))) {
-        const relevantMachineIds = new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado);
+    const hasRestrictiveRole = (userRole === 'Jefe de Area') || (['Técnico', 'Operario', 'Supervisor de Area'].includes(userRole));
+    if (hasRestrictiveRole) {
+        const ids = userRole === 'Jefe de Area' ? (managedMachineIds || []) : (equipoAsignado || []);
+        const relevantMachineIds = new Set(Array.isArray(ids) ? ids : []);
         workOrdersToDisplay = state.workOrders.filter(wo => relevantMachineIds.has(wo.machineId));
         solicitudesToDisplay = state.solicitudes.filter(s => relevantMachineIds.has(s.machineId));
     }
@@ -13683,8 +13707,12 @@ async function updateDashboardData(force = false) {
     const userRole = state.currentUser?.role;
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
-    const hasMachineFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || ((userRole === 'Técnico' || (['Operario', 'Supervisor de Area'].includes(userRole))) && Array.isArray(equipoAsignado));
-    const relevantMachineIds = hasMachineFilter ? new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado) : null;
+    const hasMachineFilter = (userRole === 'Jefe de Area') || (['Técnico', 'Operario', 'Supervisor de Area'].includes(userRole));
+    let relevantMachineIds = null;
+    if (hasMachineFilter) {
+        const ids = userRole === 'Jefe de Area' ? (managedMachineIds || []) : (equipoAsignado || []);
+        relevantMachineIds = new Set(Array.isArray(ids) ? ids : []);
+    }
 
     const startIso = startDate.toISOString().split('T')[0];
     const endIso = endDate.toISOString().split('T')[0];
@@ -14082,9 +14110,12 @@ function updateMachineCriticidadChart() {
     if (!state.charts.machineCriticidad) return;
 
     let machinesToCount = state.machines;
-    if (state.currentUser?.role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
-        const managedIds = new Set(state.currentUser.managedMachineIds);
-        machinesToCount = state.machines.filter(m => managedIds.has(m.id));
+    const userRole = state.currentUser?.role;
+    const hasRestrictiveRole = (userRole === 'Jefe de Area') || (['Técnico', 'Operario', 'Supervisor de Area'].includes(userRole));
+    if (hasRestrictiveRole) {
+        const ids = userRole === 'Jefe de Area' ? (state.currentUser.managedMachineIds || []) : (state.currentUser.equipoAsignado || []);
+        const relevantMachineIds = new Set(Array.isArray(ids) ? ids : []);
+        machinesToCount = state.machines.filter(m => relevantMachineIds.has(m.id));
     }
 
     const counts = { 'Baja': 0, 'Media': 0, 'Alta': 0 };
@@ -14756,9 +14787,12 @@ function populateWorkOrderMachineSelector(searchTerm = '') {
     let html = '<option value="">Seleccione una máquina...</option>';
 
     let machinesToPopulate = state.machines;
-    if (state.currentUser?.role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
-        const managedIds = new Set(state.currentUser.managedMachineIds);
-        machinesToPopulate = state.machines.filter(m => managedIds.has(m.id));
+    const userRole = state.currentUser?.role;
+    const hasRestrictiveRole = (userRole === 'Jefe de Area') || (['Técnico', 'Operario', 'Supervisor de Area'].includes(userRole));
+    if (hasRestrictiveRole) {
+        const ids = userRole === 'Jefe de Area' ? (state.currentUser.managedMachineIds || []) : (state.currentUser.equipoAsignado || []);
+        const relevantMachineIds = new Set(Array.isArray(ids) ? ids : []);
+        machinesToPopulate = state.machines.filter(m => relevantMachineIds.has(m.id));
     }
 
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
@@ -15261,11 +15295,11 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
                 const role = state.currentUser?.role;
 
                 if (role !== 'Admin' && role !== 'Planificador' && role !== 'Invitado') {
-                    if (role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
-                        const managedIds = new Set(state.currentUser.managedMachineIds);
+                    if (role === 'Jefe de Area') {
+                        const managedIds = new Set(Array.isArray(state.currentUser.managedMachineIds) ? state.currentUser.managedMachineIds : []);
                         machinesToPopulate = state.machines.filter(m => m.id && managedIds.has(m.id));
-                    } else if (role === 'Técnico' && (selector.id === 'report-machine-select' || selector.id === 'report-machine-parts-select')) {
-                        const assignedIds = new Set(state.currentUser.equipoAsignado || []);
+                    } else if (['Técnico', 'Operario', 'Supervisor de Area'].includes(role)) {
+                        const assignedIds = new Set(Array.isArray(state.currentUser.equipoAsignado) ? state.currentUser.equipoAsignado : []);
                         machinesToPopulate = state.machines.filter(m => m.id && assignedIds.has(m.id));
                     }
                 }
@@ -15340,6 +15374,7 @@ window.handleResumePlanExecution = handleResumePlanExecution;
 window.handleFinishPlanExecution = handleFinishPlanExecution;
 window.showTechnicianModal = showTechnicianModal;
 window.showSolicitudModal = showSolicitudModal;
+window.showEvaluationModal = showEvaluationModal;
 window.renderTechnicians = renderTechnicians;
 window.showManagePartsModal = showManagePartsModal;
 window.addTaskGroup = addTaskGroup;
