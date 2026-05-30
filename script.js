@@ -6230,7 +6230,7 @@ function showTechnicianModal(techId = null) {
             userInput.setAttribute('readonly', true);
             passInput.removeAttribute('required');
             passInput.placeholder = "Dejar en blanco para no cambiar";
-            if (tech.role === 'Técnico' || tech.role === 'Operario' || tech.role === 'Supervisor de Area') {
+            if (tech.role === 'Técnico' || tech.role === 'Operario' || tech.role === 'Supervisor de Area' || tech.role === 'Admin' || tech.role === 'Planificador') {
                 if (tech.role === 'Técnico' && tech.permissions) {
                     tech.permissions.forEach(perm => {
                         const cb = document.getElementById(`perm-${perm}`);
@@ -6389,7 +6389,7 @@ async function getTechnicianDataFromForm() {
     }
 
     const techId = document.getElementById('technician-id-hidden').value;
-    if (techId && !['Técnico', 'Operario', 'Admin', 'Planificador'].includes(role)) {
+    if (techId && !['Técnico', 'Operario', 'Supervisor de Area', 'Admin', 'Planificador'].includes(role)) {
         techData.equipoAsignado = deleteField();
     }
 
@@ -15345,6 +15345,7 @@ function populateDynamicSelectors(searchTerm = '', specificId = null) {
 }
 
 window.state = state;
+window.getTechnicianDataFromForm = getTechnicianDataFromForm;
 window.renderCalendar = renderCalendar;
 window.renderActiveWorkView = renderActiveWorkView;
 window.showWorkOrderModal = showWorkOrderModal;
