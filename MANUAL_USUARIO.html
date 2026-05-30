@@ -225,7 +225,7 @@
             <a href="#intro" class="active"><i class="fas fa-home"></i> Introducción</a>
             <a href="#acceso"><i class="fas fa-key"></i> Acceso al Sistema</a>
             <a href="#operario"><i class="fas fa-user-cog"></i> Guía del Operario</a>
-            <a href="#trabajo-activo-guia" class="ps-4 small"><i class="fas fa-tasks"></i> 3.4 Trabajo Activo</a>
+            <a href="#supervisor"><i class="fas fa-user-tie"></i> Guía del Supervisor</a>
             <a href="#seguridad"><i class="fas fa-shield-alt"></i> Seguridad y Firmas</a>
             <a href="#roles"><i class="fas fa-users"></i> Roles y Permisos</a>
             <a href="#ots"><i class="fas fa-clipboard-list"></i> Órdenes de Trabajo</a>
@@ -458,11 +458,101 @@
             </div>
         </section>
 
+        <!-- Guía del Supervisor -->
+        <section id="supervisor" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-user-tie me-3 text-primary"></i> 4. Guía para el Supervisor de Área</h2>
+                </div>
+                <div class="card-body">
+                    <p class="lead">El Supervisor de Área actúa como el enlace vital entre la producción y el departamento de mantenimiento, gestionando los equipos bajo su cargo y validando la calidad de los trabajos realizados.</p>
+
+                    <h3 id="supervisor-objetivo">4.1 Objetivo y Alcance</h3>
+                    <p>Como Supervisor, su responsabilidad principal es asegurar la disponibilidad de la maquinaria asignada a su área y supervisar que el mantenimiento se realice bajo los estándares de calidad de Corinfar.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i> <strong>Nota:</strong> Al igual que el operario, usted solo visualizará información de los <strong>equipos que tenga asignados</strong> en su perfil de usuario.
+                    </div>
+
+                    <h3 id="supervisor-tablero">4.2 Tablero de Control y Planificación</h3>
+                    <p>A diferencia del operario, el Supervisor debe utilizar proactivamente el módulo de <strong>Trabajo Activo</strong> y la pestaña <strong>Planificador</strong> para gestionar el tiempo de su área.</p>
+
+                    <h5>Uso Estratégico del Tablero:</h5>
+                    <ul>
+                        <li><strong>Anticipación de Paros:</strong> Observe la columna "Planificadas" para saber qué máquinas entrarán en mantenimiento próximamente y coordinar los turnos de producción.</li>
+                        <li><strong>Seguimiento en Tiempo Real:</strong> La columna "En Ejecución" le permite saber exactamente qué técnico está trabajando en qué equipo y cuánto tiempo lleva la tarea.</li>
+                        <li><strong>Identificación de Cuellos de Botella:</strong> Revise la columna "Pausadas" para entender por qué un equipo no ha sido entregado (ej: falta de repuestos o espera de terceros).</li>
+                        <li><strong>Control de Pendientes:</strong> Monitoree qué máquinas de su área aún faltan por recibir mantenimiento preventivo revisando el flujo de tarjetas en el tablero.</li>
+                    </ul>
+
+                    <h3 id="supervisor-solicitudes">4.3 Solicitudes de Insumos y Recepción</h3>
+                    <p>El Supervisor puede solicitar repuestos, herramientas o consumibles directamente desde el módulo de <strong>Solicitudes</strong>.</p>
+
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <strong>Creación:</strong> Realice la solicitud seleccionando el tipo "Insumos / Accesorios". No existen limitantes en cantidades, pero sea preciso en la descripción.
+                        </div>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <strong>Aprobación:</strong> Toda solicitud creada por un Supervisor o un Operario debe ser <strong>aprobada por el Jefe de Área</strong> antes de que el almacén proceda con la entrega.
+                        </div>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <strong>Recepción Obligatoria:</strong> Cuando el material llegue a sus manos, usted DEBE ingresar al sistema y marcar el ítem como <strong>"Recibido"</strong>.
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-circle me-2"></i> <strong>¡Importante!</strong> Al marcar como recibido en la aplicación, se generan automáticamente las <strong>dos firmas digitales</strong> requeridas en el formato oficial (Entrega Almacén y Recibe Supervisor/Técnico). Sin este paso, el proceso de auditoría quedará incompleto.
+                    </div>
+
+                    <h3 id="supervisor-evaluacion">4.4 El Sistema de Doble Evaluación</h3>
+                    <p>Para cumplir con la norma <strong>21 CFR Part 11</strong>, el sistema exige una jerarquía de firmas específica dependiendo del origen del trabajo. Usted es el evaluador final en ambos casos.</p>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card h-100 border-info">
+                                <div class="card-body">
+                                    <h5 class="fw-bold text-info"><i class="fas fa-calendar-alt me-2"></i> Trabajos de Plan (Preventivo)</h5>
+                                    <p class="small">Requieren la evaluación de:</p>
+                                    <ol class="small">
+                                        <li>Jefe de Área</li>
+                                        <li><strong>Supervisor de Área</strong> (Usted)</li>
+                                    </ol>
+                                    <p class="small text-muted"><em>* El operario es bypass en este flujo.</em></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body">
+                                    <h5 class="fw-bold text-primary"><i class="fas fa-tools me-2"></i> Trabajos de Solicitud (Correctivo)</h5>
+                                    <p class="small">Requieren la evaluación de:</p>
+                                    <ol class="small">
+                                        <li>Operario (Solicitante)</li>
+                                        <li><strong>Supervisor de Área</strong> (Usted)</li>
+                                    </ol>
+                                    <p class="small text-muted"><em>* Si usted no está disponible, el Jefe de Área actúa como su fallback.</em></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="mt-4">Proceso de Firma:</h5>
+                    <p>Al hacer clic en <strong>Evaluar</strong>, el sistema le solicitará su <strong>contraseña de acceso</strong>. Esta contraseña actúa como su firma electrónica legal. Asegúrese de revisar físicamente el equipo y el área antes de firmar.</p>
+                </div>
+            </div>
+        </section>
+
         <!-- Seguridad -->
         <section id="seguridad" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-shield-check me-3 text-primary"></i> 4. Seguridad (21 CFR Part 11)</h2>
+                    <h2><i class="fas fa-shield-check me-3 text-primary"></i> 5. Seguridad (21 CFR Part 11)</h2>
                 </div>
                 <div class="card-body">
                     <p>El sistema cumple con normativas internacionales para asegurar que cada acción sea rastreable y legalmente válida.</p>
@@ -479,7 +569,7 @@
         <section id="roles" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-user-tag me-3 text-primary"></i> 5. Roles y Permisos</h2>
+                    <h2><i class="fas fa-user-tag me-3 text-primary"></i> 6. Roles y Permisos</h2>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -503,6 +593,11 @@
                                     <td>Ejecución de OTs, registro de repuestos y tiempos.</td>
                                 </tr>
                                 <tr>
+                                    <td><strong>Supervisor de Área</strong></td>
+                                    <td><span class="badge-role bg-operario">Supervisor Planta</span></td>
+                                    <td>Gestión de equipos asignados, solicitudes de insumos con recepción digital y evaluación final de trabajos (Doble Firma).</td>
+                                </tr>
+                                <tr>
                                     <td><strong>Operario</strong></td>
                                     <td><span class="badge-role bg-operario">Usuario Planta</span></td>
                                     <td>Reporte de fallas, solicitudes de insumos, monitoreo de trabajos activos y evaluación de servicio.</td>
@@ -518,7 +613,7 @@
         <section id="ots" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-clipboard-list me-3 text-primary"></i> 6. Órdenes de Trabajo (OT)</h2>
+                    <h2><i class="fas fa-clipboard-list me-3 text-primary"></i> 7. Órdenes de Trabajo (OT)</h2>
                 </div>
                 <div class="card-body">
                     <p>Las OTs permiten registrar todo el trabajo realizado en un equipo.</p>
@@ -532,7 +627,7 @@
         <section id="kpis" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-chart-line me-3 text-primary"></i> 7. Dashboard y KPIs</h2>
+                    <h2><i class="fas fa-chart-line me-3 text-primary"></i> 8. Dashboard y KPIs</h2>
                 </div>
                 <div class="card-body">
                     <p>El Dashboard ofrece métricas en tiempo real como MTBF, MTTR y Disponibilidad.</p>
@@ -546,7 +641,7 @@
         <section id="odoo" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-sync me-3 text-primary"></i> 8. Integración con Odoo</h2>
+                    <h2><i class="fas fa-sync me-3 text-primary"></i> 9. Integración con Odoo</h2>
                 </div>
                 <div class="card-body">
                     <p>El CMMS sincroniza el inventario y los costos directamente con Odoo ERP.</p>
@@ -560,7 +655,7 @@
         <section id="mobile" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-mobile-alt me-3 text-primary"></i> 9. Diseño Móvil (Responsive)</h2>
+                    <h2><i class="fas fa-mobile-alt me-3 text-primary"></i> 10. Diseño Móvil (Responsive)</h2>
                 </div>
                 <div class="card-body">
                     <p>La aplicación está optimizada para su uso en tablets y celulares en planta.</p>
@@ -578,7 +673,7 @@
         <section id="consejos" class="mb-5">
             <div class="card bg-light border-0">
                 <div class="card-body">
-                    <h2><i class="fas fa-lightbulb me-3 text-warning"></i> 10. Consejos para Usuarios Nuevos</h2>
+                    <h2><i class="fas fa-lightbulb me-3 text-warning"></i> 11. Consejos para Usuarios Nuevos</h2>
                     <ul>
                         <li><strong>Búsqueda:</strong> Use los cuadros de búsqueda para encontrar máquinas o repuestos rápidamente.</li>
                         <li><strong>Cierre de Sesión:</strong> Siempre cierre su sesión por seguridad al terminar.</li>
@@ -591,7 +686,7 @@
         <section id="actualizacion-operario" class="mb-5">
             <div class="card border-primary" style="border-width: 2px;">
                 <div class="card-header bg-primary text-white">
-                    <h2 class="text-white"><i class="fas fa-star me-3"></i> 11. Guía Visual Detallada: Solicitudes</h2>
+                    <h2 class="text-white"><i class="fas fa-star me-3"></i> 12. Guía Visual Detallada: Solicitudes</h2>
                 </div>
                 <div class="card-body">
                     <div class="row align-items-center mb-5">
