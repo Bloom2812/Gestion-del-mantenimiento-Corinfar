@@ -6226,7 +6226,7 @@ function showTechnicianModal(techId = null) {
             userInput.setAttribute('readonly', true);
             passInput.removeAttribute('required');
             passInput.placeholder = "Dejar en blanco para no cambiar";
-            if (tech.role === 'Técnico' || tech.role === 'Operario' || role === 'Supervisor de Area') {
+            if (tech.role === 'Técnico' || tech.role === 'Operario' || tech.role === 'Supervisor de Area') {
                 if (tech.role === 'Técnico' && tech.permissions) {
                     tech.permissions.forEach(perm => {
                         const cb = document.getElementById(`perm-${perm}`);
@@ -6745,7 +6745,7 @@ function showSolicitudModal(prefillData = null) {
         if (user.role === 'Jefe de Area' && Array.isArray(user.managedMachineIds)) {
             const managedIds = new Set(user.managedMachineIds);
             machinesToDisplay = state.machines.filter(m => managedIds.has(m.id));
-        } else if ((user.role === 'Técnico' || user.role === 'Operario' || role === 'Supervisor de Area') && Array.isArray(user.equipoAsignado)) {
+        } else if ((user.role === 'Técnico' || user.role === 'Operario' || user.role === 'Supervisor de Area') && Array.isArray(user.equipoAsignado)) {
             const assignedIds = new Set(user.equipoAsignado);
             machinesToDisplay = state.machines.filter(m => assignedIds.has(m.id));
         }
@@ -7469,7 +7469,7 @@ function renderWorkPlans() {
     if (state.currentUser?.role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
         const managedIds = new Set(state.currentUser.managedMachineIds);
         plansToRender = state.workPlans.filter(p => managedIds.has(p.machineId));
-    } else if ((state.currentUser?.role === 'Técnico' || state.currentUser?.role === 'Operario' || role === 'Supervisor de Area') && Array.isArray(state.currentUser.equipoAsignado)) {
+    } else if ((state.currentUser?.role === 'Técnico' || state.currentUser?.role === 'Operario' || state.currentUser?.role === 'Supervisor de Area') && Array.isArray(state.currentUser.equipoAsignado)) {
         const assignedIds = new Set(state.currentUser.equipoAsignado);
         plansToRender = state.workPlans.filter(p => assignedIds.has(p.machineId));
     }
