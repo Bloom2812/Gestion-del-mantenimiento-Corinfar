@@ -2632,6 +2632,7 @@ function applyUserPermissions() {
             visibleTabs.push('solicitudes-repuestos');
             break;
         case 'Operario':
+        case 'Supervisor de Area':
             visibleTabs = ['solicitudes', 'trabajo-activo', 'planificador', 'solicitudes-repuestos'];
             break;
     }
@@ -3259,7 +3260,7 @@ function renderMachines() {
     const userRole = state.currentUser?.role;
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
-    const hasPermissionFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || ((userRole === 'Técnico' || userRole === 'Operario') && Array.isArray(equipoAsignado));
+    const hasPermissionFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || ((userRole === 'Técnico' || (['Operario', 'Supervisor de Area'].includes(userRole))) && Array.isArray(equipoAsignado));
     const allowedMachineIds = hasPermissionFilter ? new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado) : null;
 
     const filteredMachines = state.machines.filter(m => {
@@ -4779,7 +4780,7 @@ function renderParts() {
     const userRole = state.currentUser?.role;
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
-    const hasPermissionFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || ((userRole === 'Técnico' || userRole === 'Operario') && Array.isArray(equipoAsignado));
+    const hasPermissionFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || ((userRole === 'Técnico' || (['Operario', 'Supervisor de Area'].includes(userRole))) && Array.isArray(equipoAsignado));
     const allowedMachineIds = hasPermissionFilter ? new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado) : null;
 
     // Optimization: Build HTML as strings and update innerHTML once at the end
@@ -5783,7 +5784,7 @@ function renderProveedores() {
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
 
-    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || ((userRole === 'Técnico' || userRole === 'Operario') && Array.isArray(equipoAsignado))) {
+    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || ((userRole === 'Técnico' || (['Operario', 'Supervisor de Area'].includes(userRole))) && Array.isArray(equipoAsignado))) {
         const relevantMachineIds = new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado);
 
         // Find all parts associated with the managed machines
@@ -5931,15 +5932,21 @@ function updateTechnicianModalUIForRole(role) {
     jefePermissionsWrapper.classList.toggle('d-none', role !== 'Jefe de Area');
 
     // Visibilidad de asignación de máquinas por rol
-    const showTecnicoMaquinas = role === 'Técnico' || role === 'Operario' || role === 'Admin' || role === 'Planificador';
+    const showTecnicoMaquinas = role === 'Técnico' || role === 'Operario' || role === 'Supervisor de Area' || role === 'Admin' || role === 'Planificador';
     tecnicoMaquinasWrapper.classList.toggle('d-none', !showTecnicoMaquinas);
+
+    // Ocultar botón de seleccionar todas para Operario y Supervisor en la lista de técnico
+    const toggleTecnicoBtn = tecnicoMaquinasWrapper.querySelector('.toggle-all-machines');
+    if (toggleTecnicoBtn) {
+        toggleTecnicoBtn.classList.toggle('d-none', role === 'Operario' || role === 'Supervisor de Area');
+    }
 
     // Visibilidad específica para Jefe de Area
     jefeMaquinasWrapper.classList.toggle('d-none', role !== 'Jefe de Area');
 
 
     const generaGasto = document.getElementById('technician-genera-gasto').checked;
-    if (role === 'Operario' || !generaGasto) {
+    if (role === 'Operario' || role === 'Supervisor de Area' || !generaGasto) {
         salaryWrapper.classList.add('d-none');
         salaryInput.required = false;
     } else {
@@ -6219,7 +6226,7 @@ function showTechnicianModal(techId = null) {
             userInput.setAttribute('readonly', true);
             passInput.removeAttribute('required');
             passInput.placeholder = "Dejar en blanco para no cambiar";
-            if (tech.role === 'Técnico' || tech.role === 'Operario') {
+            if (tech.role === 'Técnico' || tech.role === 'Operario' || role === 'Supervisor de Area') {
                 if (tech.role === 'Técnico' && tech.permissions) {
                     tech.permissions.forEach(perm => {
                         const cb = document.getElementById(`perm-${perm}`);
@@ -6333,7 +6340,7 @@ async function getTechnicianDataFromForm() {
         username: document.getElementById('technician-username').value.trim(),
         isActive: isActive,
         generaGasto: generaGasto,
-        salario: (role === 'Operario' || !generaGasto) ? 0 : (parseFloat(document.getElementById('technician-salary').value) || 0),
+        salario: (role === 'Operario' || role === 'Supervisor de Area' || !generaGasto) ? 0 : (parseFloat(document.getElementById('technician-salary').value) || 0),
         role: role,
         telegramChatId: document.getElementById('technician-telegram-chat-id').value.trim(),
         permissions: [],
@@ -6361,7 +6368,7 @@ async function getTechnicianDataFromForm() {
         });
     } else if (role === 'Invitado') {
         techData.permissions = ['read-only'];
-    } else if (role === 'Operario') {
+    } else if (role === 'Operario' || role === 'Supervisor de Area') {
         techData.permissions = ['solicitudes', 'trabajo-activo', 'planificador'];
         techData.equipoAsignado = [];
         document.querySelectorAll('#tecnico-maquinas-list .tecnico-machine-check:checked').forEach(cb => {
@@ -6575,7 +6582,7 @@ function renderSolicitudes() {
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
 
-    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado)) || (userRole === 'Operario' && Array.isArray(equipoAsignado))) {
+    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado)) || ((['Operario', 'Supervisor de Area'].includes(userRole)) && Array.isArray(equipoAsignado))) {
         const relevantMachineIds = new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado);
         userSolicitudes = state.solicitudes.filter(s => relevantMachineIds.has(s.machineId));
     }
@@ -6738,7 +6745,7 @@ function showSolicitudModal(prefillData = null) {
         if (user.role === 'Jefe de Area' && Array.isArray(user.managedMachineIds)) {
             const managedIds = new Set(user.managedMachineIds);
             machinesToDisplay = state.machines.filter(m => managedIds.has(m.id));
-        } else if ((user.role === 'Técnico' || user.role === 'Operario') && Array.isArray(user.equipoAsignado)) {
+        } else if ((user.role === 'Técnico' || user.role === 'Operario' || role === 'Supervisor de Area') && Array.isArray(user.equipoAsignado)) {
             const assignedIds = new Set(user.equipoAsignado);
             machinesToDisplay = state.machines.filter(m => assignedIds.has(m.id));
         }
@@ -7148,23 +7155,30 @@ function showEvaluationModal(workOrderId) {
     const isRequester = originalSolicitud && originalSolicitud.requester === state.currentUser?.username;
     const hasOpEval = existingEvaluations.some(ev => ev.evaluatorRole === 'Operario');
     const hasJfEval = existingEvaluations.some(ev => ev.evaluatorRole === 'Jefe de Area');
+    const hasSvEval = existingEvaluations.some(ev => ev.evaluatorRole === 'Supervisor de Area');
 
     let evaluatingRole = '';
     if (userRole === 'Admin') {
-        if (!hasOpEval) evaluatingRole = 'Operario';
-        else if (!hasJfEval) evaluatingRole = 'Jefe de Area';
-        else evaluatingRole = 'Jefe de Area'; // Por defecto vista de Jefe
-    } else {
-        const isJefeCandidate = (userRole === 'Jefe de Area' || (userRole === 'Planificador' && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(workOrder.type)));
-        const isOperarioCandidate = (userRole === 'Operario' || isRequester);
-
-        if (isJefeCandidate && isOperarioCandidate) {
+        if (isPlanOrder) {
+            if (!hasJfEval) evaluatingRole = 'Jefe de Area';
+            else evaluatingRole = 'Supervisor de Area';
+        } else {
             if (!hasOpEval) evaluatingRole = 'Operario';
-            else evaluatingRole = 'Jefe de Area';
-        } else if (isJefeCandidate) {
-            evaluatingRole = 'Jefe de Area';
-        } else if (isOperarioCandidate) {
-            evaluatingRole = 'Operario';
+            else evaluatingRole = 'Supervisor de Area';
+        }
+    } else {
+        if (isPlanOrder) {
+            if (userRole === 'Jefe de Area' || (userRole === 'Planificador' && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(workOrder.type))) {
+                evaluatingRole = 'Jefe de Area';
+            } else if (userRole === 'Supervisor de Area') {
+                evaluatingRole = 'Supervisor de Area';
+            }
+        } else {
+            if (userRole === 'Supervisor de Area' || userRole === 'Jefe de Area') {
+                evaluatingRole = 'Supervisor de Area';
+            } else if ((['Operario', 'Supervisor de Area'].includes(userRole)) || isRequester) {
+                evaluatingRole = 'Operario';
+            }
         }
     }
 
@@ -7217,7 +7231,7 @@ function showEvaluationModal(workOrderId) {
         }
     } else {
         // Renderizar criterios activos para nueva evaluación
-        const activeCriteria = state.evaluationCriteria.filter(c => c.status === 'activo' && (c.role === evaluatingRole || (!c.role && evaluatingRole === 'Operario')));
+        const activeCriteria = state.evaluationCriteria.filter(c => c.status === 'activo' && (c.role === evaluatingRole || (!c.role && evaluatingRole === 'Operario' && evaluatingRole !== 'Supervisor de Area')));
 
         if (activeCriteria.length === 0) {
             criteriaContainer.innerHTML = `<p class="text-muted">No hay criterios de evaluación activos para el rol ${evaluatingRole}.</p>`;
@@ -7291,16 +7305,26 @@ async function handleEvaluationSubmit(e) {
         // Añadimos la actual ya que el snapshot puede tardar un poco
         allEvaluations.push(evaluationData);
 
+        const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(workOrder.type) || workOrder.linkedPlanId;
         const hasOperario = allEvaluations.some(ev => ev.evaluatorRole === 'Operario');
         const hasJefe = allEvaluations.some(ev => ev.evaluatorRole === 'Jefe de Area');
+        const hasSupervisor = allEvaluations.some(ev => ev.evaluatorRole === 'Supervisor de Area');
 
-        if (hasOperario && hasJefe) {
+        let isComplete = false;
+        if (isPlanOrder) {
+            isComplete = hasJefe && hasSupervisor;
+        } else {
+            isComplete = hasOperario && (hasSupervisor || hasJefe);
+        }
+
+        if (isComplete) {
+            const jefeEval = allEvaluations.find(ev => ev.evaluatorRole === 'Jefe de Area');
             // Solo si están ambas, pasamos a Completado y limpiamos flag de expiración (aunque ya lo esté por el nuevo flujo)
             await updateDoc(doc(state.collections.workOrders, workOrderFbId), {
                 status: 'Completado',
                 isExpired: false
             });
-            await completeLinkedPlanExecution(workOrderFbId, now, 'Completado');
+            await completeLinkedPlanExecution(workOrderFbId, now, 'Completado', jefeEval ? jefeEval.evaluatorId : null);
             showToast('Evaluación guardada. Orden de trabajo calificada por completo.', 'success');
         } else {
             showToast(`Evaluación de ${evaluatingRole} guardada. Pendiente de la otra evaluación para calificar por completo la OT.`, 'info');
@@ -7445,7 +7469,7 @@ function renderWorkPlans() {
     if (state.currentUser?.role === 'Jefe de Area' && Array.isArray(state.currentUser.managedMachineIds)) {
         const managedIds = new Set(state.currentUser.managedMachineIds);
         plansToRender = state.workPlans.filter(p => managedIds.has(p.machineId));
-    } else if ((state.currentUser?.role === 'Técnico' || state.currentUser?.role === 'Operario') && Array.isArray(state.currentUser.equipoAsignado)) {
+    } else if ((state.currentUser?.role === 'Técnico' || state.currentUser?.role === 'Operario' || role === 'Supervisor de Area') && Array.isArray(state.currentUser.equipoAsignado)) {
         const assignedIds = new Set(state.currentUser.equipoAsignado);
         plansToRender = state.workPlans.filter(p => assignedIds.has(p.machineId));
     }
@@ -8776,7 +8800,7 @@ function renderActiveWorkView() {
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
 
-    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado)) || (userRole === 'Operario' && Array.isArray(equipoAsignado))) {
+    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado)) || ((['Operario', 'Supervisor de Area'].includes(userRole)) && Array.isArray(equipoAsignado))) {
         const relevantMachineIds = new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado);
         workOrdersToDisplay = state.workOrders.filter(wo => relevantMachineIds.has(wo.machineId));
         solicitudesToDisplay = state.solicitudes.filter(s => relevantMachineIds.has(s.machineId));
@@ -9007,10 +9031,10 @@ function createWorkOrderCard(order, statusOverride = null) {
     let canEvaluate = false;
     const userRole = state.currentUser?.role;
     const isRequester = originalSolicitud && originalSolicitud.requester === state.currentUser?.username;
-    const isAssignedOperario = userRole === 'Operario' && Array.isArray(state.currentUser?.equipoAsignado) && state.currentUser.equipoAsignado.includes(order.machineId);
+    const isAssignedOperario = (['Operario', 'Supervisor de Area'].includes(userRole)) && Array.isArray(state.currentUser?.equipoAsignado) && state.currentUser.equipoAsignado.includes(order.machineId);
 
     const canEvalAsJefe = (userRole === 'Admin' || (userRole === 'Planificador' && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type)) || (userRole === 'Jefe de Area' && Array.isArray(state.currentUser?.managedMachineIds) && state.currentUser.managedMachineIds.includes(order.machineId)));
-    const canEvalAsOp = (userRole === 'Admin' || (userRole === 'Operario' && Array.isArray(state.currentUser?.equipoAsignado) && state.currentUser.equipoAsignado.includes(order.machineId)) || isRequester);
+    const canEvalAsOp = (userRole === 'Admin' || ((['Operario', 'Supervisor de Area'].includes(userRole)) && Array.isArray(state.currentUser?.equipoAsignado) && state.currentUser.equipoAsignado.includes(order.machineId)) || isRequester);
 
     if ((canEvalAsJefe && !hasJf) || (canEvalAsOp && !hasOp)) {
         canEvaluate = true;
@@ -9823,7 +9847,7 @@ function renderCalendar() {
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
 
-    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado)) || (userRole === 'Operario' && Array.isArray(equipoAsignado))) {
+    if ((userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || (userRole === 'Técnico' && Array.isArray(equipoAsignado)) || ((['Operario', 'Supervisor de Area'].includes(userRole)) && Array.isArray(equipoAsignado))) {
         const relevantMachineIds = new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado);
         workOrdersToDisplay = state.workOrders.filter(wo => relevantMachineIds.has(wo.machineId));
     }
@@ -12517,8 +12541,9 @@ async function generateSingleWorkOrderReport(explicitWoId = null) {
             const evals = state.technicianEvaluations.filter(ev => ev.workOrderFbId === order.fb_id);
             const opEval = evals.find(ev => ev.evaluatorRole === 'Operario');
             const jefeEval = evals.find(ev => ev.evaluatorRole === 'Jefe de Area');
+            const supervisorEval = evals.find(ev => ev.evaluatorRole === 'Supervisor de Area');
 
-                        const sigWidth = (contentWidth - 60) / 4;
+            const sigWidth = (contentWidth - 60) / 4;
             const sigH = 30;
             const sigW = sigWidth - 5;
 
@@ -12538,10 +12563,19 @@ async function generateSingleWorkOrderReport(explicitWoId = null) {
             doc.text(`Ejecutado por:`, margin + sigWidth / 2, finalY + 55, { align: 'center' });
             doc.text(`${order.leadTechnician || ''}`, margin + sigWidth / 2, finalY + 65, { align: 'center' });
 
-            // Signature 2: Recibido por
-            const sigLabel = 'Operario';
+            // Signature 2: Recibido por (Operario o Supervisor según tipo de OT)
+            let sigLabel = 'Operario';
+            const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) || order.linkedPlanId;
             const hasRequest = order.solicitudId || order.sourceSolicitudId;
-            let receiverName = hasRequest ? (order.requester || '') : (opEval ? opEval.evaluatorId : '');
+
+            let receiverName = '';
+            if (isPlanOrder) {
+                sigLabel = 'Supervisor';
+                receiverName = supervisorEval ? supervisorEval.evaluatorId : '';
+            } else {
+                receiverName = hasRequest ? (order.requester || '') : (opEval ? opEval.evaluatorId : '');
+            }
+
             if (receiverName === 'Sistema (Plan de Mantenimiento)') receiverName = '';
             const sigRec = getSignatureByUsername(receiverName);
             if (sigRec) {
@@ -12561,14 +12595,26 @@ async function generateSingleWorkOrderReport(explicitWoId = null) {
             doc.text(`Jefe de Mantenimiento:`, margin + 2 * (sigWidth + 20) + sigWidth / 2, finalY + 55, { align: 'center' });
             doc.text(`${validatorName}`, margin + 2 * (sigWidth + 20) + sigWidth / 2, finalY + 65, { align: 'center' });
 
-            // Signature 4: Jefe de área (Area Head evaluator, WITH name)
-            const jefeName = jefeEval ? jefeEval.evaluatorId : '';
+            // Signature 4: Jefe de área / Supervisor (Area Head evaluator, WITH name)
+            let jefeLabel = 'Jefe de área';
+            let jefeName = '';
+            if (isPlanOrder) {
+                jefeName = jefeEval ? jefeEval.evaluatorId : '';
+            } else {
+                if (supervisorEval) {
+                    jefeLabel = 'Supervisor';
+                    jefeName = supervisorEval.evaluatorId;
+                } else {
+                    jefeName = jefeEval ? jefeEval.evaluatorId : '';
+                }
+            }
+
             const sigJefe = getSignatureByUsername(jefeName);
             if (sigJefe) {
                 try { doc.addImage(sigJefe, 'PNG', margin + 3 * (sigWidth + 20) + 2.5, finalY + 10, sigW, sigH); } catch(err){}
             }
             doc.line(margin + 3 * (sigWidth + 20), finalY + 45, pageWidth - margin, finalY + 45);
-            doc.text(`Jefe de área:`, margin + 3 * (sigWidth + 20) + sigWidth / 2, finalY + 55, { align: 'center' });
+            doc.text(`${jefeLabel}:`, margin + 3 * (sigWidth + 20) + sigWidth / 2, finalY + 55, { align: 'center' });
             doc.text(`${jefeName}`, margin + 3 * (sigWidth + 20) + sigWidth / 2, finalY + 65, { align: 'center' });
             
             // --- Anexos Fotográficos ---
@@ -13637,7 +13683,7 @@ async function updateDashboardData(force = false) {
     const userRole = state.currentUser?.role;
     const managedMachineIds = state.currentUser?.managedMachineIds;
     const equipoAsignado = state.currentUser?.equipoAsignado;
-    const hasMachineFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || ((userRole === 'Técnico' || userRole === 'Operario') && Array.isArray(equipoAsignado));
+    const hasMachineFilter = (userRole === 'Jefe de Area' && Array.isArray(managedMachineIds)) || ((userRole === 'Técnico' || (['Operario', 'Supervisor de Area'].includes(userRole))) && Array.isArray(equipoAsignado));
     const relevantMachineIds = hasMachineFilter ? new Set(userRole === 'Jefe de Area' ? managedMachineIds : equipoAsignado) : null;
 
     const startIso = startDate.toISOString().split('T')[0];
