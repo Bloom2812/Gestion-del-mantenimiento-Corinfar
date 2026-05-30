@@ -1419,7 +1419,7 @@
         </div>
         <div class="card-body">
             <div class="row">
-                <div class="col-md-6 border-end">
+                <div class="col-md-4 border-end">
                     <h6 class="text-primary"><i class="fas fa-user-cog me-2"></i>Operario / Admin (50%)</h6>
                     <div class="table-responsive">
                         <table class="table table-hover table-sm">
@@ -1434,7 +1434,22 @@
                         </table>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4 border-end">
+                    <h6 class="text-success"><i class="fas fa-user-shield me-2"></i>Supervisor de Área (50%)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th>Vinculado a</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="criteria-list-supervisor"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-4">
                     <h6 class="text-info"><i class="fas fa-user-tie me-2"></i>Jefe de Área (50%)</h6>
                     <div class="table-responsive">
                         <table class="table table-hover table-sm">
@@ -2415,6 +2430,7 @@
 <select class="form-select" id="technician-role" required="">
 <option value="Admin">Admin</option>
 <option value="Jefe de Area">Jefe de Area</option>
+                        <option value="Supervisor de Area">Supervisor de Área</option>
 <option value="Planificador">Planificador</option>
 <option value="Almacén">Almacén</option>
 <option value="Técnico">Técnico</option>
@@ -3032,6 +3048,7 @@
                         <label for="criteria-role" class="form-label">Rol que evalúa</label>
                         <select id="criteria-role" class="form-select" required>
                             <option value="Operario">Operario / Admin</option>
+                            <option value="Supervisor de Area">Supervisor de Área</option>
                             <option value="Jefe de Area">Jefe de Área</option>
                         </select>
                     </div>
