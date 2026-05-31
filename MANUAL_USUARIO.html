@@ -225,6 +225,7 @@
             <a href="#intro" class="active"><i class="fas fa-home"></i> Introducción</a>
             <a href="#acceso"><i class="fas fa-key"></i> Acceso al Sistema</a>
             <a href="#operario"><i class="fas fa-user-cog"></i> Guía del Operario</a>
+            <a href="#tecnico"><i class="fas fa-tools"></i> Guía del Técnico</a>
             <a href="#supervisor"><i class="fas fa-user-tie"></i> Guía del Supervisor</a>
             <a href="#jefe-area"><i class="fas fa-user-shield"></i> Guía del Jefe de Área</a>
             <a href="#seguridad"><i class="fas fa-shield-alt"></i> Seguridad (21 CFR Part 11)</a>
@@ -459,22 +460,102 @@
             </div>
         </section>
 
+        <!-- Guía del Técnico -->
+        <section id="tecnico" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-tools me-3 text-primary"></i> 4. Guía para el Técnico</h2>
+                </div>
+                <div class="card-body">
+                    <p class="lead">Como Técnico, usted es el corazón operativo del sistema. Su labor no solo es reparar, sino registrar con exactitud cada acción para mantener la integridad de los activos y cumplir con las normativas de calidad.</p>
+
+                    <h3 id="tecnico-trabajo-activo">4.1 Gestión en Trabajo Activo (Kanban)</h3>
+                    <p>Su tablero principal es <strong>Trabajo Activo</strong>. Aquí gestionará sus tareas diarias de forma visual y rápida.</p>
+                    <img src="manual_images/tecnico_trabajo_activo.png" alt="Kanban Técnico">
+                    <p class="img-caption">Vista del flujo de trabajo para el técnico responsable.</p>
+
+                    <h3 id="tecnico-monitoreo">4.2 Monitoreo y Planificación</h3>
+                    <p>Antes de iniciar su jornada, el técnico dispone de dos herramientas clave para priorizar sus tareas:</p>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <img src="manual_images/tecnico_monitoreo.png" alt="Monitoreo Inteligente">
+                            <p class="img-caption"><strong>Monitoreo Inteligente:</strong> Consulte los signos vitales del activo (Presión, Temperatura, etc.) antes de intervenir.</p>
+                        </div>
+                        <div class="col-md-6">
+                            <img src="manual_images/tecnico_planificador.png" alt="Planificador Técnico">
+                            <p class="img-caption"><strong>Planificador:</strong> Visualice los mantenimientos preventivos programados para la semana en sus equipos.</p>
+                        </div>
+                    </div>
+
+                    <h3 id="tecnico-ejecucion-ot">4.3 Ejecución de una Orden de Trabajo (OT)</h3>
+                    <p>Las OTs pueden nacer de una falla (Correctivo) o ser generadas por un Planificador. Para iniciar el trabajo:</p>
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-content"><strong>Iniciar:</strong> Presione el botón <span class="badge bg-info text-dark"><i class="fas fa-play me-1"></i> Iniciar</span> en la OT. Esto activará el cronómetro de tiempo real.</div>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-content"><strong>Pausar:</strong> Si debe detenerse por falta de repuestos o cambio de turno, use <span class="badge bg-warning text-dark"><i class="fas fa-pause me-1"></i> Pausar</span>. El sistema le preguntará si el equipo queda Operativo o Parado.</div>
+                    </div>
+                    <img src="manual_images/tecnico_ot_detalles.png" alt="Detalle OT Técnico">
+                    <p class="img-caption">Gestión de tiempos y descripción técnica de la labor.</p>
+
+                    <h3 id="tecnico-repuestos">4.4 Gestión de Repuestos e Insumos</h3>
+                    <p>Dentro de la OT, usted debe registrar todo lo utilizado para descargar el inventario y calcular costos.</p>
+
+                    <h5>A. Repuestos Existentes (Inventario)</h5>
+                    <p>Busque el ítem en el selector <strong>"Repuestos Utilizados"</strong>, coloque la cantidad y presione el botón verde de "+" para agregarlo a la lista de consumo.</p>
+
+                    <h5>B. Solicitud de Repuestos Externos (No en Inventario)</h5>
+                    <p>Si necesita algo que no está en el sistema o es una compra especial, use la sección <strong>"Solicitar Repuestos Externos"</strong>.</p>
+                    <img src="manual_images/tecnico_ot_repuestos_externos.png" alt="Repuestos Externos">
+                    <p class="img-caption">Formulario para solicitar materiales que no están vinculados al inventario actual.</p>
+
+                    <h3 id="tecnico-planes">4.5 Ejecución de un Plan de Mantenimiento</h3>
+                    <p>Para mantenimientos preventivos maestros (ej: <strong>Sistema de Osmosis</strong>), el sistema guía al técnico a través de un checklist obligatorio.</p>
+
+                    <p><strong>Pasos para la ejecución del Plan:</strong></p>
+                    <ol>
+                        <li><strong>Vinculación:</strong> Al abrir una OT de tipo Preventivo, presione el botón <span class="badge bg-primary"><i class="fas fa-play me-1"></i> Iniciar Plan</span>.</li>
+                        <li><strong>Tareas Secuenciales:</strong> Realice las tareas en el orden indicado (ej: 1. Verificar presión de entrada, 2. Limpieza de membranas).</li>
+                        <li><strong>Registro de Mediciones:</strong> Si la tarea solicita un valor numérico, ingréselo con precisión para el historial de tendencia.</li>
+                        <li><strong>Pausas Técnicas:</strong> Si debe retirarse del equipo, use <strong>"Pausar"</strong>. El sistema guardará el progreso de las tareas ya marcadas.</li>
+                        <li><strong>Cierre:</strong> Al completar el 100% del checklist, presione <strong>"Finalizar Ejecución"</strong>. Esto generará el informe técnico de cumplimiento.</li>
+                    </ol>
+
+                    <img src="manual_images/tecnico_ejecucion_plan_osmosis.png" alt="Ejecución Plan Osmosis">
+                    <p class="img-caption">Interfaz de ejecución del Plan de Osmosis con tareas agrupadas por subsistema.</p>
+
+                    <h3 id="tecnico-evaluacion">4.6 Finalización y Evaluación de Estrellas</h3>
+                    <p>Al terminar, presione <strong>Completar</strong>. Para que su trabajo sea calificado con <strong>5 estrellas</strong>, asegúrese de cumplir con los criterios establecidos (Limpieza, Calidad, Operatividad).</p>
+                    <img src="manual_images/tecnico_evaluacion_estrellas.png" alt="Evaluación Técnico">
+                    <p class="img-caption">Visualización de la calificación final basada en el cumplimiento de criterios.</p>
+
+                    <h3 id="tecnico-telegram">4.7 Notificaciones de Telegram</h3>
+                    <p>Usted recibirá alertas automáticas en su celular cada vez que se le asigne una nueva tarea o haya un cambio urgente en una de sus órdenes.</p>
+                    <img src="manual_images/tecnico_telegram_notif.png" alt="Notificación Telegram" style="max-width: 350px;">
+                    <p class="img-caption">Ejemplo de alerta recibida en el bot de Telegram.</p>
+                </div>
+            </div>
+        </section>
+
         <!-- Guía del Supervisor -->
         <section id="supervisor" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-user-tie me-3 text-primary"></i> 4. Guía para el Supervisor de Área</h2>
+                    <h2><i class="fas fa-user-tie me-3 text-primary"></i> 5. Guía para el Supervisor de Área</h2>
                 </div>
                 <div class="card-body">
                     <p class="lead">El Supervisor de Área actúa como el enlace vital entre la producción y el departamento de mantenimiento, gestionando los equipos bajo su cargo y validando la calidad de los trabajos realizados.</p>
 
-                    <h3 id="supervisor-objetivo">4.1 Objetivo y Alcance</h3>
+                    <h3 id="supervisor-objetivo">5.1 Objetivo y Alcance</h3>
                     <p>Como Supervisor, su responsabilidad principal es asegurar la disponibilidad de la maquinaria asignada a su área y supervisar que el mantenimiento se realice bajo los estándares de calidad de Corinfar.</p>
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i> <strong>Nota:</strong> Usted solo visualizará información de los <strong>equipos que tenga asignados</strong> en su perfil. Si no ve un equipo, solicite al administrador su vinculación.
                     </div>
 
-                    <h3 id="supervisor-tablero">4.2 Tablero de Control y Planificación</h3>
+                    <h3 id="supervisor-tablero">5.2 Tablero de Control y Planificación</h3>
                     <p>El Supervisor debe utilizar proactivamente el módulo de <strong>Trabajo Activo</strong> (Kanban) y la pestaña <strong>Planificador</strong> para gestionar el tiempo de su área.</p>
 
                     <img src="manual_images/supervisor_kanban.png" alt="Tablero Kanban Supervisor">
@@ -499,7 +580,7 @@
                     <img src="manual_images/supervisor_planificador.png" alt="Planificador Supervisor">
                     <p class="img-caption">Seguimiento de planes preventivos por equipo en lenguaje de planta.</p>
 
-                    <h3 id="supervisor-solicitudes">4.3 Solicitudes de Insumos y Recepción</h3>
+                    <h3 id="supervisor-solicitudes">5.3 Solicitudes de Insumos y Recepción</h3>
                     <p>La trazabilidad de los materiales es crítica. El Supervisor es responsable de confirmar qué recibió físicamente.</p>
 
                     <div class="step-card">
@@ -525,7 +606,7 @@
                     <img src="manual_images/formato_pdf_lleno.png" alt="Formato PDF Lleno">
                     <p class="img-caption">Ejemplo de reporte PDF generado con firmas de los involucrados.</p>
 
-                    <h3 id="supervisor-evaluacion">4.4 El Sistema de Doble Evaluación y Estrellas</h3>
+                    <h3 id="supervisor-evaluacion">5.4 El Sistema de Doble Evaluación y Estrellas</h3>
                     <p>El sistema utiliza una métrica de 1 a 5 estrellas basada en el cumplimiento de criterios de calidad.</p>
 
                     <img src="manual_images/supervisor_evaluacion_modal.png" alt="Modal de Evaluación con Checklist">
@@ -573,18 +654,18 @@
         <section id="jefe-area" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-user-shield me-3 text-primary"></i> 5. Guía para el Jefe de Área</h2>
+                    <h2><i class="fas fa-user-shield me-3 text-primary"></i> 6. Guía para el Jefe de Área</h2>
                 </div>
                 <div class="card-body">
                     <p class="lead">El Jefe de Área es el máximo responsable de la operatividad y el cumplimiento de los estándares de mantenimiento en su sección, con autoridad para aprobar recursos y validar procesos críticos.</p>
 
-                    <h3 id="jefe-maquinas">5.1 Gestión de Equipos a Cargo</h3>
+                    <h3 id="jefe-maquinas">6.1 Gestión de Equipos a Cargo</h3>
                     <p>Al igual que el supervisor, el Jefe de Área tiene una visión filtrada de los activos. Usted es responsable de supervisar la disponibilidad global de las máquinas bajo su jurisdicción.</p>
                     <div class="alert alert-info">
                         <i class="fas fa-microchip me-2"></i> <strong>Nota:</strong> Su perfil permite visualizar métricas de rendimiento (KPIs) consolidadas para todas sus máquinas asignadas.
                     </div>
 
-                    <h3 id="jefe-aprobacion">5.2 Aprobación de Solicitudes de Repuestos/Insumos</h3>
+                    <h3 id="jefe-aprobacion">6.2 Aprobación de Solicitudes de Repuestos/Insumos</h3>
                     <p>Cualquier requerimiento de materiales realizado por un Operario o Supervisor debe ser validado por usted antes de pasar a Almacén.</p>
 
                     <div class="step-card">
@@ -603,7 +684,7 @@
                     <img src="manual_images/jefe_aprobacion_insumos.png" alt="Panel de Aprobación Jefe">
                     <p class="img-caption">Interfaz de gestión y aprobación de requerimientos de insumos.</p>
 
-                    <h3 id="jefe-evaluacion">5.3 Evaluación de MP y Doble Firma</h3>
+                    <h3 id="jefe-evaluacion">6.3 Evaluación de MP y Doble Firma</h3>
                     <p>Para los mantenimientos preventivos (<strong>MP</strong>), su evaluación es obligatoria para el cierre legal de la Orden de Trabajo.</p>
 
                     <div class="alert alert-warning">
@@ -613,7 +694,7 @@
                     <img src="manual_images/jefe_evaluacion_modal.png" alt="Evaluación MP Jefe">
                     <p class="img-caption">Modal de evaluación detallada para el Jefe de Área con criterios de calidad.</p>
 
-                    <h3 id="jefe-indicadores">5.4 Control de Planificación y KPIs</h3>
+                    <h3 id="jefe-indicadores">6.4 Control de Planificación y KPIs</h3>
                     <p>Utilice la pestaña <strong>Planificador</strong> para tener una vista de "ojo de águila" sobre los mantenimientos futuros y asegurar que la producción no se vea afectada por paradas no programadas.</p>
 
                     <img src="manual_images/jefe_planificador.png" alt="Planificador Vista Jefe">
@@ -630,7 +711,7 @@
         <section id="seguridad" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-shield-check me-3 text-primary"></i> 6. Seguridad (21 CFR Part 11)</h2>
+                    <h2><i class="fas fa-shield-check me-3 text-primary"></i> 7. Seguridad (21 CFR Part 11)</h2>
                 </div>
                 <div class="card-body">
                     <p>El sistema cumple con normativas internacionales para asegurar que cada acción sea rastreable y legalmente válida.</p>
@@ -647,7 +728,7 @@
         <section id="roles" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-user-tag me-3 text-primary"></i> 7. Roles y Permisos</h2>
+                    <h2><i class="fas fa-user-tag me-3 text-primary"></i> 8. Roles y Permisos</h2>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -696,7 +777,7 @@
         <section id="ots" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-clipboard-list me-3 text-primary"></i> 8. Órdenes de Trabajo (OT)</h2>
+                    <h2><i class="fas fa-clipboard-list me-3 text-primary"></i> 9. Órdenes de Trabajo (OT)</h2>
                 </div>
                 <div class="card-body">
                     <p>Las <strong>Órdenes de Trabajo (OT)</strong> son el documento digital donde se registra cada minuto invertido, cada repuesto utilizado y las observaciones del <strong>Técnico Líder</strong>.</p>
@@ -710,7 +791,7 @@
         <section id="kpis" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-chart-line me-3 text-primary"></i> 9. Dashboard y KPIs</h2>
+                    <h2><i class="fas fa-chart-line me-3 text-primary"></i> 10. Dashboard y KPIs</h2>
                 </div>
                 <div class="card-body">
                     <p>El Dashboard ofrece métricas en tiempo real como MTBF, MTTR y Disponibilidad.</p>
@@ -724,7 +805,7 @@
         <section id="odoo" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-sync me-3 text-primary"></i> 10. Integración con Odoo</h2>
+                    <h2><i class="fas fa-sync me-3 text-primary"></i> 11. Integración con Odoo</h2>
                 </div>
                 <div class="card-body">
                     <p>El CMMS sincroniza el inventario y los costos directamente con Odoo ERP.</p>
@@ -738,7 +819,7 @@
         <section id="mobile" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-mobile-alt me-3 text-primary"></i> 11. Diseño Móvil (Responsive)</h2>
+                    <h2><i class="fas fa-mobile-alt me-3 text-primary"></i> 12. Diseño Móvil (Responsive)</h2>
                 </div>
                 <div class="card-body">
                     <p>La aplicación está optimizada para su uso en tablets y celulares en planta.</p>
@@ -756,7 +837,7 @@
         <section id="consejos" class="mb-5">
             <div class="card bg-light border-0">
                 <div class="card-body">
-                    <h2><i class="fas fa-lightbulb me-3 text-warning"></i> 12. Consejos para Usuarios Nuevos</h2>
+                    <h2><i class="fas fa-lightbulb me-3 text-warning"></i> 13. Consejos para Usuarios Nuevos</h2>
                     <ul>
                         <li><strong>Búsqueda:</strong> Use los cuadros de búsqueda para encontrar máquinas o repuestos rápidamente.</li>
                         <li><strong>Cierre de Sesión:</strong> Siempre cierre su sesión por seguridad al terminar.</li>
@@ -769,7 +850,7 @@
         <section id="actualizacion-operario" class="mb-5">
             <div class="card border-primary" style="border-width: 2px;">
                 <div class="card-header bg-primary text-white">
-                    <h2 class="text-white"><i class="fas fa-star me-3"></i> 13. Guía Visual Detallada: Solicitudes</h2>
+                    <h2 class="text-white"><i class="fas fa-star me-3"></i> 14. Guía Visual Detallada: Solicitudes</h2>
                 </div>
                 <div class="card-body">
                     <div class="row align-items-center mb-5">
