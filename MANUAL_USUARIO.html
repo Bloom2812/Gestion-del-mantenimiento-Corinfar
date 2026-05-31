@@ -226,7 +226,8 @@
             <a href="#acceso"><i class="fas fa-key"></i> Acceso al Sistema</a>
             <a href="#operario"><i class="fas fa-user-cog"></i> Guía del Operario</a>
             <a href="#supervisor"><i class="fas fa-user-tie"></i> Guía del Supervisor</a>
-            <a href="#seguridad"><i class="fas fa-shield-alt"></i> Seguridad y Firmas</a>
+            <a href="#jefe-area"><i class="fas fa-user-shield"></i> Guía del Jefe de Área</a>
+            <a href="#seguridad"><i class="fas fa-shield-alt"></i> Seguridad (21 CFR Part 11)</a>
             <a href="#roles"><i class="fas fa-users"></i> Roles y Permisos</a>
             <a href="#ots"><i class="fas fa-clipboard-list"></i> Órdenes de Trabajo (OT)</a>
             <a href="#kpis"><i class="fas fa-chart-line"></i> Dashboard y KPIs</a>
@@ -568,11 +569,68 @@
             </div>
         </section>
 
+        <!-- Guía del Jefe de Área -->
+        <section id="jefe-area" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-user-shield me-3 text-primary"></i> 5. Guía para el Jefe de Área</h2>
+                </div>
+                <div class="card-body">
+                    <p class="lead">El Jefe de Área es el máximo responsable de la operatividad y el cumplimiento de los estándares de mantenimiento en su sección, con autoridad para aprobar recursos y validar procesos críticos.</p>
+
+                    <h3 id="jefe-maquinas">5.1 Gestión de Equipos a Cargo</h3>
+                    <p>Al igual que el supervisor, el Jefe de Área tiene una visión filtrada de los activos. Usted es responsable de supervisar la disponibilidad global de las máquinas bajo su jurisdicción.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-microchip me-2"></i> <strong>Nota:</strong> Su perfil permite visualizar métricas de rendimiento (KPIs) consolidadas para todas sus máquinas asignadas.
+                    </div>
+
+                    <h3 id="jefe-aprobacion">5.2 Aprobación de Solicitudes de Repuestos/Insumos</h3>
+                    <p>Cualquier requerimiento de materiales realizado por un Operario o Supervisor debe ser validado por usted antes de pasar a Almacén.</p>
+
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <strong>Revisión:</strong> Ingrese a la pestaña <strong>"Solicitudes de Repuestos"</strong>. Verá una lista de pedidos con estado "Pendiente de Aprobación".
+                        </div>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <strong>Acción:</strong> Revise las cantidades y el motivo. Puede <strong>Aprobar</strong> o <strong>Rechazar</strong> la solicitud directamente desde la tabla.
+                        </div>
+                    </div>
+
+                    <img src="manual_images/jefe_aprobacion_insumos.png" alt="Panel de Aprobación Jefe">
+                    <p class="img-caption">Interfaz de gestión y aprobación de requerimientos de insumos.</p>
+
+                    <h3 id="jefe-evaluacion">5.3 Evaluación de MP y Doble Firma</h3>
+                    <p>Para los mantenimientos preventivos (<strong>MP</strong>), su evaluación es obligatoria para el cierre legal de la Orden de Trabajo.</p>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-check-double me-2"></i> <strong>Doble Firma (MP):</strong> Los trabajos preventivos requieren la evaluación del <strong>Jefe de Área</strong> y del <strong>Supervisor</strong>.
+                    </div>
+
+                    <img src="manual_images/jefe_evaluacion_modal.png" alt="Evaluación MP Jefe">
+                    <p class="img-caption">Modal de evaluación detallada para el Jefe de Área con criterios de calidad.</p>
+
+                    <h3 id="jefe-indicadores">5.4 Control de Planificación y KPIs</h3>
+                    <p>Utilice la pestaña <strong>Planificador</strong> para tener una vista de "ojo de águila" sobre los mantenimientos futuros y asegurar que la producción no se vea afectada por paradas no programadas.</p>
+
+                    <img src="manual_images/jefe_planificador.png" alt="Planificador Vista Jefe">
+                    <p class="img-caption">Seguimiento de cumplimiento de planes de mantenimiento preventivo.</p>
+
+                    <div class="alert alert-danger mt-4">
+                        <i class="fas fa-fingerprint me-2"></i> <strong>Responsabilidad Normativa:</strong> Su firma electrónica en la evaluación de <strong>MP</strong> certifica que el equipo es apto para continuar la producción bajo normativas de calidad.
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Seguridad -->
         <section id="seguridad" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-shield-check me-3 text-primary"></i> 5. Seguridad (21 CFR Part 11)</h2>
+                    <h2><i class="fas fa-shield-check me-3 text-primary"></i> 6. Seguridad (21 CFR Part 11)</h2>
                 </div>
                 <div class="card-body">
                     <p>El sistema cumple con normativas internacionales para asegurar que cada acción sea rastreable y legalmente válida.</p>
@@ -589,7 +647,7 @@
         <section id="roles" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-user-tag me-3 text-primary"></i> 6. Roles y Permisos</h2>
+                    <h2><i class="fas fa-user-tag me-3 text-primary"></i> 7. Roles y Permisos</h2>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -606,6 +664,11 @@
                                     <td><strong>Admin</strong></td>
                                     <td><span class="badge-role bg-admin">Administrador</span></td>
                                     <td>Control total, gestión de usuarios y auditoría profunda.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Jefe de Área</strong></td>
+                                    <td><span class="badge-role bg-admin">Gestión Planta</span></td>
+                                    <td>Supervisión de activos, aprobación de solicitudes de insumos y evaluación obligatoria de mantenimientos preventivos (MP).</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Técnico</strong></td>
@@ -633,7 +696,7 @@
         <section id="ots" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-clipboard-list me-3 text-primary"></i> 7. Órdenes de Trabajo (OT)</h2>
+                    <h2><i class="fas fa-clipboard-list me-3 text-primary"></i> 8. Órdenes de Trabajo (OT)</h2>
                 </div>
                 <div class="card-body">
                     <p>Las <strong>Órdenes de Trabajo (OT)</strong> son el documento digital donde se registra cada minuto invertido, cada repuesto utilizado y las observaciones del <strong>Técnico Líder</strong>.</p>
@@ -647,7 +710,7 @@
         <section id="kpis" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-chart-line me-3 text-primary"></i> 8. Dashboard y KPIs</h2>
+                    <h2><i class="fas fa-chart-line me-3 text-primary"></i> 9. Dashboard y KPIs</h2>
                 </div>
                 <div class="card-body">
                     <p>El Dashboard ofrece métricas en tiempo real como MTBF, MTTR y Disponibilidad.</p>
@@ -661,7 +724,7 @@
         <section id="odoo" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-sync me-3 text-primary"></i> 9. Integración con Odoo</h2>
+                    <h2><i class="fas fa-sync me-3 text-primary"></i> 10. Integración con Odoo</h2>
                 </div>
                 <div class="card-body">
                     <p>El CMMS sincroniza el inventario y los costos directamente con Odoo ERP.</p>
@@ -675,7 +738,7 @@
         <section id="mobile" class="mb-5">
             <div class="card">
                 <div class="card-header">
-                    <h2><i class="fas fa-mobile-alt me-3 text-primary"></i> 10. Diseño Móvil (Responsive)</h2>
+                    <h2><i class="fas fa-mobile-alt me-3 text-primary"></i> 11. Diseño Móvil (Responsive)</h2>
                 </div>
                 <div class="card-body">
                     <p>La aplicación está optimizada para su uso en tablets y celulares en planta.</p>
@@ -693,7 +756,7 @@
         <section id="consejos" class="mb-5">
             <div class="card bg-light border-0">
                 <div class="card-body">
-                    <h2><i class="fas fa-lightbulb me-3 text-warning"></i> 11. Consejos para Usuarios Nuevos</h2>
+                    <h2><i class="fas fa-lightbulb me-3 text-warning"></i> 12. Consejos para Usuarios Nuevos</h2>
                     <ul>
                         <li><strong>Búsqueda:</strong> Use los cuadros de búsqueda para encontrar máquinas o repuestos rápidamente.</li>
                         <li><strong>Cierre de Sesión:</strong> Siempre cierre su sesión por seguridad al terminar.</li>
@@ -706,7 +769,7 @@
         <section id="actualizacion-operario" class="mb-5">
             <div class="card border-primary" style="border-width: 2px;">
                 <div class="card-header bg-primary text-white">
-                    <h2 class="text-white"><i class="fas fa-star me-3"></i> 12. Guía Visual Detallada: Solicitudes</h2>
+                    <h2 class="text-white"><i class="fas fa-star me-3"></i> 13. Guía Visual Detallada: Solicitudes</h2>
                 </div>
                 <div class="card-body">
                     <div class="row align-items-center mb-5">
