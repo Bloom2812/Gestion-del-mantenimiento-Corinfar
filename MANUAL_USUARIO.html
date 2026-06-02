@@ -268,6 +268,53 @@
                     <p>Bienvenido a la plataforma CMMS de Corinfar. Este sistema ha sido diseñado para centralizar la gestión de mantenimiento, garantizando la trazabilidad total de las operaciones y el cumplimiento de normativas de calidad (21 CFR Part 11).</p>
                     <img src="manual_images/dashboard_light.png" alt="Dashboard Principal">
                     <p class="img-caption">Vista principal del Dashboard con indicadores clave.</p>
+
+                    <div class="alert alert-info mt-4">
+                        <h5 class="alert-heading"><i class="fas fa-info-circle me-2"></i> Desglose de Indicadores del Dashboard</h5>
+                        <p class="mb-3">A continuación, se detalla el significado de cada tarjeta y número mostrado en la vista principal:</p>
+
+                        <ul class="list-unstyled">
+                            <li class="mb-3">
+                                <strong><i class="fas fa-arrow-right text-primary me-2"></i> Máquinas por Criticidad:</strong> Muestra el estado global de los equipos.
+                                <ul>
+                                    <li><strong>Número Central (123):</strong> Es el número total de máquinas registradas en el sistema.</li>
+                                    <li><strong><span style="color: #10b981;">■ Verde (Baja - 32):</span></strong> Indica que hay 32 equipos con una criticidad operativa baja.</li>
+                                    <li><strong><span style="color: #f59e0b;">■ Amarillo (Media - 44):</span></strong> Indica que hay 44 equipos con una criticidad operativa media.</li>
+                                    <li><strong><span style="color: #ef4444;">■ Rojo (Alta - 47):</span></strong> Indica que hay 47 equipos críticos para la operación de la planta.</li>
+                                </ul>
+                            </li>
+                            <li class="mb-3">
+                                <strong><i class="fas fa-arrow-right text-primary me-2"></i> Preventivos (Mes Actual - ej. Junio 2026):</strong>
+                                <ul>
+                                    <li><strong>Número (77):</strong> Representa la cantidad de Mantenimientos Preventivos (MP) programados y/o ejecutados durante el mes en curso.</li>
+                                </ul>
+                            </li>
+                            <li class="mb-3">
+                                <strong><i class="fas fa-arrow-right text-primary me-2"></i> Correctivos (Mes Actual - ej. Junio 2026):</strong>
+                                <ul>
+                                    <li><strong>Número (4):</strong> Representa la cantidad de Mantenimientos Correctivos (averías imprevistas) reportados y atendidos en el mes actual. Un número bajo aquí indica un buen plan preventivo.</li>
+                                </ul>
+                            </li>
+                            <li class="mb-3">
+                                <strong><i class="fas fa-arrow-right text-primary me-2"></i> Solicitudes Pendientes:</strong>
+                                <ul>
+                                    <li><strong>Número (3):</strong> Indica la cantidad de Solicitudes de Mantenimiento (SOL) creadas por operarios o supervisores que aún no han sido convertidas en Órdenes de Trabajo (OT) ni asignadas.</li>
+                                </ul>
+                            </li>
+                            <li class="mb-3">
+                                <strong><i class="fas fa-arrow-right text-primary me-2"></i> Gasto Planificado (Mes):</strong>
+                                <ul>
+                                    <li><strong>Monto (L 12,170.22):</strong> Refleja el presupuesto estimado (en Lempiras) que se espera gastar en repuestos e insumos durante el mes en curso, basado en los planes y solicitudes aprobadas.</li>
+                                </ul>
+                            </li>
+                            <li class="mb-3">
+                                <strong><i class="fas fa-arrow-right text-primary me-2"></i> Gasto Ejecutado (Mes):</strong>
+                                <ul>
+                                    <li><strong>Monto (L 0.00):</strong> Refleja el costo real acumulado de los materiales y repuestos ya utilizados y cerrados en las Órdenes de Trabajo durante el mes actual.</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </section>
