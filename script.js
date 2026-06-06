@@ -7548,18 +7548,27 @@ function renderWorkPlans() {
                 <p class="text-muted small mb-3"><i class="fas fa-location-dot me-1"></i>${machine.ubicacion || 'Sin ubicación'} | ${machine.area || 'Sin área'}</p>
                 <div class="wp-plan-mini-list">
                     ${plans.map(p => {
-                        let statusClass = 'wp-status-ontime';
+                        let statusItemClass = 'wp-plan-mini-item-ontime';
+                        let statusBadgeClass = 'wp-badge-ontime';
                         let statusText = 'A tiempo';
                         if (p.nextDueDate) {
                             const today = new Date();
                             const due = new Date(p.nextDueDate + 'T00:00:00');
-                            if (due < today) { statusClass = 'wp-status-delayed'; statusText = 'Atrasado'; }
-                            else if (due.getTime() - today.getTime() < 7 * 24 * 60 * 60 * 1000) { statusClass = 'wp-status-pending'; statusText = 'Próximo'; }
+                            if (due < today) {
+                                statusItemClass = 'wp-plan-mini-item-delayed';
+                                statusBadgeClass = 'wp-badge-delayed';
+                                statusText = 'Atrasado';
+                            }
+                            else if (due.getTime() - today.getTime() < 7 * 24 * 60 * 60 * 1000) {
+                                statusItemClass = 'wp-plan-mini-item-pending';
+                                statusBadgeClass = 'wp-badge-pending';
+                                statusText = 'Próximo';
+                            }
                         }
                         return `
-                            <div class="wp-plan-mini-item" onclick="renderWorkPlanDetails('${p.fb_id}')" style="cursor:pointer">
-                                <span class="small text-truncate me-2" title="${p.name}"><i class="fas fa-circle ${statusClass} me-2" style="font-size:8px"></i>${p.name}</span>
-                                <span class="badge bg-light text-dark border-0 small" style="font-size:0.65rem">${statusText}</span>
+                            <div class="wp-plan-mini-item ${statusItemClass}" onclick="renderWorkPlanDetails('${p.fb_id}')" style="cursor:pointer">
+                                <span class="wp-plan-mini-title text-truncate me-2" title="${p.name}">${p.name}</span>
+                                <span class="badge ${statusBadgeClass} border-0 small" style="font-size:0.65rem">${statusText}</span>
                             </div>
                         `;
                     }).join('')}
