@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ficha Maestra de Activo - En Blanco</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: '#1e3b8a' },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        body { background: white; font-family: 'Inter', sans-serif; -webkit-print-color-adjust: exact; margin: 0; padding: 0; }
+        .pdf-page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 10mm;
+            margin: 0 auto;
+            background: white;
+            position: relative;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        .table-header {
+            background-color: #f8fafc !important;
+            color: #64748b !important;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+        }
+
+        /* Utility for printing */
+        @media print {
+            body { background: white; }
+            .pdf-page { width: 100%; height: 100%; margin: 0; padding: 10mm; }
+        }
+    </style>
+</head>
+<body class="text-slate-800 bg-gray-100 flex justify-center py-8">
+    <main class="pdf-page shadow-lg">
+        <!-- Header -->
+        <header class="border-b-2 border-primary pb-3 mb-4 flex justify-between items-start">
+            <div class="flex gap-4 items-center">
+                <div class="border border-primary p-2 rounded-lg w-16 h-16 flex items-center justify-center bg-white">
+                    <span class="text-[10px] text-slate-400 font-bold text-center">LOGO EMPRESA</span>
+                </div>
+                <div>
+                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest">CORINFAR</h2>
+                    <h1 class="text-2xl font-extrabold text-primary">FICHA MAESTRA DE ACTIVO</h1>
+                    <p class="text-[10px] text-slate-400">Codigo del Documento: CMMS-FA-001 | Version 1.0</p>
+                </div>
+            </div>
+            <div class="text-right space-y-1">
+                <div class="flex items-center justify-end gap-2">
+                    <span class="text-xs font-medium text-slate-500">Codigo del Equipo:</span>
+                    <span class="text-lg font-bold text-slate-900 tracking-tight w-32 inline-block border-b border-slate-300"></span>
+                </div>
+                <div class="flex items-center justify-end gap-2 mt-2">
+                    <span class="text-xs font-medium text-slate-500">Criticidad:</span>
+                    <span class="w-16 h-4 inline-block border-b border-slate-300"></span>
+                </div>
+                <div class="text-[10px] text-slate-500 italic mt-2">
+                    Ubicación: <span class="w-32 inline-block border-b border-slate-300"></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Asset Summary & Image -->
+        <section class="grid grid-cols-12 gap-6 mb-4">
+            <div class="col-span-7">
+                <div class="bg-slate-50 border border-slate-100 p-4 rounded-lg">
+                    <h3 class="flex items-center gap-2 text-primary font-bold text-xs uppercase mb-3 pb-2 border-b border-slate-200">
+                        Información General
+                    </h3>
+                    <dl class="grid grid-cols-2 gap-y-3 gap-x-4 text-xs">
+                        <div>
+                            <dt class="text-slate-500 mb-1">Marca</dt>
+                            <dd class="border-b border-slate-300 h-4"></dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-500 mb-1">Estado Actual</dt>
+                            <dd class="border-b border-slate-300 h-4"></dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-500 mb-1">Modelo</dt>
+                            <dd class="border-b border-slate-300 h-4"></dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-500 mb-1">Num. de Serie</dt>
+                            <dd class="border-b border-slate-300 h-4"></dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-500 mb-1">Fecha de Compra</dt>
+                            <dd class="border-b border-slate-300 h-4"></dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-500 mb-1">Puesta en Marcha</dt>
+                            <dd class="border-b border-slate-300 h-4"></dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-500 mb-1">Impacto en Calidad</dt>
+                            <dd class="border-b border-slate-300 h-4"></dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-500 mb-1">Tipo</dt>
+                            <dd class="border-b border-slate-300 h-4"></dd>
+                        </div>
+                    </dl>
+                </div>
+                <div class="mt-4 flex gap-4 text-center">
+                    <div class="flex-1 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <div class="text-[9px] text-slate-500 uppercase font-bold">Total Mant.</div>
+                        <div class="text-lg font-bold text-slate-300 mt-1">0</div>
+                    </div>
+                    <div class="flex-1 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <div class="text-[9px] text-slate-500 uppercase font-bold">MTBF</div>
+                        <div class="text-lg font-bold text-slate-300 mt-1">0 h</div>
+                    </div>
+                    <div class="flex-1 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <div class="text-[9px] text-slate-500 uppercase font-bold">Disponibilidad</div>
+                        <div class="text-lg font-bold text-slate-300 mt-1">0%</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-span-5">
+                <div class="border-2 border-slate-200 border-dashed rounded-lg p-1 bg-slate-50 h-[180px] flex items-center justify-center overflow-hidden">
+                    <span class="text-slate-400 text-xs italic">Espacio para Fotografía del Activo</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Qualifications -->
+        <section class="mb-4">
+            <h3 class="flex items-center gap-2 text-primary font-bold text-xs uppercase mb-3">
+                Calificación del Equipo (IQ / OQ / PQ)
+            </h3>
+            <div class="overflow-hidden border border-slate-200 rounded-lg">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="table-header">
+                            <th class="px-4 py-2 border-b">Etapa</th>
+                            <th class="px-4 py-2 border-b">Estado</th>
+                            <th class="px-4 py-2 border-b">Fecha Aprobación</th>
+                            <th class="px-4 py-2 border-b">Vencimiento</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr>
+                            <td class="px-4 py-3 font-bold text-primary">IQ – Instalación</td>
+                            <td class="px-4 py-3"></td>
+                            <td class="px-4 py-3"></td>
+                            <td class="px-4 py-3 text-slate-400 italic">N/A</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3 font-bold text-primary">OQ – Operación</td>
+                            <td class="px-4 py-3"></td>
+                            <td class="px-4 py-3"></td>
+                            <td class="px-4 py-3 text-slate-400 italic">N/A</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3 font-bold text-primary">PQ – Desempeño</td>
+                            <td class="px-4 py-3"></td>
+                            <td class="px-4 py-3"></td>
+                            <td class="px-4 py-3"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Maintenance and Spares -->
+        <div class="grid grid-cols-2 gap-6 mb-4">
+            <section>
+                <h3 class="flex items-center gap-2 text-primary font-bold text-xs uppercase mb-3">
+                    Mantenimientos Programados
+                </h3>
+                <div class="border border-slate-200 rounded-lg overflow-hidden h-32">
+                    <table class="w-full text-left text-[10px]">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="px-3 py-1.5 border-b">ID</th>
+                                <th class="px-3 py-1.5 border-b">Fecha</th>
+                                <th class="px-3 py-1.5 border-b">Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr><td class="px-3 py-2"></td><td class="px-3 py-2"></td><td class="px-3 py-2"></td></tr>
+                            <tr><td class="px-3 py-2"></td><td class="px-3 py-2"></td><td class="px-3 py-2"></td></tr>
+                            <tr><td class="px-3 py-2"></td><td class="px-3 py-2"></td><td class="px-3 py-2"></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            <section>
+                <h3 class="flex items-center gap-2 text-primary font-bold text-xs uppercase mb-3">
+                    Repuestos Vinculados
+                </h3>
+                <div class="border border-slate-200 rounded-lg overflow-hidden h-32">
+                    <table class="w-full text-left text-[10px]">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="px-3 py-1.5 border-b">Repuesto</th>
+                                <th class="px-3 py-1.5 border-b">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr><td class="px-3 py-2"></td><td class="px-3 py-2"></td></tr>
+                            <tr><td class="px-3 py-2"></td><td class="px-3 py-2"></td></tr>
+                            <tr><td class="px-3 py-2"></td><td class="px-3 py-2"></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- Documentation -->
+        <section class="grid grid-cols-2 gap-6 bg-slate-50 p-3 rounded-lg border border-slate-100 mb-8">
+            <div>
+                <h4 class="text-xs font-bold text-slate-700 uppercase mb-2">Documentación</h4>
+                <ul class="text-[10px] space-y-2 text-slate-600">
+                    <li class="border-b border-slate-300 pb-1 h-4"></li>
+                    <li class="border-b border-slate-300 pb-1 h-4"></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="text-xs font-bold text-slate-700 uppercase mb-2">Biblioteca Digital</h4>
+                <p class="text-[9px] text-slate-500 mb-2 italic">Acceso restringido para personal autorizado.</p>
+                <div class="flex gap-4">
+                    <span class="text-[9px] px-2 py-1 bg-white border border-slate-200 rounded text-slate-400">Manual Usuario 🔒</span>
+                    <span class="text-[9px] px-2 py-1 bg-white border border-slate-200 rounded text-slate-400">Ficha Técnica 🔒</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="mt-auto border-t border-slate-200 pt-4 flex flex-col justify-between items-start gap-4">
+            <!-- Leyenda Normativa solicitada -->
+            <div class="w-full text-center bg-slate-50 py-1.5 border border-slate-200 rounded mb-2">
+                <p class="text-[9px] text-slate-600 font-semibold uppercase tracking-wide">
+                    Documento sujeto a normativas de Buenas Prácticas de Manufactura. Copia No Controlada si se imprime.
+                </p>
+            </div>
+
+            <div class="w-full flex justify-between items-end">
+                <div class="space-y-1">
+                    <p class="text-[9px] text-slate-400 font-medium">Formato de Ficha Maestra de Activo</p>
+                    <p class="text-[9px] text-slate-400">Generado de manera estándar para llenado</p>
+                    <div class="flex gap-4 mt-2">
+                        <div class="text-[10px] bg-slate-100 px-3 py-1 rounded font-bold text-slate-500">REF: CMMS-FA-001</div>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-16 h-16 bg-white p-1 border border-slate-200 rounded shadow-sm flex items-center justify-center">
+                        <span class="text-[8px] text-slate-300 text-center">Espacio<br>QR</span>
+                    </div>
+                    <span class="text-[8px] text-slate-400 font-bold tracking-widest uppercase">Validación QR</span>
+                </div>
+            </div>
+        </footer>
+    </main>
+</body>
+</html>
