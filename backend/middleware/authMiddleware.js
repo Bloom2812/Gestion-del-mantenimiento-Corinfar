@@ -1,6 +1,6 @@
 const { getFirebaseAdmin } = require('../services/firebaseAdminService');
 
-async function authMiddleware(req, res, next) {
+async function strictAuthMiddleware(req, res, next) {
     const authorization = req.get('authorization') || '';
     const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
     if (!token) return res.status(401).json({ error: 'Autenticación requerida.' });
@@ -26,8 +26,15 @@ async function authMiddleware(req, res, next) {
     }
 }
 
+function authMiddleware(req, res, next) {
+    if (process.env.ENFORCE_API_AUTH !== 'true') return next();
+    return strictAuthMiddleware(req, res, next);
+}
+
+authMiddleware.strict = strictAuthMiddleware;
+
 authMiddleware.requireRole = (...roles) => [
-    authMiddleware,
+    strictAuthMiddleware,
     (req, res, next) => roles.includes(req.userProfile.role)
         ? next()
         : res.status(403).json({ error: 'Permisos insuficientes.' })
