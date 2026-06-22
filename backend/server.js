@@ -6,6 +6,7 @@ const path = require('path');
 const logger = require('./utils/logger');
 const aiRoutes = require('./routes/aiRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,8 +21,21 @@ app.use((req, res, next) => {
 });
 
 // FORZAR CORS MANUALMENTE (SIN LIBRERÍA) - ANTES DE TODAS LAS RUTAS
+const allowedOrigins = new Set(
+    (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:4175,http://127.0.0.1:4175')
+        .split(',')
+        .map(origin => origin.trim())
+        .filter(Boolean)
+);
+
 app.use((req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.has(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Vary", "Origin");
+    } else if (origin) {
+        return res.status(403).json({ error: 'Origen no autorizado' });
+    }
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
@@ -42,6 +56,7 @@ app.get('/health', (req, res) => {
 // Rutas de la API
 app.use('/api/ai', aiRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/auth', authRoutes);
 
 // Servir archivos estáticos del frontend
 app.use(express.static(path.join(__dirname, '../')));
