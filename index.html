@@ -12,9 +12,9 @@
 
 <title>CORINFAR - Sistema de Mantenimiento</title>
 
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.json?v=8">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=8">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=8">
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet"/>
@@ -50,7 +50,7 @@
 </button>
 </div>
 <div class="mb-4 text-end">
-<a href="javascript:void(0)" id="forgot-password-link" class="small text-decoration-none">¿Olvidó su contraseña?</a>
+<a href="javascript:void(0)" id="forgot-password-link" class="small text-decoration-none">¿Olvidó su contraseña</a>
 </div>
 <button class="btn btn-login w-100 py-2" disabled="" type="submit">
 <span id="login-text">Ingresar</span>
@@ -107,7 +107,7 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <p class="small text-muted mb-4">Ingrese su nombre de usuario. El administrador será notificado para enviarle un link de recuperación.</p>
+                <p class="small text-muted mb-4">Ingrese su nombre de usuario. El administrador será notificado para asignarle una contraseña temporal segura.</p>
                 <div class="mb-0">
                     <label for="forgot-username" class="form-label small fw-bold text-muted text-uppercase mb-1">Usuario</label>
                     <input type="text" class="form-control border-0 bg-light" id="forgot-username" placeholder="Ej: jperales">
@@ -276,9 +276,9 @@
 <nav class="sidebar-nav">
 <a class="nav-tab active" data-tab="dashboard" href="#"><i class="fas fa-chart-pie"></i> Dashboard</a>
 <a class="nav-tab" data-tab="monitoreo-inteligente" href="#"><i class="fas fa-microchip"></i> Monitoreo Inteligente</a>
-<a class="nav-tab" data-tab="maquinaria" href="#"><i class="fas fa-cogs"></i> Maquinaria</a>
+<a class="nav-tab" data-tab="maquinaria" href="#"><i class="fas fa-cogs"></i> Activos / Equipos</a>
 <a class="nav-tab" data-tab="equipos-baja" href="#"><i class="fas fa-archive"></i> Equipos de Baja</a>
-<a class="nav-tab" data-tab="repuestos" href="#"><i class="fas fa-box-open"></i> Repuestos</a>
+<a class="nav-tab" data-tab="repuestos" href="#"><i class="fas fa-box-open"></i> Inventario</a>
 <a class="nav-tab" data-tab="proveedores" href="#"><i class="fas fa-truck"></i> Proveedores</a>
 <a class="nav-tab" data-tab="tecnicos" href="#"><i class="fas fa-users-cog"></i> Usuarios</a>
 <a class="nav-tab" data-tab="solicitudes" href="#"><i class="fas fa-bullhorn"></i> Solicitudes</a>
@@ -295,11 +295,14 @@
 <a class="nav-tab" data-tab="configuracion" href="#"><i class="fas fa-cog"></i> Configuración</a>
 </nav>
 <div class="user-profile">
-<img alt="User Avatar" id="user-avatar" src="https://ui-avatars.com/api/?name=User&amp;background=random"/>
+<img alt="User Avatar" id="user-avatar" src="https://ui-avatars.com/api/name=User&amp;background=random"/>
 <div class="user-info">
 <strong id="user-display">Usuario</strong><br/>
 <small id="user-role">Rol</small>
 </div>
+<button class="btn btn-sm btn-outline-light btn-action" id="change-password-btn" title="Cambiar mi contraseña">
+<i class="fas fa-key"></i>
+</button>
 <button class="btn btn-sm btn-outline-light btn-action" id="logout-btn" title="Cerrar sesión">
 <i class="fas fa-sign-out-alt"></i>
 </button>
@@ -490,29 +493,29 @@
 <div class="row text-center">
 <div class="col-lg col-md-4 col-6 mb-3 mb-lg-0">
 <h4 class="mb-1" id="kpi-mtbf">--</h4>
-<small class="text-muted" title="Tiempo Medio Entre Fallos">MTBF (días)</small>
+<small class="text-muted" title="MTBF = tiempo operativo programado / número de fallas correctivas">MTBF (días)</small>
 <div class="kpi-comparison" id="kpi-mtbf-comparison"></div>
 </div>
 <div class="col-lg col-md-4 col-6 mb-3 mb-lg-0">
 <h4 class="mb-1" id="kpi-mttr">--</h4>
-<small class="text-muted" title="Tiempo Medio de Reparación">MTTR (horas)</small>
+<small class="text-muted" title="MTTR = tiempo total de reparación / reparaciones correctivas completadas">MTTR (horas)</small>
 <div class="kpi-comparison" id="kpi-mttr-comparison"></div>
 </div>
 <div class="col-lg col-md-4 col-6 mb-3 mb-lg-0">
 <h4 class="mb-1" id="kpi-availability">--</h4>
-<small class="text-muted" title="Disponibilidad del equipo para el período seleccionado">
+<small class="text-muted" title="Disponibilidad = (tiempo programado - parada correctiva) / tiempo programado × 100">
                                             Disponibilidad
                                         </small>
 <div class="kpi-comparison" id="kpi-availability-comparison"></div>
 </div>
 <div class="col-lg col-md-6 col-6">
 <h4 class="mb-1" id="kpi-pmp">--</h4>
-<small class="text-muted" title="Porcentaje de Mantenimiento Preventivo (Período Sel.)">PMP (%)</small>
+<small class="text-muted" title="PMP = mantenimientos preventivos completados / preventivos programados × 100">PMP (%)</small>
 <div class="kpi-comparison" id="kpi-pmp-comparison"></div>
 </div>
 <div class="col-lg col-md-6 col-12">
 <h4 class="mb-1" id="kpi-cost">--</h4>
-<small class="text-muted" title="Coste Promedio por Orden de Trabajo Completada (Período Sel.)">Costo Prom./OT</small>
+<small class="text-muted" title="Costo promedio = costo total ejecutado / órdenes completadas">Costo Prom./OT</small>
 <div class="kpi-comparison" id="kpi-cost-comparison"></div>
 </div>
 </div>
@@ -547,14 +550,20 @@
 </div>
 </div>
 <div class="tab-content d-none" id="maquinaria">
-    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
-        <h2 class="mb-0 text-nowrap"><i class="fas fa-cogs me-2"></i>Distribución de Maquinaria</h2>
-        <div class="machine-summary-header d-flex gap-2 align-items-center flex-wrap justify-content-end">
-            <div class="input-group input-group-sm me-md-2" style="max-width: 250px; flex: 1 1 200px;">
+    <div class="machine-toolbar mb-3">
+        <div class="machine-summary-header compact d-flex gap-2 align-items-center flex-wrap justify-content-end">
+            <div class="input-group input-group-sm machine-search-control">
                 <span class="input-group-text"><i class="fas fa-search"></i></span>
                 <input class="form-control" id="search-machine-input" placeholder="Buscar..." type="text"/>
             </div>
-            <div class="d-flex gap-2 align-items-center">
+            <div class="btn-group btn-group-sm asset-category-filters flex-wrap" role="group" aria-label="Filtro por categoría de activo">
+                <button type="button" class="btn btn-outline-primary active" data-category="all">Todos</button>
+                <button type="button" class="btn btn-outline-primary" data-category="produccion"><i class="fas fa-industry me-1"></i>Producción</button>
+                <button type="button" class="btn btn-outline-primary" data-category="oficina"><i class="fas fa-building me-1"></i>Oficina</button>
+                <button type="button" class="btn btn-outline-primary" data-category="servicios"><i class="fas fa-bolt me-1"></i>Servicios</button>
+                <button type="button" class="btn btn-outline-primary" data-category="infraestructura"><i class="fas fa-warehouse me-1"></i>Infraestructura</button>
+            </div>
+            <div class="machine-maint-summary d-flex gap-2 align-items-center">
                 <div class="summary-pill maint-alta" title="Máquinas de Criticidad Alta en Mantenimiento">
                     <span class="label">Alta</span>
                     <span class="count" id="count-maint-alta">0</span>
@@ -568,12 +577,12 @@
                     <span class="count" id="count-maint-baja">0</span>
                 </div>
             </div>
-            <div class="d-flex gap-2 w-100 w-md-auto">
-                <button class="btn btn-outline-info flex-fill" id="sync-all-machines-odoo-btn" title="Sincronizar todas las máquinas con Odoo">
-                    <i class="fas fa-sync me-md-2"></i><span class="d-none d-xl-inline">Sincronizar todo con Odoo</span><span class="d-xl-none d-none d-md-inline">Sincronizar</span>
+            <div class="machine-action-buttons d-flex gap-2">
+                <button class="btn btn-sm btn-outline-info" id="sync-all-machines-odoo-btn" title="Sincronizar todas las máquinas con Odoo">
+                    <i class="fas fa-sync me-1"></i><span class="d-none d-md-inline">Sincronizar</span>
                 </button>
-                <button class="btn btn-primary flex-fill" id="add-machine-btn">
-                    <i class="fas fa-plus me-md-2"></i><span class="d-none d-md-inline">Añadir Máquina</span><span class="d-md-none">Añadir</span>
+                <button class="btn btn-sm btn-primary" id="add-machine-btn">
+                    <i class="fas fa-plus me-1"></i><span class="d-none d-md-inline">Añadir</span>
                 </button>
             </div>
         </div>
@@ -619,7 +628,7 @@
 <div class="tab-content d-none inventory-zone" id="repuestos">
     <div class="inventory-header-container mb-4">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-            <h2 class="mb-0"><i class="fas fa-tools me-2"></i>Gestión de Repuestos</h2>
+            <h2 class="mb-0"><i class="fas fa-tools me-2"></i>Inventario / Repuestos y Accesorios</h2>
 
             <div class="inventory-actions-compact d-flex gap-2 align-items-center">
                 <div class="input-group input-group-sm flex-grow-1" style="max-width: 300px;">
@@ -662,6 +671,13 @@
         </div>
 
         <div class="inventory-summary d-flex gap-2 align-items-center mt-3 flex-wrap">
+            <div class="btn-group btn-group-sm part-classification-filters flex-wrap me-2" role="group" aria-label="Filtro por clasificación de inventario">
+                <button type="button" class="btn btn-outline-secondary active" data-classification="all">Todos</button>
+                <button type="button" class="btn btn-outline-secondary" data-classification="repuesto">Repuestos</button>
+                <button type="button" class="btn btn-outline-secondary" data-classification="accesorio">Accesorios</button>
+                <button type="button" class="btn btn-outline-secondary" data-classification="insumo">Insumos</button>
+                <button type="button" class="btn btn-outline-secondary" data-classification="consumible">Consumibles</button>
+            </div>
             <div class="summary-pill critical" title="Sin Existencia">
                 <span class="label d-none d-sm-inline">Crítico</span>
                 <span class="count" id="count-critical">0</span>
@@ -951,9 +967,21 @@
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
                     <span>Trazabilidad de Consumo y Movimientos Recientes</span>
-                    <div class="input-group input-group-sm" style="width: 250px;">
-                        <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
-                        <input type="text" class="form-control" id="inv-trace-search" placeholder="Filtrar trazabilidad...">
+                    <div class="d-flex flex-wrap gap-2 justify-content-end">
+                        <select class="form-select form-select-sm" id="inv-trace-type-filter" style="width: 150px;">
+                            <option value="all">Todos</option>
+                            <option value="ENTRADA">Entradas</option>
+                            <option value="SALIDA">Salidas</option>
+                            <option value="AJUSTE">Ajustes</option>
+                            <option value="DEVOLUCION">Devoluciones</option>
+                        </select>
+                        <div class="input-group input-group-sm" style="width: 250px;">
+                            <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="inv-trace-search" placeholder="Filtrar trazabilidad...">
+                        </div>
+                        <button class="btn btn-sm btn-outline-success" id="export-inventory-trace-btn" title="Exportar Kardex a CSV">
+                            <i class="fas fa-file-csv me-1"></i>CSV
+                        </button>
                     </div>
                 </div>
                 <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -963,6 +991,8 @@
                                 <th>Fecha/Hora</th>
                                 <th>Repuesto</th>
                                 <th>Cant.</th>
+                                <th>Saldo</th>
+                                <th>Valor</th>
                                 <th>Tipo</th>
                                 <th>OT / Referencia</th>
                                 <th>Entrega</th>
@@ -1469,35 +1499,117 @@
     </div>
 </div>
 <div class="tab-content d-none" id="planes-trabajo">
-    <!-- Rediseño Planes de Mantenimiento - Bento Style -->
-    <div class="wp-header-section d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <div>
-            <h1 class="display-5 fw-bold mb-1">Planes de Mantenimiento</h1>
-            <p class="lead mb-0 opacity-75">Gestión de cronogramas y frecuencia por activo industrial.</p>
+    <div class="wp-page-shell">
+        <div class="wp-topbar">
+            <div class="wp-title-block">
+                <h1>Planes de Mantenimiento</h1>
+                <p>Gestiona cronogramas, frecuencia y cumplimiento por activo.</p>
+            </div>
+            <button class="btn btn-primary wp-new-plan-btn" id="add-work-plan-btn">
+                <i class="fas fa-plus"></i>
+                <span>Nuevo Plan</span>
+            </button>
         </div>
-        <button class="btn btn-light btn-lg shadow-sm fw-bold px-4" id="add-work-plan-btn">
-            <i class="fas fa-plus me-2 text-primary"></i>Nuevo Plan
-        </button>
-    </div>
 
-    <div class="wp-filter-bar d-flex flex-wrap align-items-center gap-3">
-        <div class="flex-grow-1">
-            <div class="input-group input-group-lg border-0 shadow-none bg-light rounded-pill overflow-hidden">
-                <span class="input-group-text bg-transparent border-0 ps-4 text-muted"><i class="fas fa-search"></i></span>
-                <input type="text" class="form-control bg-transparent border-0 py-3" id="work-plan-search-input" placeholder="Buscar máquina o plan...">
+        <div class="wp-kpi-grid">
+            <div class="wp-kpi-card wp-kpi-total">
+                <div class="wp-kpi-icon"><i class="fas fa-calendar-days"></i></div>
+                <div class="wp-kpi-content">
+                    <strong id="wp-stat-total">0</strong>
+                    <span>Total de activos</span>
+                    <small>Con planes registrados</small>
+                </div>
+                <div class="wp-kpi-track"><span id="wp-stat-total-bar"></span></div>
+            </div>
+            <div class="wp-kpi-card wp-kpi-ok">
+                <div class="wp-kpi-icon"><i class="fas fa-circle-check"></i></div>
+                <div class="wp-kpi-content">
+                    <strong id="wp-stat-ontime">0</strong>
+                    <span>Planes al día</span>
+                    <small id="wp-stat-ontime-pct">0% del total</small>
+                </div>
+                <div class="wp-kpi-track"><span id="wp-stat-ontime-bar"></span></div>
+            </div>
+            <div class="wp-kpi-card wp-kpi-soon">
+                <div class="wp-kpi-icon"><i class="fas fa-clock"></i></div>
+                <div class="wp-kpi-content">
+                    <strong id="wp-stat-soon">0</strong>
+                    <span>Próximos a vencer</span>
+                    <small id="wp-stat-soon-pct">0% del total</small>
+                </div>
+                <div class="wp-kpi-track"><span id="wp-stat-soon-bar"></span></div>
+            </div>
+            <div class="wp-kpi-card wp-kpi-late">
+                <div class="wp-kpi-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                <div class="wp-kpi-content">
+                    <strong id="wp-stat-late">0</strong>
+                    <span>Vencidos</span>
+                    <small id="wp-stat-late-pct">0% del total</small>
+                </div>
+                <div class="wp-kpi-track"><span id="wp-stat-late-bar"></span></div>
             </div>
         </div>
-        <div class="d-flex gap-2">
-            <select class="form-select border-0 bg-light rounded-pill px-4 py-2" id="wp-filter-area" onchange="renderWorkPlans()">
-                <option value="">Todas las áreas</option>
-                <!-- Áreas dinámicas -->
-            </select>
-            <select class="form-select border-0 bg-light rounded-pill px-4 py-2" id="wp-filter-criticality" onchange="renderWorkPlans()">
-                <option value="">Toda Criticidad</option>
-                <option value="Alta">Crítico</option>
-                <option value="Media">Media</option>
-                <option value="Baja">Baja</option>
-            </select>
+
+        <div class="wp-filter-bar">
+            <div class="wp-search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="work-plan-search-input" placeholder="Buscar equipo, código o plan...">
+            </div>
+            <label class="wp-filter-field">
+                <span>Ubicación</span>
+                <select id="wp-filter-location"><option value="">Todas</option></select>
+            </label>
+            <label class="wp-filter-field">
+                <span>Área</span>
+                <select id="wp-filter-area"><option value="">Todas</option></select>
+            </label>
+            <label class="wp-filter-field">
+                <span>Criticidad</span>
+                <select id="wp-filter-criticality">
+                    <option value="">Todas</option>
+                    <option value="Alta">Alta</option>
+                    <option value="Media">Media</option>
+                    <option value="Baja">Baja</option>
+                </select>
+            </label>
+            <label class="wp-filter-field">
+                <span>Estado</span>
+                <select id="wp-filter-status">
+                    <option value="">Todos</option>
+                    <option value="ontime">Al día</option>
+                    <option value="soon">Próximo a vencer</option>
+                    <option value="late">Vencido</option>
+                </select>
+            </label>
+            <label class="wp-filter-field">
+                <span>Frecuencia</span>
+                <select id="wp-filter-frequency">
+                    <option value="">Todas</option>
+                    <option value="h">Horas</option>
+                    <option value="d">Días</option>
+                    <option value="w">Semanas</option>
+                    <option value="m">Meses</option>
+                    <option value="y">Años</option>
+                </select>
+            </label>
+            <button class="btn btn-outline-secondary wp-clear-btn" id="wp-clear-filters-btn" type="button">
+                <i class="fas fa-filter-circle-xmark"></i>
+                <span>Limpiar filtros</span>
+            </button>
+        </div>
+
+        <div class="wp-list-toolbar">
+            <div class="wp-category-tabs" id="wp-category-tabs">
+                <button class="active" type="button" data-category="all">Todos</button>
+                <button type="button" data-category="produccion"><i class="fas fa-industry"></i>Producción</button>
+                <button type="button" data-category="oficina"><i class="fas fa-building"></i>Oficina</button>
+                <button type="button" data-category="servicios"><i class="fas fa-bolt"></i>Servicios</button>
+                <button type="button" data-category="infraestructura"><i class="fas fa-warehouse"></i>Infraestructura</button>
+            </div>
+            <div class="wp-view-toggle" aria-label="Cambiar vista de planes">
+                <button class="active" type="button" id="wp-grid-view-btn" title="Vista de tarjetas"><i class="fas fa-grip"></i></button>
+                <button type="button" id="wp-list-view-btn" title="Vista de lista"><i class="fas fa-list"></i></button>
+            </div>
         </div>
     </div>
 
@@ -1508,15 +1620,14 @@
             <div class="wp-bento-grid" id="work-plans-bento-grid">
                 <!-- Bento Cards injected here -->
             </div>
+            <div class="wp-pagination-footer">
+                <span id="wp-pagination-info">Mostrando 0 activos</span>
+                <div class="wp-pagination-controls" id="wp-pagination-controls"></div>
+            </div>
         </div>
 
         <!-- Detail View (Hidden by default) -->
         <div id="work-plan-detail-view" class="d-none">
-            <div class="mb-4">
-                <button class="btn btn-link text-decoration-none p-0 text-primary fw-bold" onclick="showWorkPlansGrid()">
-                    <i class="fas fa-arrow-left me-2"></i>Volver al listado
-                </button>
-            </div>
             <div id="work-plan-details-content">
                 <!-- Detailed plan content injected here -->
             </div>
@@ -1776,6 +1887,51 @@
     </div>
 </div>
 
+<!-- Self-service Password Change Modal -->
+<div class="modal fade" id="change-password-modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-primary">
+            <form id="change-password-form">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-key me-2"></i>Cambiar mi contraseña</h5>
+                    <button type="button" class="btn-close change-password-cancel" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="change-password-required-message" class="alert alert-warning d-none">
+                        Esta contraseña fue asignada temporalmente. Debe crear una contraseña personal antes de continuar.
+                    </div>
+                    <p class="small text-muted">
+                        Solo usted debe conocer su contraseña. No la comparta con administradores ni compañeros.
+                    </p>
+                    <input type="text" id="change-password-username" autocomplete="username" class="d-none">
+                    <div class="mb-3">
+                        <label for="current-password-change" class="form-label">Contraseña actual</label>
+                        <input type="password" id="current-password-change" class="form-control" required autocomplete="current-password">
+                    </div>
+                    <div class="mb-3">
+                        <label for="new-password-change" class="form-label">Nueva contraseña</label>
+                        <input type="password" id="new-password-change" class="form-control" required autocomplete="new-password" minlength="12">
+                        <div class="form-text">
+                            Mínimo 12 caracteres, con mayúscula, minúscula, número y símbolo.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm-new-password-change" class="form-label">Confirmar nueva contraseña</label>
+                        <input type="password" id="confirm-new-password-change" class="form-control" required autocomplete="new-password" minlength="12">
+                    </div>
+                    <div id="change-password-error" class="alert alert-danger d-none mb-0"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary change-password-cancel" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="change-password-submit">
+                        Guardar nueva contraseña
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Password Confirmation Modal (21 CFR Part 11) -->
 <div class="modal fade" id="passwordConfirmModal" tabindex="-1">
     <div class="modal-dialog modal-sm modal-dialog-centered">
@@ -1846,7 +2002,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="machine-modal-title">Añadir Máquina</h5>
+                <h5 class="modal-title" id="machine-modal-title">Añadir Activo</h5>
                 <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
             </div>
             <div class="modal-body">
@@ -1870,7 +2026,7 @@
                         <div class="tab-pane fade show active" id="basic-panel" role="tabpanel">
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label" for="machine-id">ID Máquina</label>
+                                    <label class="form-label" for="machine-id">ID Activo</label>
                                     <input class="form-control" id="machine-id" required="" type="text"/>
                                 </div>
                                 <div class="col-md-6 mb-3">
@@ -1880,28 +2036,56 @@
                             </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label" for="machine-type">Tipo</label>
+                                    <label class="form-label" for="machine-type">Tipo de Activo</label>
                                     <select class="form-select" id="machine-type">
                                         <option value="maquina">Máquina</option>
-                                        <option value="instalacion">Instalación (Edificio)</option>
+                                        <option value="equipo_oficina">Equipo de Oficina</option>
+                                        <option value="instrumento">Instrumento</option>
+                                        <option value="herramienta">Herramienta</option>
+                                        <option value="sistema">Sistema</option>
+                                        <option value="instalacion">Instalación / Edificio</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label" for="machine-location">Ubicación / Área</label>
-                                    <input class="form-control" id="machine-location" required="" type="text"/>
+                                    <label class="form-label" for="machine-location">Ubicación</label>
+                                    <input class="form-control" id="machine-location" required="" type="text" placeholder="Ej: Producción de Líquidos"/>
                                 </div>
                             </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-area">Área</label>
+                                    <input class="form-control" id="machine-area" type="text" placeholder="Ej: Etiquetado"/>
+                                </div>
+                                <div class="col-md-6 mb-3">
                                     <label class="form-label" for="machine-centro-costo">Centro de Costo</label>
                                     <input class="form-control" id="machine-centro-costo" type="text"/>
                                 </div>
+                            </div>
+                            <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label" for="machine-costo-paro">Costo por Hora de Paro (Lps)</label>
                                     <input class="form-control" id="machine-costo-paro" type="number" step="0.01" value="0"/>
                                 </div>
                             </div>
                             <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label" for="machine-parent-asset">Activo Padre / Equipo Principal</label>
+                                    <select class="form-select" id="machine-parent-asset">
+                                        <option value="">Sin activo padre</option>
+                                    </select>
+                                    <div class="form-text">Use este campo para vincular bombas, abrillantadores, UPS u otros equipos mantenibles a una máquina principal.</div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="machine-asset-category">Categoría Operativa</label>
+                                    <select class="form-select" id="machine-asset-category" required="">
+                                        <option value="produccion">Producción</option>
+                                        <option value="oficina">Oficina</option>
+                                        <option value="servicios">Servicios</option>
+                                        <option value="infraestructura">Infraestructura</option>
+                                    </select>
+                                </div>
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label" for="machine-status">Estado del Activo</label>
                                     <select class="form-select" id="machine-status" required="">
@@ -2035,7 +2219,7 @@
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label" for="machine-image-file"><i class="fas fa-image me-2"></i>Imagen de la Máquina (PNG, JPG)</label>
+                                    <label class="form-label" for="machine-image-file"><i class="fas fa-image me-2"></i>Imagen del Activo (PNG, JPG)</label>
                                 <input class="form-control" id="machine-image-file" type="file" accept="image/*"/>
                                 <div id="machine-image-status" class="mt-2"></div>
                             </div>
@@ -2104,7 +2288,7 @@
 
                     <div class="modal-footer mt-3">
                         <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
-                        <button class="btn btn-primary" type="submit">Guardar Máquina</button>
+                        <button class="btn btn-primary" type="submit">Guardar Activo</button>
                     </div>
                 </form>
             </div>
@@ -2224,6 +2408,9 @@
                                 <select class="form-select border-0 shadow-sm" id="part-classification" required>
                                     <option value="insumo">Insumo</option>
                                     <option value="repuesto">Repuesto</option>
+                                    <option value="accesorio">Accesorio</option>
+                                    <option value="consumible">Consumible</option>
+                                    <option value="herramienta">Herramienta</option>
                                     <option value="critico">Crítico</option>
                                     <option value="mecanico">Mecánico</option>
                                     <option value="electrico">Eléctrico</option>
@@ -2239,9 +2426,9 @@
                         </div>
                     </div>
 
-                    <!-- Máquinas Vinculadas -->
+                    <!-- Equipos Vinculados -->
                     <div class="section-card p-4 mb-4">
-                        <label class="form-label fw-bold small text-muted text-uppercase mb-2">Máquinas Vinculadas (Opcional)</label>
+                        <label class="form-label fw-bold small text-muted text-uppercase mb-2">Equipos Vinculados (Opcional)</label>
                         <div class="border rounded-3 p-2 bg-light custom-scrollbar" id="part-machines-list" style="max-height: 150px; overflow-y: auto;">
                             <!-- Inyectado por JS -->
                         </div>
@@ -2404,14 +2591,18 @@
 <input class="form-control" id="technician-username" required="" type="text" autocomplete="username"/>
 </div>
 <div class="mb-3">
-<label class="form-label" for="technician-password">Contraseña</label>
-<input class="form-control" id="technician-password" required="" type="password" autocomplete="new-password"/>
-<small class="text-muted" id="password-help">Deje en blanco para enviar invitación por link.</small>
+<label class="form-label" for="technician-puesto">Puesto</label>
+<input class="form-control" id="technician-puesto" type="text" placeholder="Ej: Jefe de Mantenimiento, Técnico Eléctrico..."/>
+</div>
+<div class="mb-3">
+<label class="form-label" for="technician-password">Contraseña temporal</label>
+<input class="form-control" id="technician-password" minlength="8" required="" type="password" autocomplete="new-password"/>
+<small class="text-muted" id="password-help">Mínimo 8 caracteres. Al editar, déjela en blanco para conservarla.</small>
 </div>
 <div class="mb-3">
     <div class="form-check form-switch">
         <input class="form-check-input" type="checkbox" id="technician-genera-gasto" checked>
-        <label class="form-check-label fw-bold" for="technician-genera-gasto">¿Genera Gasto de Salario?</label>
+        <label class="form-check-label fw-bold" for="technician-genera-gasto">¿Genera Gasto de Salario</label>
     </div>
 </div>
 <div class="mb-3" id="technician-salary-wrapper">
@@ -2673,6 +2864,9 @@
 <div class="modal-header">
 <h5 class="modal-title" id="work-order-modal-title">Detalles de Orden de Trabajo</h5>
 <div class="ms-auto d-flex align-items-center">
+<button class="btn btn-outline-light me-2" id="print-signature-btn" style="display: none;" title="Imprimir Firma" type="button">
+<i class="fas fa-signature"></i> Firmar
+</button>
 <button class="btn btn-outline-light me-2" id="print-work-order-modal-btn" style="display: none;" title="Imprimir OT" type="button">
 <i class="fas fa-print"></i>
 </button>
@@ -2926,7 +3120,7 @@
 <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
 </div>
 <div class="modal-body">
-<p id="confirm-modal-body">¿Está seguro?</p>
+<p id="confirm-modal-body">¿Está seguro</p>
 </div>
 <div class="modal-footer">
 <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
@@ -3219,11 +3413,14 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Fecha</th>
-                                <th>ID Orden</th>
-                                <th>Descripción</th>
+                                <th>Referencia</th>
+                                <th>Material</th>
                                 <th>Cantidad</th>
+                                <th>Saldo</th>
+                                <th>Valor</th>
                                 <th>Tipo</th>
                                 <th>Usuario</th>
+                                <th>Detalle</th>
                             </tr>
                         </thead>
                         <tbody id="part-history-list">
@@ -3323,6 +3520,13 @@
 <script src="script.js" type="module"></script>
 
 <script>
+    window.addEventListener('keydown', (event) => {
+        if (event.key === 'F1') {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }, true);
+
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./service-worker.js')
@@ -3474,7 +3678,7 @@
                     <i class="fas fa-save"></i> Guardar Borrador
                 </button>
                 <button id="execution-view-finish-btn" class="btn btn-primary btn-lg px-5 fw-bold shadow-lg d-flex align-items-center justify-content-center gap-2 w-100 w-md-auto">
-                    <i class="fas fa-check-circle"></i> Finalizar Plan
+                    <i class="fas fa-check-circle"></i> Finalizar y Firmar Plan
                 </button>
             </div>
         </footer>
@@ -3613,7 +3817,7 @@
                 <h5 class="modal-title fw-bold"><i class="fas fa-pause-circle me-2"></i>Estado del Equipo al Pausar</h5>
             </div>
             <div class="modal-body p-4 text-center">
-                <p class="mb-4">Al pausar esta orden de trabajo, ¿en qué estado queda el equipo?</p>
+                <p class="mb-4">Al pausar esta orden de trabajo, ¿en qué estado queda el equipo</p>
                 <div class="d-grid gap-3">
                     <button type="button" class="btn btn-success btn-lg py-3 fw-bold shadow-sm" id="btn-pause-operativo">
                         <i class="fas fa-check-circle me-2"></i> El Equipo queda OPERATIVO
