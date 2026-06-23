@@ -185,8 +185,8 @@ router.post('/users', authMiddleware.requireRole('Admin'), async (req, res) => {
         const admin = getFirebaseAdmin();
         const username = String(req.body.username || '').trim();
         const password = String(req.body.password || '');
-        if (!username || password.length < 8) {
-            return res.status(400).json({ error: 'Usuario y contraseña temporal de 8 caracteres son obligatorios.' });
+        if (!username || password.length < 12) {
+            return res.status(400).json({ error: 'Usuario y contraseña temporal de 12 caracteres son obligatorios.' });
         }
 
         const email = authEmailForUsername(username);
@@ -212,8 +212,8 @@ router.patch('/users/:uid', authMiddleware.requireRole('Admin'), async (req, res
         const updates = {};
         if (typeof req.body.isActive === 'boolean') updates.disabled = !req.body.isActive;
         if (req.body.password) {
-            if (String(req.body.password).length < 8) {
-                return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' });
+            if (String(req.body.password).length < 12) {
+                return res.status(400).json({ error: 'La contraseña temporal debe tener al menos 12 caracteres.' });
             }
             updates.password = String(req.body.password);
         }
