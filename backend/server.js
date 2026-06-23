@@ -36,7 +36,7 @@ app.use((req, res, next) => {
     } else if (origin) {
         return res.status(403).json({ error: 'Origen no autorizado' });
     }
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
