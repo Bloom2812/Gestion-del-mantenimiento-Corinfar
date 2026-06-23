@@ -29,6 +29,14 @@ function hashLegacyPassword(password) {
         .digest('hex');
 }
 
+function firebasePasswordForLegacy(password) {
+    const rawPassword = String(password || '');
+    if (rawPassword.length >= 6) return rawPassword;
+    return crypto.createHash('sha256')
+        .update(`CORINFAR-FIREBASE-LEGACY:${rawPassword}`, 'utf8')
+        .digest('hex');
+}
+
 async function findTechnicianByUsername(db, username) {
     const snapshot = await db.collection(techniciansPath)
         .where('usernameNormalized', '==', normalizeUsername(username))
@@ -84,7 +92,7 @@ router.post('/migrate-legacy', async (req, res) => {
         const uid = await getOrCreateAuthUser(
             admin,
             email,
-            password,
+            firebasePasswordForLegacy(password),
             profile.isActive === false,
             profile.username
         );
