@@ -1,4 +1,4 @@
-const CACHE_NAME = 'corinfar-cmms-v1';
+﻿const CACHE_NAME = 'corinfar-cmms-v12';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -16,7 +16,9 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map((asset) => cache.add(asset))
+      );
     })
   );
   self.skipWaiting();
@@ -40,13 +42,27 @@ self.addEventListener('activate', (event) => {
 
 // Estrategia de red con fallback a cache para asegurar funcionalidad básica
 self.addEventListener('fetch', (event) => {
-  // Solo cachear peticiones GET de nuestro propio dominio o CDN conocidos
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+  const isSameOrigin = url.origin === self.location.origin;
+  const isStaticCdn = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com'].includes(url.hostname);
+
+  // No interceptar Firebase, Google, Storage ni websockets: esas conexiones
+  // deben quedar a cargo del navegador para evitar reintentos y ruido extra.
+  if (!isSameOrigin && !isStaticCdn) return;
 
   event.respondWith(
     fetch(event.request)
-      .catch(() => {
-        return caches.match(event.request);
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
+        return new Response('', { status: 504, statusText: 'Offline' });
       })
   );
 });
+
+

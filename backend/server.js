@@ -28,6 +28,11 @@ const allowedOrigins = new Set(
         .filter(Boolean)
 );
 
+// Render también sirve el frontend como ruta de contingencia cuando Firebase
+// Hosting no está accesible. Se autoriza siempre el mismo origen del servicio,
+// aunque ALLOWED_ORIGINS haya sido configurado mediante una variable externa.
+allowedOrigins.add('https://cmms-ai-backend.onrender.com');
+
 app.use((req, res, next) => {
     const origin = req.headers.origin;
     if (origin && allowedOrigins.has(origin)) {

@@ -10,11 +10,18 @@ export const API_BASE_URL = isLocal
 
 export async function apiRequest(endpoint, options = {}) {
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+    const headers = {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+    };
+    const currentUser = getAuth().currentUser;
+    if (currentUser && !headers.Authorization) {
+        headers.Authorization = `Bearer ${await currentUser.getIdToken()}`;
+    }
+
     const response = await fetch(url, {
-        headers: {
-            "Content-Type": "application/json",
-        },
         ...options,
+        headers
     });
 
     if (!response.ok) {
@@ -29,3 +36,4 @@ export async function apiRequest(endpoint, options = {}) {
 
     return response.json();
 }
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
