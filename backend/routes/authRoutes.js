@@ -207,6 +207,36 @@ router.post('/users', authMiddleware.requireRole('Admin'), async (req, res) => {
     }
 });
 
+router.post('/users/ensure', authMiddleware.requireRole('Admin'), async (req, res) => {
+    try {
+        const admin = getFirebaseAdmin();
+        const username = String(req.body.username || '').trim();
+        const password = String(req.body.password || '');
+        if (!username || password.length < 12) {
+            return res.status(400).json({ error: 'Usuario y contraseÃ±a temporal de 12 caracteres son obligatorios.' });
+        }
+
+        const email = authEmailForUsername(username);
+        const uid = await getOrCreateAuthUser(
+            admin,
+            email,
+            password,
+            req.body.isActive === false,
+            username
+        );
+
+        await admin.auth().setCustomUserClaims(uid, {
+            role: req.body.role || 'Invitado',
+            username
+        });
+
+        res.json({ uid, email });
+    } catch (error) {
+        console.error('Ensure auth user failed:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.patch('/users/:uid', authMiddleware.requireRole('Admin'), async (req, res) => {
     try {
         const updates = {};
