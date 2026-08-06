@@ -72,7 +72,7 @@ router.post('/chat', authMiddleware, async (req, res) => {
 });
 
 // Endpoint temporal de prueba
-router.get('/test', async (req, res) => {
+router.get('/test', authMiddleware, async (req, res) => {
     try {
         const result = await geminiProvider.generateContent("Actúa como un experto en JSON", "Responde OK en JSON");
         res.json({ ok: true, result });
