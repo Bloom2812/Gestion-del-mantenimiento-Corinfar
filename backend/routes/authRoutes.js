@@ -2,26 +2,18 @@ const crypto = require('crypto');
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const { getFirebaseAdmin } = require('../services/firebaseAdminService');
+const {
+    authEmailForUsername,
+    conflictingTechnicianDocuments,
+    matchesUsernameIdentity,
+    normalizeUsername,
+    selectPreferredTechnicianDocument
+} = require('../services/authIdentityUtils');
 
 const router = express.Router();
 const appId = process.env.FIREBASE_APP_ID || 'default-cmms-app';
 const techniciansPath = `artifacts/${appId}/public/data/technicians`;
 const legacyCredentialsPath = `artifacts/${appId}/private/auth/legacyCredentials`;
-
-function normalizeUsername(username) {
-    return String(username || '').trim().toLowerCase();
-}
-
-function authEmailForUsername(username) {
-    const localPart = normalizeUsername(username)
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9._-]/g, '.')
-        .replace(/\.+/g, '.')
-        .replace(/^[.-]+|[.-]+$/g, '');
-    if (!localPart) throw new Error('Nombre de usuario inválido');
-    return `${localPart}@corinfar.local`;
-}
 
 function hashLegacyPassword(password) {
     return crypto.createHash('sha256')
@@ -37,18 +29,44 @@ function firebasePasswordForLegacy(password) {
         .digest('hex');
 }
 
-async function findTechnicianByUsername(db, username) {
-    const snapshot = await db.collection(techniciansPath)
-        .where('usernameNormalized', '==', normalizeUsername(username))
-        .limit(1)
-        .get();
-    if (!snapshot.empty) return snapshot.docs[0];
+async function findTechniciansByUsername(db, username) {
+    const normalized = normalizeUsername(username);
+    const email = authEmailForUsername(username);
+    const collectionRef = db.collection(techniciansPath);
+    const [normalizedSnapshot, emailSnapshot] = await Promise.all([
+        collectionRef.where('usernameNormalized', '==', normalized).limit(10).get(),
+        collectionRef.where('authEmail', '==', email).limit(10).get()
+    ]);
+    const unique = new Map();
+    [...normalizedSnapshot.docs, ...emailSnapshot.docs]
+        .forEach(document => unique.set(document.id, document));
 
-    const legacySnapshot = await db.collection(techniciansPath)
-        .where('username', '==', String(username || '').trim())
-        .limit(1)
-        .get();
-    return legacySnapshot.empty ? null : legacySnapshot.docs[0];
+    if (unique.size === 0) {
+        // Compatibility with profiles created before usernameNormalized/authEmail.
+        // Firestore cannot perform a case/accent-insensitive query, so the bounded
+        // legacy scan prevents "Ana Martinez" and "ana martinez" from becoming
+        // two profiles that later compete for the same Firebase identity.
+        const legacySnapshot = await collectionRef.limit(500).get();
+        legacySnapshot.docs
+            .filter(document => matchesUsernameIdentity(document.data(), username))
+            .forEach(document => unique.set(document.id, document));
+    }
+    return [...unique.values()];
+}
+
+async function findTechnicianByUsername(db, username) {
+    return selectPreferredTechnicianDocument(await findTechniciansByUsername(db, username));
+}
+
+async function ensureUniqueProfile(db, username, currentProfileId = '') {
+    const candidates = await findTechniciansByUsername(db, username);
+    const conflicts = conflictingTechnicianDocuments(candidates, currentProfileId);
+    if (conflicts.length > 0) {
+        const error = new Error('Ya existe un perfil con este nombre de usuario. Recupere ese perfil en lugar de crear otro.');
+        error.code = 'account_conflict';
+        error.status = 409;
+        throw error;
+    }
 }
 
 async function getOrCreateAuthUser(admin, email, password, disabled, displayName) {
@@ -73,20 +91,48 @@ router.post('/migrate-legacy', async (req, res) => {
 
         const admin = getFirebaseAdmin();
         const db = admin.firestore();
-        const technicianDoc = await findTechnicianByUsername(db, username);
-        if (!technicianDoc) return res.status(401).json({ error: 'Credenciales inválidas.' });
-
-        const profile = technicianDoc.data();
-        if (profile.isActive === false) {
-            return res.status(403).json({ error: 'La cuenta está desactivada.' });
+        const candidates = await findTechniciansByUsername(db, username);
+        if (candidates.length === 0) {
+            return res.status(401).json({ error: 'Credenciales inválidas.', code: 'credentials_invalid' });
         }
 
-        const privateCredential = await db.collection(legacyCredentialsPath).doc(technicianDoc.id).get();
-        const credential = privateCredential.exists ? privateCredential.data() : profile;
-        const valid = credential.passwordIsHashed
-            ? credential.password === hashLegacyPassword(password)
-            : credential.password === password;
-        if (!valid) return res.status(401).json({ error: 'Credenciales inválidas.' });
+        const matches = [];
+        for (const candidate of candidates) {
+            const candidateProfile = candidate.data();
+            if (candidateProfile.isActive === false) continue;
+            const privateCredential = await db.collection(legacyCredentialsPath).doc(candidate.id).get();
+            const credential = privateCredential.exists ? privateCredential.data() : candidateProfile;
+            const valid = Boolean(credential.password) && (credential.passwordIsHashed
+                ? credential.password === hashLegacyPassword(password)
+                : credential.password === password);
+            if (valid) matches.push({ technicianDoc: candidate, privateCredential });
+        }
+
+        if (matches.length === 0) {
+            const allDisabled = candidates.every(candidate => candidate.data().isActive === false);
+            if (allDisabled) {
+                return res.status(403).json({ error: 'La cuenta está desactivada.', code: 'account_disabled' });
+            }
+            return res.status(401).json({ error: 'Credenciales inválidas.', code: 'credentials_invalid' });
+        }
+        if (matches.length > 1) {
+            return res.status(409).json({
+                error: 'La cuenta tiene perfiles heredados duplicados y requiere revisión administrativa.',
+                code: 'account_conflict'
+            });
+        }
+
+        const { technicianDoc, privateCredential } = matches[0];
+        const profile = technicianDoc.data();
+        const linkedDuplicate = candidates.find(candidate =>
+            candidate.id !== technicianDoc.id && Boolean(candidate.data().authUid)
+        );
+        if (linkedDuplicate && !profile.authUid) {
+            return res.status(409).json({
+                error: 'La cuenta heredada coincide con otro perfil ya vinculado y requiere revisión administrativa.',
+                code: 'account_conflict'
+            });
+        }
 
         const email = profile.authEmail || authEmailForUsername(profile.username);
         const uid = await getOrCreateAuthUser(
@@ -118,8 +164,15 @@ router.post('/migrate-legacy', async (req, res) => {
         res.json({ customToken });
     } catch (error) {
         console.error('Legacy authentication migration failed:', error);
-        res.status(500).json({ error: 'No se pudo migrar la cuenta de forma segura.' });
+        res.status(500).json({
+            error: 'No se pudo migrar la cuenta de forma segura.',
+            code: 'migration_unavailable'
+        });
     }
+});
+
+router.get('/profile', authMiddleware, (req, res) => {
+    res.json({ profile: req.userProfile });
 });
 
 router.post('/request-reset', async (req, res) => {
@@ -135,6 +188,7 @@ router.post('/request-reset', async (req, res) => {
                 resetRequestedAt: admin.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
         }
+        // Do not reveal whether a username exists.
         res.json({ ok: true });
     } catch (error) {
         console.error('Password reset request failed:', error);
@@ -189,6 +243,7 @@ router.post('/users', authMiddleware.requireRole('Admin'), async (req, res) => {
             return res.status(400).json({ error: 'Usuario y contraseña temporal de 12 caracteres son obligatorios.' });
         }
 
+        await ensureUniqueProfile(admin.firestore(), username, req.body.profileId);
         const email = authEmailForUsername(username);
         const user = await admin.auth().createUser({
             email,
@@ -202,8 +257,8 @@ router.post('/users', authMiddleware.requireRole('Admin'), async (req, res) => {
         });
         res.status(201).json({ uid: user.uid, email });
     } catch (error) {
-        const status = error.code === 'auth/email-already-exists' ? 409 : 500;
-        res.status(status).json({ error: error.message });
+        const status = error.status || (error.code === 'auth/email-already-exists' ? 409 : 500);
+        res.status(status).json({ error: error.message, code: error.code || 'user_create_failed' });
     }
 });
 
@@ -213,9 +268,10 @@ router.post('/users/ensure', authMiddleware.requireRole('Admin'), async (req, re
         const username = String(req.body.username || '').trim();
         const password = String(req.body.password || '');
         if (!username || password.length < 12) {
-            return res.status(400).json({ error: 'Usuario y contraseÃ±a temporal de 12 caracteres son obligatorios.' });
+            return res.status(400).json({ error: 'Usuario y contraseña temporal de 12 caracteres son obligatorios.' });
         }
 
+        await ensureUniqueProfile(admin.firestore(), username, req.body.profileId);
         const email = authEmailForUsername(username);
         const uid = await getOrCreateAuthUser(
             admin,
@@ -233,12 +289,14 @@ router.post('/users/ensure', authMiddleware.requireRole('Admin'), async (req, re
         res.json({ uid, email });
     } catch (error) {
         console.error('Ensure auth user failed:', error);
-        res.status(500).json({ error: error.message });
+        res.status(error.status || 500).json({ error: error.message, code: error.code || 'user_recovery_failed' });
     }
 });
 
 router.patch('/users/:uid', authMiddleware.requireRole('Admin'), async (req, res) => {
     try {
+        const admin = getFirebaseAdmin();
+        const previousUser = await admin.auth().getUser(req.params.uid);
         const updates = {};
         if (typeof req.body.isActive === 'boolean') updates.disabled = !req.body.isActive;
         if (req.body.password) {
@@ -247,21 +305,48 @@ router.patch('/users/:uid', authMiddleware.requireRole('Admin'), async (req, res
             }
             updates.password = String(req.body.password);
         }
-        if (req.body.username) updates.displayName = String(req.body.username);
+        if (req.body.username) {
+            const username = String(req.body.username).trim();
+            await ensureUniqueProfile(admin.firestore(), username, req.body.profileId);
+            updates.displayName = username;
+            updates.email = authEmailForUsername(username);
+        }
 
-        const admin = getFirebaseAdmin();
-        await admin.auth().updateUser(req.params.uid, updates);
+        const updatedUser = await admin.auth().updateUser(req.params.uid, updates);
+        if (req.body.username && req.body.profileId) {
+            try {
+                await admin.firestore().collection(techniciansPath).doc(String(req.body.profileId)).set({
+                    username: String(req.body.username).trim(),
+                    usernameNormalized: normalizeUsername(req.body.username),
+                    authUid: req.params.uid,
+                    authEmail: updatedUser.email
+                }, { merge: true });
+            } catch (profileError) {
+                // Keep the login alias and the public profile synchronized. If
+                // Firestore fails, restore the previous alias before reporting
+                // the error so the user can still sign in with the old name.
+                try {
+                    await admin.auth().updateUser(req.params.uid, {
+                        email: previousUser.email,
+                        displayName: previousUser.displayName
+                    });
+                } catch (rollbackError) {
+                    console.error('Auth identity rollback failed:', rollbackError);
+                }
+                throw profileError;
+            }
+        }
         if (req.body.role || req.body.username) {
-            const existing = await admin.auth().getUser(req.params.uid);
             await admin.auth().setCustomUserClaims(req.params.uid, {
-                ...(existing.customClaims || {}),
-                role: req.body.role || existing.customClaims?.role || 'Invitado',
-                username: req.body.username || existing.customClaims?.username || existing.displayName
+                ...(previousUser.customClaims || {}),
+                role: req.body.role || previousUser.customClaims?.role || 'Invitado',
+                username: req.body.username || previousUser.customClaims?.username || previousUser.displayName
             });
         }
-        res.json({ ok: true });
+        res.json({ ok: true, email: updatedUser.email || null });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        const status = error.status || (error.code === 'auth/email-already-exists' ? 409 : 500);
+        res.status(status).json({ error: error.message, code: error.code || 'user_update_failed' });
     }
 });
 
