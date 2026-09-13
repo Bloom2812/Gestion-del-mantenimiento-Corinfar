@@ -9991,6 +9991,67 @@ function clearActiveTimers() {
     state.activeTimers = {};
 }
 
+const WORK_ORDER_PRIORITY_RANK = {
+    emergencia: 0,
+    urgente: 0,
+    alta: 1,
+    media: 2,
+    baja: 3
+};
+
+function getWorkOrderDate(order = {}) {
+    const rawDate = order.scheduledDate || order.date || order.createdAt || order.fechaInicio || '';
+    if (!rawDate) return null;
+    if (typeof rawDate.toDate === 'function') return rawDate.toDate();
+    const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? `${rawDate}T12:00:00` : rawDate);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getWorkOrderMonthInfo(order = {}) {
+    const date = getWorkOrderDate(order);
+    if (!date) return { key: 'sin-fecha', label: 'Sin fecha programada', time: 0 };
+    return {
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+        label: date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+            .replace(/^\w/, character => character.toUpperCase()),
+        time: new Date(date.getFullYear(), date.getMonth(), 1).getTime()
+    };
+}
+
+function getWorkOrderPriority(order = {}) {
+    const value = String(order.priority || order.prioridad || 'Media').trim();
+    const normalized = value.toLowerCase();
+    return {
+        label: value || 'Media',
+        rank: WORK_ORDER_PRIORITY_RANK[normalized] ?? WORK_ORDER_PRIORITY_RANK.media,
+        className: ['emergencia', 'urgente', 'alta'].includes(normalized)
+            ? 'danger'
+            : normalized === 'baja' ? 'success' : 'warning text-dark'
+    };
+}
+
+function sortWorkOrdersByMonthAndPriority(orders = []) {
+    return [...orders].sort((left, right) => {
+        const leftMonth = getWorkOrderMonthInfo(left);
+        const rightMonth = getWorkOrderMonthInfo(right);
+        if (rightMonth.time !== leftMonth.time) return rightMonth.time - leftMonth.time;
+
+        const priorityDifference = getWorkOrderPriority(left).rank - getWorkOrderPriority(right).rank;
+        if (priorityDifference !== 0) return priorityDifference;
+
+        const leftDate = getWorkOrderDate(left)?.getTime() || 0;
+        const rightDate = getWorkOrderDate(right)?.getTime() || 0;
+        return leftDate - rightDate || String(left.id || '').localeCompare(String(right.id || ''));
+    });
+}
+
+function isWorkOrderAssignedToTechnician(order = {}, username = '') {
+    const normalizedUser = normalizeUsername(username);
+    if (!normalizedUser) return false;
+    const assignedUsers = [order.leadTechnician, ...(Array.isArray(order.technicians) ? order.technicians : [])];
+    return assignedUsers.some(assigned => normalizeUsername(assigned) === normalizedUser);
+}
+
 function renderActiveWorkView() {
     clearActiveTimers();
     const requestsContainer = document.getElementById('pending-requests');
@@ -10019,7 +10080,10 @@ function renderActiveWorkView() {
     if (hasRestrictiveRole) {
         const ids = userRole === 'Jefe de Area' ? (managedMachineIds || []) : (equipoAsignado || []);
         const relevantMachineIds = new Set(Array.isArray(ids) ? ids : []);
-        workOrdersToDisplay = state.workOrders.filter(wo => relevantMachineIds.has(wo.machineId));
+        workOrdersToDisplay = state.workOrders.filter(wo =>
+            relevantMachineIds.has(wo.machineId) ||
+            (userRole === 'Técnico' && isWorkOrderAssignedToTechnician(wo, getCurrentUser().username))
+        );
         solicitudesToDisplay = state.solicitudes.filter(s => relevantMachineIds.has(s.machineId));
     }
 
@@ -10122,7 +10186,8 @@ function renderActiveWorkView() {
         pendingRequests.forEach(req => requestsContainer.appendChild(createSolicitudCard(req)));
     }
 
-    workOrdersToDisplay.forEach(wo => {
+    const renderedMonthByContainer = new Map();
+    sortWorkOrdersByMonthAndPriority(workOrdersToDisplay).forEach(wo => {
         const fbId = wo?.fb_id || wo?.id;
         if (!fbId) return;
         const cleanId = String(fbId).replace(/[.#$\[\]]/g, '_');
@@ -10130,9 +10195,10 @@ function renderActiveWorkView() {
         const currentStatus = woMirror?.status || wo.status;
 
         const card = createWorkOrderCard(wo, currentStatus);
+        let targetContainer = null;
 
         if (wo.isExpired || currentStatus === 'Cancelado' || currentStatus === 'Rechazado') {
-            if (cancelledContainer) cancelledContainer.appendChild(card);
+            targetContainer = cancelledContainer;
         } else if (currentStatus === 'Completado') {
             // Unificamos lógica: si es Completado pero falta alguna evaluación, va a la columna de Evaluación
             const evs = state.technicianEvaluations.filter(ev => ev.workOrderFbId === wo.fb_id);
@@ -10140,24 +10206,35 @@ function renderActiveWorkView() {
             const hasJf = evs.some(e => e.evaluatorRole === 'Jefe de Area');
 
             if (hasOp && hasJf) {
-                if (completedContainer) completedContainer.appendChild(card);
+                targetContainer = completedContainer;
             } else {
-                if (evaluationContainer) evaluationContainer.appendChild(card);
+                targetContainer = evaluationContainer;
             }
         } else if (currentStatus === 'Pendiente de Evaluación' || currentStatus === 'Pendiente de Aprobación') {
-            if (evaluationContainer) evaluationContainer.appendChild(card);
+            targetContainer = evaluationContainer;
         } else if (currentStatus === 'En Proceso') {
-            inProgressContainer.appendChild(card);
-            if (wo.workIntervals) {
-                const lastInterval = wo.workIntervals[wo.workIntervals.length - 1];
-                if (lastInterval && lastInterval.start && !lastInterval.end) {
-                   updateTimerDisplay(wo.id, wo);
-                }
-            }
+            targetContainer = inProgressContainer;
         } else if (currentStatus === 'Pausado') {
-            pausedContainer.appendChild(card);
+            targetContainer = pausedContainer;
         } else if (currentStatus === 'Pendiente' || currentStatus === 'Planificada') {
-            plannedContainer.appendChild(card);
+            targetContainer = plannedContainer;
+        }
+
+        if (targetContainer) {
+            const monthInfo = getWorkOrderMonthInfo(wo);
+            if (renderedMonthByContainer.get(targetContainer) !== monthInfo.key) {
+                const monthHeader = document.createElement('div');
+                monthHeader.className = 'kanban-month-group';
+                monthHeader.innerHTML = `<i class="fas fa-calendar-alt"></i><span>${escapeHTML(monthInfo.label)}</span>`;
+                targetContainer.appendChild(monthHeader);
+                renderedMonthByContainer.set(targetContainer, monthInfo.key);
+            }
+            targetContainer.appendChild(card);
+        }
+
+        if (targetContainer === inProgressContainer && wo.workIntervals) {
+            const lastInterval = wo.workIntervals[wo.workIntervals.length - 1];
+            if (lastInterval && lastInterval.start && !lastInterval.end) updateTimerDisplay(wo.id, wo);
         }
     });
 
@@ -10232,6 +10309,11 @@ function createWorkOrderCard(order, statusOverride = null) {
     }
     card.dataset.id = order.id;
     const machine = state.machines.find(m => m.id === order.machineId) || { name: 'Desconocido' };
+    const machinePhoto = machine.fotoUrl || machine.imageUrl || '';
+    const location = machine.location || machine.ubicacion || 'Sin ubicación registrada';
+    const area = getMachineArea(machine);
+    const priority = getWorkOrderPriority(order);
+    const orderDate = getWorkOrderDate(order);
     const isLeadTechnician = getCurrentUser().username === order.leadTechnician;
     const canAction = getCurrentUser().role === 'Admin' || getCurrentUser().role === 'Planificador' || isLeadTechnician;
     const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) || order.linkedPlanId;
@@ -10319,22 +10401,48 @@ function createWorkOrderCard(order, statusOverride = null) {
     }
 
     card.innerHTML = `
-        <div class="d-flex justify-content-between align-items-start">
-            <div>
-                <h6 class="card-title mb-0" style="cursor: pointer;">${cardTitle}${starDisplay}</h6>
-                <small class="text-muted">${machine.name}</small>
+        <div class="kanban-card-main">
+            <div class="kanban-machine-thumb ${machinePhoto ? '' : 'is-placeholder'}">
+                ${machinePhoto
+                    ? `<img alt="${escapeHTML(machine.name || order.machineId || 'Equipo')}">`
+                    : '<i class="fas fa-industry" aria-hidden="true"></i>'}
+            </div>
+            <div class="kanban-card-content">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <h6 class="card-title mb-0" style="cursor: pointer;">${escapeHTML(cardTitle)}${starDisplay}</h6>
+                        <small class="text-muted fw-semibold">${escapeHTML(machine.name || 'Equipo desconocido')}</small>
+                    </div>
+                    <div class="text-end flex-shrink-0">
+                        <span class="badge bg-${typeBadgeColor}">${escapeHTML(order.type || 'Sin tipo')}</span>
+                        ${expiredBadge}
+                    </div>
+                </div>
+                <div class="kanban-equipment-location" title="Ubicación del equipo">
+                    <i class="fas fa-location-dot"></i>
+                    <span>${escapeHTML(location)}${area ? ` · ${escapeHTML(area)}` : ''}</span>
+                </div>
+                <div class="d-flex flex-wrap gap-1 mt-2">
+                    <span class="badge bg-${priority.className}"><i class="fas fa-flag me-1"></i>${escapeHTML(priority.label)}</span>
+                    ${orderDate ? `<span class="badge bg-light text-dark border"><i class="fas fa-calendar-day me-1"></i>${orderDate.toLocaleDateString('es-ES')}</span>` : ''}
+                </div>
                 ${originalSolicitud ? `<br><small class="text-info fw-bold">Solicitud: ${originalSolicitud.id}</small>` : ''}
             </div>
-            <div class="text-end">
-                <span class="badge bg-${typeBadgeColor}">${order.type}</span>
-                ${expiredBadge}
-            </div>
         </div>
-        <p class="card-text my-2">${order.description}</p>
+        <p class="card-text my-2">${escapeHTML(order.description || 'Sin descripción')}</p>
         <div class="card-footer bg-transparent p-0 pt-2 border-top">
             ${footerContent}
         </div>
     `;
+
+    const image = card.querySelector('.kanban-machine-thumb img');
+    if (image) {
+        image.src = machinePhoto;
+        image.addEventListener('error', () => {
+            image.parentElement.classList.add('is-placeholder');
+            image.parentElement.innerHTML = '<i class="fas fa-industry" aria-hidden="true"></i>';
+        }, { once: true });
+    }
     
     card.querySelector('.card-title').addEventListener('click', () => showWorkOrderModal(order.fb_id));
 
