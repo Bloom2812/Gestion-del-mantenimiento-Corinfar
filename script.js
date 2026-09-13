@@ -9991,6 +9991,67 @@ function clearActiveTimers() {
     state.activeTimers = {};
 }
 
+const WORK_ORDER_PRIORITY_RANK = {
+    emergencia: 0,
+    urgente: 0,
+    alta: 1,
+    media: 2,
+    baja: 3
+};
+
+function getWorkOrderDate(order = {}) {
+    const rawDate = order.scheduledDate || order.date || order.createdAt || order.fechaInicio || '';
+    if (!rawDate) return null;
+    if (typeof rawDate.toDate === 'function') return rawDate.toDate();
+    const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? `${rawDate}T12:00:00` : rawDate);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getWorkOrderMonthInfo(order = {}) {
+    const date = getWorkOrderDate(order);
+    if (!date) return { key: 'sin-fecha', label: 'Sin fecha programada', time: 0 };
+    return {
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+        label: date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+            .replace(/^\w/, character => character.toUpperCase()),
+        time: new Date(date.getFullYear(), date.getMonth(), 1).getTime()
+    };
+}
+
+function getWorkOrderPriority(order = {}) {
+    const value = String(order.priority || order.prioridad || 'Media').trim();
+    const normalized = value.toLowerCase();
+    return {
+        label: value || 'Media',
+        rank: WORK_ORDER_PRIORITY_RANK[normalized] ?? WORK_ORDER_PRIORITY_RANK.media,
+        className: ['emergencia', 'urgente', 'alta'].includes(normalized)
+            ? 'danger'
+            : normalized === 'baja' ? 'success' : 'warning text-dark'
+    };
+}
+
+function sortWorkOrdersByMonthAndPriority(orders = []) {
+    return [...orders].sort((left, right) => {
+        const leftMonth = getWorkOrderMonthInfo(left);
+        const rightMonth = getWorkOrderMonthInfo(right);
+        if (rightMonth.time !== leftMonth.time) return rightMonth.time - leftMonth.time;
+
+        const priorityDifference = getWorkOrderPriority(left).rank - getWorkOrderPriority(right).rank;
+        if (priorityDifference !== 0) return priorityDifference;
+
+        const leftDate = getWorkOrderDate(left)?.getTime() || 0;
+        const rightDate = getWorkOrderDate(right)?.getTime() || 0;
+        return leftDate - rightDate || String(left.id || '').localeCompare(String(right.id || ''));
+    });
+}
+
+function isWorkOrderAssignedToTechnician(order = {}, username = '') {
+    const normalizedUser = normalizeUsername(username);
+    if (!normalizedUser) return false;
+    const assignedUsers = [order.leadTechnician, ...(Array.isArray(order.technicians) ? order.technicians : [])];
+    return assignedUsers.some(assigned => normalizeUsername(assigned) === normalizedUser);
+}
+
 function renderActiveWorkView() {
     clearActiveTimers();
     const requestsContainer = document.getElementById('pending-requests');
@@ -10019,7 +10080,10 @@ function renderActiveWorkView() {
     if (hasRestrictiveRole) {
         const ids = userRole === 'Jefe de Area' ? (managedMachineIds || []) : (equipoAsignado || []);
         const relevantMachineIds = new Set(Array.isArray(ids) ? ids : []);
-        workOrdersToDisplay = state.workOrders.filter(wo => relevantMachineIds.has(wo.machineId));
+        workOrdersToDisplay = state.workOrders.filter(wo =>
+            relevantMachineIds.has(wo.machineId) ||
+            (userRole === 'Técnico' && isWorkOrderAssignedToTechnician(wo, getCurrentUser().username))
+        );
         solicitudesToDisplay = state.solicitudes.filter(s => relevantMachineIds.has(s.machineId));
     }
 
@@ -10068,723 +10132,9 @@ function renderActiveWorkView() {
                 localMonthStr = dateStr.substring(0, 7);
                 d = new Date(dateStr + 'T12:00:00');
             } else {
-                d = new Date(dateStr);
-                if (isNaN(d.getTime())) return false;
-                localMonthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            }
-
-            // Si la orden es del mes seleccionado, se incluye siempre.
-            if (localMonthStr === selectedMonth) return true;
-
-            // Para órdenes de meses anteriores:
-            // 1. Si está marcada como expirada, se incluye (irá a la columna de Canceladas/No Ejecutadas).
-            if (wo.isExpired) return true;
-
-            // 2. Si está ACTIVA (Pendiente, En Proceso, Pausado, etc. y NO es de este mes),
-            // se incluye para que aparezca como arrastre (carry-over) en su columna correspondiente.
-            // Exceptuamos las que ya están terminadas, canceladas o rechazadas de meses previos.
-            if (wo.status !== 'Completado' && wo.status !== 'Cancelado' && wo.status !== 'Rechazado') {
-                const woMonthDate = new Date(d.getFullYear(), d.getMonth(), 1);
-                if (woMonthDate < currentMonthObj) return true;
-            }
-
-            return false;
-        });
-    }
-
-    const pendingRequests = solicitudesToDisplay.filter(s => {
-        if (s.status !== 'Pendiente') return false;
-        if (selectedMonth) {
-            const [year, month] = selectedMonth.split('-').map(Number);
-            const currentMonthObj = new Date(year, month - 1, 1);
-            const d = new Date(s.createdAt);
-            const sDate = new Date(d.getFullYear(), d.getMonth(), 1);
-            if (sDate < currentMonthObj) return false; // Overdue go to cancelled
-        }
-        return true;
-    });
-
-    const cancelledSolicitudes = solicitudesToDisplay.filter(s => {
-        if (s.status === 'Cancelado' || s.status === 'Rechazado') return true;
-        if (s.status === 'Pendiente' && selectedMonth) {
-            const [year, month] = selectedMonth.split('-').map(Number);
-            const currentMonthObj = new Date(year, month - 1, 1);
-            const d = new Date(s.createdAt);
-            const sDate = new Date(d.getFullYear(), d.getMonth(), 1);
-            return sDate < currentMonthObj;
-        }
-        return false;
-    });
-
-    if (pendingRequests.length === 0) {
-         requestsContainer.innerHTML = '<p class="text-center text-muted">No hay solicitudes pendientes.</p>';
-    } else {
-        pendingRequests.forEach(req => requestsContainer.appendChild(createSolicitudCard(req)));
-    }
-
-    workOrdersToDisplay.forEach(wo => {
-        const fbId = wo?.fb_id || wo?.id;
-        if (!fbId) return;
-        const cleanId = String(fbId).replace(/[.#$\[\]]/g, '_');
-        const woMirror = state.liveWorkOrders?.[cleanId];
-        const currentStatus = woMirror?.status || wo.status;
-
-        const card = createWorkOrderCard(wo, currentStatus);
-
-        if (wo.isExpired || currentStatus === 'Cancelado' || currentStatus === 'Rechazado') {
-            if (cancelledContainer) cancelledContainer.appendChild(card);
-        } else if (currentStatus === 'Completado') {
-            // Unificamos lógica: si es Completado pero falta alguna evaluación, va a la columna de Evaluación
-            const evs = state.technicianEvaluations.filter(ev => ev.workOrderFbId === wo.fb_id);
-            const hasOp = evs.some(e => e.evaluatorRole === 'Operario');
-            const hasJf = evs.some(e => e.evaluatorRole === 'Jefe de Area');
-
-            if (hasOp && hasJf) {
-                if (completedContainer) completedContainer.appendChild(card);
-            } else {
-                if (evaluationContainer) evaluationContainer.appendChild(card);
-            }
-        } else if (currentStatus === 'Pendiente de Evaluación' || currentStatus === 'Pendiente de Aprobación') {
-            if (evaluationContainer) evaluationContainer.appendChild(card);
-        } else if (currentStatus === 'En Proceso') {
-            inProgressContainer.appendChild(card);
-            if (wo.workIntervals) {
-                const lastInterval = wo.workIntervals[wo.workIntervals.length - 1];
-                if (lastInterval && lastInterval.start && !lastInterval.end) {
-                   updateTimerDisplay(wo.id, wo);
-                }
-            }
-        } else if (currentStatus === 'Pausado') {
-            pausedContainer.appendChild(card);
-        } else if (currentStatus === 'Pendiente' || currentStatus === 'Planificada') {
-            plannedContainer.appendChild(card);
-        }
-    });
-
-    if (cancelledSolicitudes.length > 0) {
-        cancelledSolicitudes.forEach(s => cancelledContainer.appendChild(createSolicitudCard(s)));
-    }
-
-    if (plannedContainer.innerHTML === '') plannedContainer.innerHTML = '<p class="text-center text-muted">No hay tareas planificadas.</p>';
-    if (inProgressContainer.innerHTML === '') inProgressContainer.innerHTML = '<p class="text-center text-muted">No hay tareas en ejecución.</p>';
-    if (pausedContainer.innerHTML === '') pausedContainer.innerHTML = '<p class="text-center text-muted">No hay tareas pausadas.</p>';
-    if (evaluationContainer && evaluationContainer.innerHTML === '') {
-        evaluationContainer.innerHTML = '<p class="text-center text-muted">No hay tareas para evaluar.</p>';
-    }
-    if (completedContainer && completedContainer.innerHTML === '') {
-        completedContainer.innerHTML = '<p class="text-center text-muted">No hay tareas evaluadas.</p>';
-    }
-    if (cancelledContainer && cancelledContainer.innerHTML === '') {
-        cancelledContainer.innerHTML = '<p class="text-center text-muted">No hay tareas canceladas o no ejecutadas.</p>';
-    }
-}
-
-function createSolicitudCard(solicitud) {
-    const card = document.createElement('div');
-    card.className = 'kanban-card';
-    const machine = state.machines.find(m => m.id === solicitud.machineId) || { name: 'Desconocido' };
-    const userRole = getCurrentUser().role;
-    const isReadOnly = userRole !== 'Admin' && userRole !== 'Planificador' && userRole !== 'Técnico';
-
-    let linkedWorkOrder = null;
-    if (solicitud.workOrderFbId) {
-        linkedWorkOrder = state.workOrders.find(wo => wo.fb_id === solicitud.workOrderFbId);
-    } else if (solicitud.workOrderId) {
-        linkedWorkOrder = state.workOrders.find(wo => wo.id === solicitud.workOrderId);
-    }
-
-    card.innerHTML = `
-        <div class="d-flex justify-content-between align-items-start">
-            <div>
-                <h6 class="card-title mb-0">${machine.name}</h6>
-                <div class="d-flex flex-column">
-                    <small class="text-muted">Solicitante: ${solicitud.requester}</small>
-                    ${linkedWorkOrder ? `<small class="text-primary fw-bold">OT: ${linkedWorkOrder.id}</small>` : ''}
-                </div>
-            </div>
-             <span class="badge bg-secondary">${new Date(solicitud.createdAt).toLocaleDateString('es-ES')}</span>
-        </div>
-        <p class="card-text my-2">${solicitud.description}</p>
-        <div class="card-footer bg-transparent p-0 pt-2 border-top">
-             ${isReadOnly ? `<p class="text-muted text-center mb-0 small">Solo visualización</p>` : `<button class="btn btn-sm btn-success convert-solicitud-btn w-100"><i class="fas fa-check me-2"></i>Crear OT</button>`
-             }
-        </div>
-    `;
-    if (!isReadOnly) {
-        card.querySelector('.convert-solicitud-btn').addEventListener('click', () => {
-            let targetType = 'Correctivo'; if (solicitud.type === 'mecanizado') targetType = 'Mecanizado'; else if (solicitud.type === 'calibracion') targetType = 'Calibración';
-            showWorkOrderModal(null, targetType, solicitud);
-        });
-    }
-    return card;
-}
-
-function createWorkOrderCard(order, statusOverride = null) {
-    const card = document.createElement('div');
-    card.className = 'kanban-card';
-    const currentStatus = statusOverride || order.status;
-
-    if (currentStatus === 'Pendiente de Aprobación') {
-        card.classList.add('status-pending-approval');
-    }
-    if (order.type === 'Mecanizado') {
-        card.classList.add('type-mecanizado');
-    }
-    card.dataset.id = order.id;
-    const machine = state.machines.find(m => m.id === order.machineId) || { name: 'Desconocido' };
-    const isLeadTechnician = getCurrentUser().username === order.leadTechnician;
-    const canAction = getCurrentUser().role === 'Admin' || getCurrentUser().role === 'Planificador' || isLeadTechnician;
-    const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) || order.linkedPlanId;
-    
-    let footerContent = '';
-    
-    const originalSolicitudId = order.solicitudId || order.sourceSolicitudId;
-    const originalSolicitud = originalSolicitudId ? state.solicitudes.find(s => s.id === originalSolicitudId || s.fb_id === originalSolicitudId) : null;
-
-    // Nueva lógica de doble evaluación
-    const evs = state.technicianEvaluations.filter(ev => ev.workOrderFbId === order.fb_id);
-    const hasOp = evs.some(e => e.evaluatorRole === 'Operario');
-    const hasJf = evs.some(e => e.evaluatorRole === 'Jefe de Area');
-
-    let canEvaluate = false;
-    const userRole = getCurrentUser().role;
-    const isRequester = originalSolicitud && originalSolicitud.requester === getCurrentUser().username;
-    const isAssignedOperario = (['Operario', 'Supervisor de Area'].includes(userRole)) && Array.isArray(getCurrentUser().equipoAsignado) && getCurrentUser().equipoAsignado.includes(order.machineId);
-
-    const canEvalAsJefe = (userRole === 'Admin' || (userRole === 'Planificador' && ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type)) || (userRole === 'Jefe de Area' && Array.isArray(getCurrentUser().managedMachineIds) && getCurrentUser().managedMachineIds.includes(order.machineId)));
-    const canEvalAsOp = (userRole === 'Admin' || ((['Operario', 'Supervisor de Area'].includes(userRole)) && Array.isArray(getCurrentUser().equipoAsignado) && getCurrentUser().equipoAsignado.includes(order.machineId)) || isRequester);
-
-    if ((canEvalAsJefe && !hasJf) || (canEvalAsOp && !hasOp)) {
-        canEvaluate = true;
-    }
-
-    if (order.isExpired) {
-        footerContent = `<p class="text-muted text-center mb-0 small"><i class="fas fa-lock me-1"></i>Expirada - Solo Lectura</p>`;
-    } else if (currentStatus === 'Pendiente de Evaluación' || (currentStatus === 'Completado' && (!hasOp || !hasJf))) {
-        if (canEvaluate) {
-            const label = (hasOp || hasJf) ? 'Completar Evaluación' : 'Evaluar';
-            const pendingBadge = (currentStatus === 'Completado' && (!hasOp || !hasJf)) ? '<div class="text-center mb-1"><span class="badge bg-danger text-white pulse-animation" style="font-size: 0.7rem;"><i class="fas fa-exclamation-triangle me-1"></i>Evaluación Pendiente</span></div>' : '';
-            const partialBadge = (hasOp || hasJf) ? '<div class="text-center mb-1"><span class="badge bg-info text-dark" style="font-size: 0.7rem;">Evaluación Parcial</span></div>' : '';
-            footerContent = `${pendingBadge || partialBadge}<button class="btn btn-sm btn-info evaluate-task-btn w-100"><i class="fas fa-star-half-alt me-2"></i>${label}</button>`;
-        } else {
-            const missing = !hasOp ? 'Operario' : 'Jefe de Área';
-            const pendingText = (currentStatus === 'Completado') ? `<div class="text-center mb-1"><span class="badge bg-danger text-white" style="font-size: 0.7rem;"><i class="fas fa-exclamation-triangle me-1"></i>Falta Calificar</span></div>` : '';
-            footerContent = `${pendingText}<p class="text-muted text-center mb-0 small"><i class="fas fa-clock me-1"></i>Esperando a ${missing}</p>`;
-        }
-    } else if (currentStatus === 'Completado') {
-        footerContent = `<button class="btn btn-sm btn-outline-primary view-evaluation-btn w-100"><i class="fas fa-eye me-2"></i>Ver Evaluación</button>`;
-    } else if (!canAction) {
-        footerContent = `<p class="text-muted text-center mb-0 small">Solo visualización</p>`;
-    } else {
-        switch(currentStatus) {
-            case 'Pendiente' :
-                footerContent = `<button class="btn btn-sm btn-primary start-task-btn w-100"><i class="fas fa-play me-2"></i>Iniciar</button>`;
-                break;
-            case 'En Proceso' :
-                const completeLabel = isPlanOrder ? 'Finalizar' : 'Completar';
-                footerContent = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="timer" id="timer-${order.id}">00:00:00</span>
-                        <div class="btn-group">
-                            <button class="btn btn-sm btn-warning pause-task-btn" title="Pausar"><i class="fas fa-pause"></i></button>
-                            <button class="btn btn-sm btn-success complete-task-btn" title="${completeLabel}"><i class="fas fa-check"></i></button>
-                        </div>
-                    </div>`;
-                break;
-            case 'Pausado' :
-                footerContent = `<button class="btn btn-sm btn-info resume-task-btn w-100"><i class="fas fa-play me-2"></i>Reanudar</button>`;
-                break;
-            case 'Cancelado' :
-            case 'Rechazado' :
-                footerContent = `<p class="text-danger text-center mb-0 small"><i class="fas fa-ban me-1"></i>${order.status}</p>`;
-                break;
-            default:
-                footerContent = `<p class="text-muted text-center mb-0 small">${order.status}</p>`;
-        }
-    }
-
-
-    const totalScore = evs.reduce((acc, ev) => acc + (ev.score || 0), 0);
-    const totalMaxScore = evs.reduce((acc, ev) => acc + (ev.maxScore || 0), 0);
-    const avgRating = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 5 : 0;
-    const starDisplay = currentStatus === 'Completado' && avgRating > 0 ? `<span class="text-warning ms-1 fw-bold" style="font-size: 0.8rem;" title="Calificación: ${avgRating.toFixed(1)}">⭐${avgRating.toFixed(1)}</span>` : '';
-
-    const cardTitle = order.id ? order.id : `(${machine.id || 'N/A'})`;
-    const expiredBadge = order.isExpired ? '<br><span class="badge bg-dark text-white mt-1"><i class="fas fa-hourglass-end me-1"></i>Expirada</span>' : '';
-    let typeBadgeColor = 'danger';
-    if (['Preventivo', 'Predictivo', 'Calibración'].includes(order.type)) {
-        typeBadgeColor = 'primary';
-    } else if (order.type === 'Mecanizado') {
-        typeBadgeColor = 'info';
-    }
-
-    card.innerHTML = `
-        <div class="d-flex justify-content-between align-items-start">
-            <div>
-                <h6 class="card-title mb-0" style="cursor: pointer;">${cardTitle}${starDisplay}</h6>
-                <small class="text-muted">${machine.name}</small>
-                ${originalSolicitud ? `<br><small class="text-info fw-bold">Solicitud: ${originalSolicitud.id}</small>` : ''}
-            </div>
-            <div class="text-end">
-                <span class="badge bg-${typeBadgeColor}">${order.type}</span>
-                ${expiredBadge}
-            </div>
-        </div>
-        <p class="card-text my-2">${order.description}</p>
-        <div class="card-footer bg-transparent p-0 pt-2 border-top">
-            ${footerContent}
-        </div>
-    `;
-    
-    card.querySelector('.card-title').addEventListener('click', () => showWorkOrderModal(order.fb_id));
-
-    // Attach listeners for tech actions
-    const viewEvalBtn = card.querySelector('.view-evaluation-btn');
-    if (viewEvalBtn) {
-        viewEvalBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            showEvaluationDetailsModal(order.fb_id);
-        });
-    }
-
-    if (canAction) {
-        const startTaskBtn = card.querySelector('.start-task-btn');
-        if (startTaskBtn) startTaskBtn.addEventListener('click', () => handleKanbanWorkOrderAction(order.fb_id, 'En Proceso'));
-
-        const pauseTaskBtn = card.querySelector('.pause-task-btn');
-        if (pauseTaskBtn) pauseTaskBtn.addEventListener('click', () => handleKanbanWorkOrderAction(order.fb_id, 'Pausado'));
-
-        const resumeTaskBtn = card.querySelector('.resume-task-btn');
-        if (resumeTaskBtn) resumeTaskBtn.addEventListener('click', () => handleKanbanWorkOrderAction(order.fb_id, 'En Proceso'));
-
-        const completeTaskBtn = card.querySelector('.complete-task-btn');
-        if (completeTaskBtn) {
-            completeTaskBtn.addEventListener('click', () => {
-                const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(order.type) || order.linkedPlanId;
-                const confirmTitle = isPlanOrder ? 'Finalizar Trabajo' : 'Completar Orden de Trabajo';
-                const confirmMsg = isPlanOrder
-                    ? `¿Está seguro que desea finalizar el trabajo en la orden ${order.id || `(${order.machineId})`}? Se notificará al planificador.`
-                    : `¿Está seguro que desea completar la orden ${order.id || `(${order.machineId})`}`;
-
-                 showConfirmation(
-                    confirmTitle,
-                    confirmMsg,
-                    () => handleKanbanWorkOrderAction(order.fb_id, 'Completado')
-                );
-            });
-        }
-    }
-
-    // Attach listener for evaluation action
-    if (order.status === 'Pendiente de Evaluación' || order.status === 'Completado') {
-        const evaluateBtn = card.querySelector('.evaluate-task-btn');
-        if (evaluateBtn) {
-            evaluateBtn.addEventListener('click', () => showEvaluationModal(order.id));
-        }
-    }
-
-    return card;
-}
-
-function getTotalWorkDurationMs(order) {
-    let totalMs = 0;
-    if (order.workIntervals && Array.isArray(order.workIntervals)) {
-         order.workIntervals.forEach(interval => {
-            if (interval.start && interval.end) {
-                const start = new Date(interval.start);
-                const end = new Date(interval.end);
-                if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-                    totalMs += end - start;
-                }
-            }
-        });
-    }
-    return totalMs;
-}
-
-function getActiveWorkDurationMs(order) {
-    let totalMs = getTotalWorkDurationMs(order);
-    if (order.status === 'En Proceso' && order.workIntervals) {
-         const lastInterval = order.workIntervals[order.workIntervals.length - 1];
-         if (lastInterval && lastInterval.start && !lastInterval.end) {
-             totalMs += new Date() - new Date(lastInterval.start);
-         }
-    }
-    return totalMs;
-}
-
-
-function updateTimerDisplay(orderId, order) {
-    const timerEl = document.getElementById(`timer-${orderId}`);
-    if (!timerEl) return;
-
-    if(state.activeTimers[orderId]) clearInterval(state.activeTimers[orderId]);
-
-    const intervalId = setInterval(() => {
-        const totalMs = getActiveWorkDurationMs(order);
-        if (totalMs < 0) {
-             timerEl.textContent = '00:00:00';
-             return;
-        }
-        const hours = Math.floor(totalMs / (1000 * 60 * 60));
-        const minutes = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((totalMs % (1000 * 60)) / 1000);
-        timerEl.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }, 1000);
-
-    state.activeTimers[orderId] = intervalId;
-}
-
-function addPartMovementToBatch(batch, partId, quantity, type, details = {}) {
-    const movementRef = doc(state.collections.partMovements);
-    batch.set(movementRef, buildPartMovementData(partId, quantity, type, details));
-}
-
-function isWorkOrderFinishStatus(status) {
-    return ['Pendiente de Evaluación', 'Completado', 'Pendiente de Aprobación'].includes(status);
-}
-
-function getOpenPartRequestsForOrder(order) {
-    if (!order) return [];
-    const terminalStatuses = ['Recibido', 'Rechazado', 'Cancelado'];
-    return (state.partRequests || []).filter(request => {
-        const belongsToOrder = (order.fb_id && request.workOrderFbId === order.fb_id) ||
-            (order.id && request.workOrderId === order.id);
-        if (!belongsToOrder) return false;
-
-        const requestStatus = request.status || 'Pendiente';
-        const requestClosed = terminalStatuses.includes(requestStatus);
-        const hasOpenItems = (request.items || []).some(item =>
-            !terminalStatuses.includes(item.status || requestStatus)
-        );
-
-        return !requestClosed || hasOpenItems;
-    });
-}
-
-function validateWorkOrderPartsStock(order, oldOrder = { partsUsed: [] }) {
-    const oldPartsMap = new Map((oldOrder.partsUsed || []).map(p => [p.partId, p]));
-    const issues = [];
-
-    (order.partsUsed || []).forEach(item => {
-        const partId = item.partId;
-        if (!partId) return;
-
-        const oldEntry = oldPartsMap.get(partId);
-        const oldQtyDelivered = (oldEntry && oldEntry.delivered !== false) ? (Number(oldEntry.quantity) || 0) : 0;
-        const requestedQty = Number(item.quantity) || 0;
-        const qtyToConsume = requestedQty - oldQtyDelivered;
-        if (qtyToConsume <= 0) return;
-
-        const part = state.parts.find(p => p.id === partId || p.fb_id === partId);
-        if (!part) {
-            issues.push(`${item.description || partId}: no existe en inventario`);
-            return;
-        }
-
-        const available = Number(part.stockActual) || 0;
-        if (available < qtyToConsume) {
-            issues.push(`${part.description || item.description || partId}: disponible ${available}, requerido ${qtyToConsume}`);
-        }
-    });
-
-    return issues;
-}
-
-async function enforceWorkOrderInventoryBeforeFinish(order, oldOrder = { partsUsed: [] }) {
-    const openRequests = getOpenPartRequestsForOrder(order);
-    if (openRequests.length > 0) {
-        const refs = openRequests.map(r => r.id || r.workOrderId || r.fb_id).join(', ');
-        showToast(`Debe confirmar la recepción de las solicitudes de repuestos/insumos antes de finalizar: ${refs}`, 'error');
-        return false;
-    }
-
-    const stockIssues = validateWorkOrderPartsStock(order, oldOrder);
-    if (stockIssues.length > 0) {
-        const note = prompt(`Falta stock para uno o mas repuestos/insumos:\n- ${stockIssues.join('\n- ')}\n\nIngrese una nota obligatoria para finalizar la OT con faltante de inventario:`);
-        if (!note || !note.trim()) {
-            showToast('Debe ingresar una nota para finalizar con faltante de stock.', 'warning');
-            return false;
-        }
-
-        const timestamp = new Date().toLocaleString();
-        const justification = `[Justificacion cierre con faltante de stock - ${timestamp}] ${note.trim()} | Faltantes: ${stockIssues.join(' | ')} (Usuario: ${getCurrentUser().username || 'Sistema'})`;
-        order.allowStockShortageOnFinish = true;
-        order.stockShortageJustification = note.trim();
-        order.observaciones = `${order.observaciones || ''}${order.observaciones ? '\n' : ''}${justification}`;
-        const obsTextarea = document.getElementById('wo-observaciones');
-        if (obsTextarea) obsTextarea.value = order.observaciones;
-    }
-
-    const unreceivedParts = (order.partsUsed || []).filter(item => item.delivered === false);
-    if (unreceivedParts.length === 0) return true;
-
-    const materialList = unreceivedParts
-        .map(item => item.description || item.partDescription || item.partId)
-        .join(', ');
-    const note = prompt(`Hay repuestos/insumos agregados que no fueron marcados como recibidos: ${materialList}\n\nIngrese una justificación obligatoria para finalizar y descontar estos materiales del inventario:`);
-
-    if (!note || !note.trim()) {
-        showToast('Debe ingresar una justificación para finalizar con materiales no recibidos.', 'warning');
-        return false;
-    }
-
-    const timestamp = new Date().toLocaleString();
-    const justification = `[Justificación cierre con materiales no recibidos - ${timestamp}] ${note.trim()} (Usuario: ${getCurrentUser().username || 'Sistema'})`;
-    order.observaciones = `${order.observaciones || ''}${order.observaciones ? '\n' : ''}${justification}`;
-    const obsTextarea = document.getElementById('wo-observaciones');
-    if (obsTextarea) obsTextarea.value = order.observaciones;
-    return true;
-}
-
-async function updateStockForOrder(oldOrder, newOrder) {
-    const batch = writeBatch(db);
-    const oldPartsMap = new Map((oldOrder.partsUsed || []).map(p => [p.partId, p]));
-    const newPartsMap = new Map((newOrder.partsUsed || []).map(p => [p.partId, p]));
-
-    const updatedPartsUsed = [];
-    const allPartIds = new Set([...oldPartsMap.keys(), ...newPartsMap.keys()]);
-
-    for (const partId of allPartIds) {
-        const oldEntry = oldPartsMap.get(partId);
-        const newEntry = newPartsMap.get(partId);
-
-        const oldQtyDelivered = (oldEntry && oldEntry.delivered !== false) ? oldEntry.quantity : 0;
-        const newQtyRequested = newEntry ? newEntry.quantity : 0;
-
-        let delta = newQtyRequested - oldQtyDelivered;
-
-        if (delta === 0) {
-            if (newEntry) updatedPartsUsed.push(newEntry);
-            continue;
-        }
-
-        const part = state.parts.find(p => p.id === partId);
-        if (part) {
-            const currentStock = part.stockActual || 0;
-            const newStock = currentStock - delta;
-            const partRef = doc(state.collections.parts, partId);
-
-            if (newStock < 0 && delta > 0) {
-                if (newOrder.allowStockShortageOnFinish) {
-                    const consumedQty = Math.max(0, currentStock);
-                    const shortageQty = delta - consumedQty;
-                    if (consumedQty > 0) {
-                        batch.update(partRef, { stockActual: 0 });
-                        addPartMovementToBatch(batch, partId, -consumedQty, 'Salida OT Parcial por Falta de Stock', {
-                            orderId: newOrder.fb_id || 'nuevo',
-                            orderHumanId: newOrder.id,
-                            stockBefore: currentStock,
-                            stockAfter: 0,
-                            referenceType: 'ORDEN_TRABAJO',
-                            reason: 'FALTANTE_STOCK',
-                            details: `Consumo parcial registrado desde OT ${newOrder.id}. Faltante no descontado: ${shortageQty}. Nota: ${newOrder.stockShortageJustification || ''}`
-                        });
-                    }
-                    if (newEntry) {
-                        updatedPartsUsed.push({
-                            ...newEntry,
-                            delivered: false,
-                            consumedQuantity: consumedQty,
-                            stockShortageQty: shortageQty,
-                            stockShortageJustification: newOrder.stockShortageJustification || ''
-                        });
-                    }
-                    continue;
-                }
-                throw new Error(`Stock insuficiente para ${part.description || partId}. Disponible: ${currentStock}, requerido: ${delta}.`);
-                if (newEntry) {
-                    if (oldQtyDelivered > 0) {
-                        const revertedStock = currentStock + oldQtyDelivered;
-                        batch.update(partRef, { stockActual: revertedStock });
-                        addPartMovementToBatch(batch, partId, oldQtyDelivered, 'Reversión por Falta de Stock', {
-                            orderId: newOrder.fb_id || 'nuevo',
-                            orderHumanId: newOrder.id,
-                            stockBefore: currentStock,
-                            stockAfter: revertedStock,
-                            referenceType: 'ORDEN_TRABAJO',
-                            details: `Reversion automatica por stock insuficiente en OT ${newOrder.id}`
-                        });
-                    }
-                    updatedPartsUsed.push({ ...newEntry, delivered: false });
-                }
-            } else {
-                batch.update(partRef, { stockActual: newStock });
-                if (delta !== 0) {
-                    addPartMovementToBatch(batch, partId, -delta, delta > 0 ? 'Salida OT' : 'Devolución OT', {
-                        orderId: newOrder.fb_id || 'nuevo',
-                        orderHumanId: newOrder.id,
-                        stockBefore: currentStock,
-                        stockAfter: newStock,
-                        referenceType: 'ORDEN_TRABAJO',
-                        details: `${delta > 0 ? 'Consumo' : 'Devolucion'} registrado desde OT ${newOrder.id}`
-                    });
-                }
-                if (newEntry) {
-                    updatedPartsUsed.push({ ...newEntry, delivered: true });
-                }
-            }
-        } else {
-            if (newEntry) updatedPartsUsed.push({ ...newEntry, delivered: false });
-        }
-    }
-    await batch.commit();
-    newOrder.partsUsed = updatedPartsUsed;
-
-    // Sincronizar stockActual de repuestos utilizados con Odoo
-    if (state.odoo) {
-        for (const partId of allPartIds) {
-            const part = state.parts.find(p => p.id === partId);
-            if (part) {
-                const oldEntry = oldPartsMap.get(partId);
-                const newEntry = newPartsMap.get(partId);
-                const oldQtyDelivered = (oldEntry && oldEntry.delivered !== false) ? oldEntry.quantity : 0;
-                const newQtyRequested = (newEntry && newEntry.delivered !== false) ? newEntry.quantity : 0;
-                let delta = newQtyRequested - oldQtyDelivered;
-
-                if (delta !== 0) {
-                    const newStock = (part.stockActual || 0) - delta;
-                    syncPartStockToOdoo(partId, { ...part, stockActual: newStock }).catch(err =>
-                        console.warn(`[Odoo Stock Sync] Error en ${partId}:`, err)
-                    );
-                }
-            }
-        }
-    }
-}
-
-async function handleKanbanWorkOrderAction(workOrderFbId, newStatus) {
-    showLoading(true);
-    try {
-        const orderRef = doc(state.collections.workOrders, workOrderFbId);
-        const orderSnapshot = await getDoc(orderRef);
-        if (!orderSnapshot.exists()) {
-            throw new Error("Work order not found");
-        }
-
-        const orderData = { fb_id: orderSnapshot.id, ...orderSnapshot.data() };
-
-        if (orderData.isExpired) {
-            showToast('Esta orden ha expirado y no puede ser modificada.', 'error');
-            showLoading(false);
-            return;
-        }
-
-        let finalStatus = newStatus;
-        const oldStatus = orderData.status;
-
-        let extraUpdates = {};
-        if (finalStatus === 'Pausado' && oldStatus !== 'Pausado') {
-            const machineStatusOnPause = await requestMachineStatusOnPause(orderData.type);
-            extraUpdates.machineStatusOnPause = machineStatusOnPause;
-            showLoading(true); // Restaurar el cargador para el proceso de guardado
-        }
-
-        // 21 CFR Part 11: Re-autenticación para firma electrónica
-        const isFinishing = (finalStatus === 'Pendiente de Evaluación' || finalStatus === 'Completado' || finalStatus === 'Pendiente de Aprobación');
-        if (isFinishing && oldStatus !== finalStatus) {
-            const confirmed = await new Promise(resolve => {
-                requestSignature(() => resolve(true), () => resolve(false));
-            });
-            if (!confirmed) {
-                showLoading(false);
-                return;
-            }
-            showLoading(true);
-        }
-
-        const updates = {};
-
-        // Si es de plan o viene de una solicitud y el técnico intenta completar sin validación, cambiar a Pendiente de Aprobación
-        const isPlanOrder = ['Preventivo', 'Predictivo', 'Mecanizado', 'Calibración'].includes(orderData.type) || orderData.linkedPlanId;
-        const hasRequest = orderData.solicitudId || orderData.sourceSolicitudId;
-        if (newStatus === 'Completado' && (isPlanOrder || hasRequest) && !orderData.validatedBy) {
-            finalStatus = 'Pendiente de Aprobación';
-            updates.technicianFinished = true;
-            showToast('Trabajo finalizado. Pendiente de validación por el Planificador.', 'info');
-        }
-
-        if (isWorkOrderFinishStatus(finalStatus)) {
-            const orderForInventoryCheck = { ...orderData, ...updates, status: finalStatus };
-            const oldOrderForStock = isWorkOrderFinishStatus(oldStatus) ? orderData : { partsUsed: [] };
-            const canFinishWithInventory = await enforceWorkOrderInventoryBeforeFinish(orderForInventoryCheck, oldOrderForStock);
-            if (!canFinishWithInventory) {
-                showLoading(false);
-                return;
-            }
-            if (orderForInventoryCheck.observaciones !== orderData.observaciones) {
-                updates.observaciones = orderForInventoryCheck.observaciones;
-                orderData.observaciones = orderForInventoryCheck.observaciones;
-            }
-            if (orderForInventoryCheck.allowStockShortageOnFinish) {
-                updates.allowStockShortageOnFinish = true;
-                updates.stockShortageJustification = orderForInventoryCheck.stockShortageJustification || '';
-                orderData.allowStockShortageOnFinish = true;
-                orderData.stockShortageJustification = orderForInventoryCheck.stockShortageJustification || '';
-            }
-        }
-
-        updates.status = finalStatus;
-
-        // Solo generar nuevo ID si está iniciando por primera vez (cambio de MP a MA o no tiene ID)
-        const isPlanned = !orderData.id || orderData.id.startsWith('MP');
-        const isFirstStart = newStatus === 'En Proceso' && oldStatus !== 'En Proceso' && isPlanned;
-
-        const now = new Date();
-        if (isFirstStart) {
-            updates.id = generateNextId('MA');
-            updates.fechaInicioReal = now.toISOString();
-            // Actualizar la fecha principal de la orden a la fecha local actual para que se mueva en el planificador
-            updates.date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-            // Filtrar repuestos sin stockActual al iniciar la orden desde Kanban
-            let removedParts = [];
-            let adjustedParts = [];
-            const processedParts = [];
-
-            for (const item of (orderData.partsUsed || [])) {
-                const part = state.parts.find(p => p.id === item.partId);
-                const stock = part ? (part.stockActual || 0) : 0;
-
-                if (stock <= 0) {
-                    removedParts.push(part ? part.description : item.partId);
-                } else {
-                    let finalQty = item.quantity;
-                    if (stock < item.quantity) {
-                        finalQty = stock;
-                        adjustedParts.push(`${part ? part.description : item.partId} (ajustado de ${item.quantity} a ${stock})`);
-                    }
-                    processedParts.push({ ...item, quantity: finalQty });
-                }
-            }
-
-            if (removedParts.length > 0 || adjustedParts.length > 0) {
-                updates.partsUsed = processedParts;
-                let note = "\n\nNota del Sistema (Inicio de OT desde Kanban):";
-                if (removedParts.length > 0) {
-                    note += `\n- Se eliminaron por falta de stockActual: ${removedParts.join(', ')}.`;
-                }
-                if (adjustedParts.length > 0) {
-                    note += `\n- Se ajustó cantidad por stockActual insuficiente stockActual: ${adjustedParts.join(', ')}.`;
-                }
-                updates.observaciones = (orderData.observaciones || "") + note;
-            }
-        }
-
-        let workIntervals = Array.isArray(orderData.workIntervals) ? JSON.parse(JSON.stringify(orderData.workIntervals)) : [];
-
-        if (finalStatus === 'En Proceso') {
-            workIntervals.push({ start: now.toISOString(), end: null });
-        } else if (['Pausado', 'Pendiente de Evaluación', 'Completado', 'Pendiente de Aprobación'].includes(finalStatus) && oldStatus === 'En Proceso') {
-            const lastInterval = workIntervals.find(i => !i.end);
-            if (lastInterval) {
-                lastInterval.end = now.toISOString();
-            }
-        }
-        updates.workIntervals = workIntervals;
-
-        if (['Pendiente de Evaluación', 'Completado', 'Pendiente de Aprobación'].includes(finalStatus)) {
-            if (!orderData.fechaFinalizacionReal) {
+                d = new Date(dateS
+... 38974 bytes omitted ...
+cionReal) {
                 updates.fechaFinalizacionReal = now.toISOString();
             }
             const updatedOrderForCalc = { ...orderData, ...updates };
